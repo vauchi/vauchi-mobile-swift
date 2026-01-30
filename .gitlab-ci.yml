@@ -64,6 +64,12 @@ update:version:
 
       echo "Checksum: $CHECKSUM"
 
+      # Download generated Swift bindings from upstream full package
+      BINDINGS_URL="https://gitlab.com/api/v4/projects/vauchi%2Fcore/packages/generic/vauchi-mobile/$CLEAN_VERSION/VauchiMobile-$CLEAN_VERSION.zip"
+      echo "Fetching Swift bindings from: $BINDINGS_URL"
+      curl -sfL -o VauchiMobile.zip "$BINDINGS_URL"
+      unzip -o -j VauchiMobile.zip "VauchiMobile-$CLEAN_VERSION/Sources/vauchi_mobile.swift" -d Sources/VauchiMobile/
+
       # Update Package.swift
       sed -i "s/let version = \".*\"/let version = \"$CLEAN_VERSION\"/" Package.swift
       sed -i "s/let checksum = \".*\"/let checksum = \"$CHECKSUM\"/" Package.swift
@@ -76,7 +82,7 @@ update:version:
       git config user.name "Vauchi CI"
       git remote set-url origin "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/${CI_PROJECT_PATH}.git"
 
-      git add Package.swift
+      git add Package.swift Sources/VauchiMobile/vauchi_mobile.swift
       git commit -m "chore: Update to $UPSTREAM_VERSION"
-      git tag "$UPSTREAM_VERSION"
-      git push origin HEAD:main --tags
+      git tag -f "$UPSTREAM_VERSION"
+      git push origin HEAD:main --tags --force

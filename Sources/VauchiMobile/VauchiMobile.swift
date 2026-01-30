@@ -7,6 +7,7 @@
 //   import VauchiMobile
 //   let vauchi = try VauchiMobile(storagePath: "...")
 
+import Foundation
 @_exported import VauchiMobileFFI
 
 // MARK: - Convenience Extensions

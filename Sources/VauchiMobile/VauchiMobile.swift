@@ -5,21 +5,7 @@
 //
 // Usage:
 //   import VauchiMobile
-//   let vauchi = try VauchiMobile(storagePath: "...")
+//   let vauchi = try VauchiMobile(dataDir: "...", relayUrl: "...")
 
 import Foundation
 @_exported import VauchiMobileFFI
-
-// MARK: - Convenience Extensions
-
-extension VauchiMobile {
-    /// Initialize VauchiMobile with a storage path in the app's documents directory.
-    ///
-    /// - Parameter name: Database name (default: "vauchi")
-    /// - Returns: Configured VauchiMobile instance
-    public static func withDocumentsStorage(name: String = "vauchi") throws -> VauchiMobile {
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-        let storagePath = documentsPath.appendingPathComponent("\(name).db").path
-        return try VauchiMobile(storagePath: storagePath)
-    }
-}

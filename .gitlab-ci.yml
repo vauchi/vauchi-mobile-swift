@@ -126,10 +126,10 @@ notify:ios-app:
 
       response=$(curl -s -w "\n%{http_code}" \
         --request POST \
-        --form "token=$IOS_APP_TRIGGER_TOKEN" \
-        --form "ref=main" \
-        --form "variables[BINDINGS_VERSION]=$CLEAN_VERSION" \
-        "${CI_SERVER_URL}/api/v4/projects/$IOS_APP_PROJECT_ID/trigger/pipeline")
+        --header "JOB-TOKEN: $CI_JOB_TOKEN" \
+        --header "Content-Type: application/json" \
+        --data "{\"ref\": \"main\", \"variables\": [{\"key\": \"BINDINGS_VERSION\", \"value\": \"$CLEAN_VERSION\"}]}" \
+        "${CI_SERVER_URL}/api/v4/projects/$IOS_APP_PROJECT_ID/pipeline")
 
       http_code=$(echo "$response" | tail -n1)
       body=$(echo "$response" | head -n -1)

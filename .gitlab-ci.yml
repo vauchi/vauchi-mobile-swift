@@ -12,6 +12,10 @@ stages:
   - test
   - notify
 
+workflow:
+  auto_cancel:
+    on_new_commit: interruptible
+
 # Validate Package.swift syntax
 validate:package:
   stage: validate
@@ -39,6 +43,7 @@ test:resolve:
 update:version:
   stage: validate
   image: alpine:latest
+  resource_group: bindings-update
   rules:
     # Accept all trigger sources:
     #   "trigger" = Pipeline Trigger API (trigger-downstream.sh from CI)
@@ -94,6 +99,7 @@ update:version:
 notify:ios-app:
   stage: notify
   image: alpine:latest
+  resource_group: notify-downstream
   needs:
     - update:version
   rules:

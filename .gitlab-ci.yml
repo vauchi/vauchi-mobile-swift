@@ -10,6 +10,7 @@
 stages:
   - validate
   - test
+  - notify
 
 # Validate Package.swift syntax
 validate:package:
@@ -87,3 +88,39 @@ update:version:
       git commit -m "chore: Update to $UPSTREAM_VERSION"
       git tag -f "$UPSTREAM_VERSION"
       git push origin HEAD:main --tags --force
+
+# Notify consumer app about new bindings version
+# Triggers vauchi/ios to create an MR bumping the dependency
+notify:ios-app:
+  stage: notify
+  image: alpine:latest
+  needs:
+    - update:version
+  rules:
+    - if: ($CI_PIPELINE_SOURCE == "trigger" || $CI_PIPELINE_SOURCE == "pipeline" || $CI_PIPELINE_SOURCE == "api") && $UPSTREAM_VERSION
+  allow_failure: true
+  before_script:
+    - apk add --no-cache curl
+  script:
+    - |
+      CLEAN_VERSION="${UPSTREAM_VERSION#v}"
+      echo "Notifying vauchi/ios about version $CLEAN_VERSION"
+
+      IOS_APP_PROJECT_ID="77813130"
+
+      response=$(curl -s -w "\n%{http_code}" \
+        --request POST \
+        --form "token=$IOS_APP_TRIGGER_TOKEN" \
+        --form "ref=main" \
+        --form "variables[BINDINGS_VERSION]=$CLEAN_VERSION" \
+        "${CI_SERVER_URL}/api/v4/projects/$IOS_APP_PROJECT_ID/trigger/pipeline")
+
+      http_code=$(echo "$response" | tail -n1)
+      body=$(echo "$response" | head -n -1)
+
+      if [ "$http_code" = "201" ] || [ "$http_code" = "200" ]; then
+        echo "Triggered iOS app pipeline: $(echo "$body" | grep -o '"web_url":"[^"]*"' | head -1)"
+      else
+        echo "Failed to trigger ($http_code): $body"
+        exit 1
+      fi

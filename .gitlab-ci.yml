@@ -62,6 +62,8 @@ update:version:
     - if: ($CI_PIPELINE_SOURCE == "trigger" || $CI_PIPELINE_SOURCE == "pipeline" || $CI_PIPELINE_SOURCE == "api") && $UPSTREAM_VERSION
   before_script:
     - apk add --no-cache curl git jq
+    # Install cosign for signature verification
+    - curl -sSfL https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64 -o /usr/local/bin/cosign && chmod +x /usr/local/bin/cosign || echo "Warning: cosign install failed, skipping verification"
   script:
     - |
       echo "Updating to version $UPSTREAM_VERSION"
@@ -80,6 +82,22 @@ update:version:
       fi
 
       echo "Checksum: $CHECKSUM"
+
+      # Verify checksum signature with cosign if .sig is available
+      SIG_URL="${CHECKSUM_URL}.sig"
+      COSIGN_PUB_URL="https://gitlab.com/vauchi/core/-/raw/main/cosign.pub"
+      echo "Fetching checksum signature from: $SIG_URL"
+      if curl -sf -o checksum.sha256.sig "$SIG_URL" && curl -sf -o cosign.pub "$COSIGN_PUB_URL"; then
+        echo "$CHECKSUM" > checksum.sha256
+        if cosign verify-blob --key cosign.pub --signature checksum.sha256.sig checksum.sha256; then
+          echo "Checksum signature verified"
+        else
+          echo "WARNING: Checksum signature verification FAILED"
+        fi
+        rm -f checksum.sha256 checksum.sha256.sig cosign.pub
+      else
+        echo "WARNING: Could not fetch signature or public key — skipping verification"
+      fi
 
       # Download generated Swift bindings from upstream full package
       BINDINGS_URL="https://gitlab.com/api/v4/projects/vauchi%2Fcore/packages/generic/vauchi-mobile/$CLEAN_VERSION/VauchiMobile-$CLEAN_VERSION.zip"

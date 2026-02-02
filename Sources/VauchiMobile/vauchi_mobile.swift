@@ -794,6 +794,16 @@ public protocol VauchiMobileProtocol: AnyObject {
     func calculateRetryBackoff(attempt: UInt32) -> UInt64
 
     /**
+     * Cancel a scheduled account deletion.
+     */
+    func cancelAccountDeletion() throws
+
+    /**
+     * Check whether consent is currently granted for a type.
+     */
+    func checkConsent(consentType: MobileConsentType) throws -> Bool
+
+    /**
      * Check for available content updates.
      *
      * This is a blocking call that checks the remote server for updates.
@@ -875,9 +885,19 @@ public protocol VauchiMobileProtocol: AnyObject {
     func dismissDemoContact() throws
 
     /**
+     * Execute account deletion (only after grace period).
+     */
+    func executeAccountDeletion() throws
+
+    /**
      * Export encrypted backup.
      */
     func exportBackup(password: String) throws -> String
+
+    /**
+     * Export all user data for GDPR compliance.
+     */
+    func exportGdprData() throws -> MobileGdprExport
 
     /**
      * Export the current storage key bytes for migration to secure storage.
@@ -903,9 +923,19 @@ public protocol VauchiMobileProtocol: AnyObject {
     func getAllDeliveryRecords() throws -> [MobileDeliveryRecord]
 
     /**
+     * Get all consent records.
+     */
+    func getConsentRecords() throws -> [MobileConsentRecord]
+
+    /**
      * Get single contact by ID.
      */
     func getContact(id: String) throws -> MobileContact?
+
+    /**
+     * Get current deletion state.
+     */
+    func getDeletionState() throws -> MobileDeletionInfo
 
     /**
      * Get delivery count by status.
@@ -1053,6 +1083,11 @@ public protocol VauchiMobileProtocol: AnyObject {
     func getTotalPendingCount() throws -> UInt32
 
     /**
+     * Grant consent for a specific type.
+     */
+    func grantConsent(consentType: MobileConsentType) throws
+
+    /**
      * Check if identity exists.
      */
     func hasIdentity() -> Bool
@@ -1121,6 +1156,11 @@ public protocol VauchiMobileProtocol: AnyObject {
      * List all contacts.
      */
     func listContacts() throws -> [MobileContact]
+
+    /**
+     * List contacts with pagination.
+     */
+    func listContactsPaginated(offset: UInt32, limit: UInt32) throws -> [MobileContact]
 
     /**
      * List all visibility labels.
@@ -1212,6 +1252,11 @@ public protocol VauchiMobileProtocol: AnyObject {
     func restoreDemoContact() throws -> MobileDemoContact?
 
     /**
+     * Revoke consent for a specific type.
+     */
+    func revokeConsent(consentType: MobileConsentType) throws
+
+    /**
      * Revoke your validation of a contact's field.
      *
      * Returns true if a validation was revoked, false if you hadn't validated.
@@ -1219,7 +1264,12 @@ public protocol VauchiMobileProtocol: AnyObject {
     func revokeFieldValidation(contactId: String, fieldId: String) throws -> Bool
 
     /**
-     * Search contacts.
+     * Schedule account deletion with 7-day grace period.
+     */
+    func scheduleAccountDeletion() throws -> MobileDeletionInfo
+
+    /**
+     * Search contacts using SQL-level search.
      */
     func searchContacts(query: String) throws -> [MobileContact]
 
@@ -1495,6 +1545,25 @@ open class VauchiMobile:
     }
 
     /**
+     * Cancel a scheduled account deletion.
+     */
+    open func cancelAccountDeletion() throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_cancel_account_deletion(self.uniffiClonePointer(), $0)
+        }
+    }
+
+    /**
+     * Check whether consent is currently granted for a type.
+     */
+    open func checkConsent(consentType: MobileConsentType) throws -> Bool {
+        return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_check_consent(self.uniffiClonePointer(),
+                                                                      FfiConverterTypeMobileConsentType.lower(consentType), $0)
+        })
+    }
+
+    /**
      * Check for available content updates.
      *
      * This is a blocking call that checks the remote server for updates.
@@ -1636,12 +1705,30 @@ open class VauchiMobile:
     }
 
     /**
+     * Execute account deletion (only after grace period).
+     */
+    open func executeAccountDeletion() throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_execute_account_deletion(self.uniffiClonePointer(), $0)
+        }
+    }
+
+    /**
      * Export encrypted backup.
      */
     open func exportBackup(password: String) throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_mobile_fn_method_vauchimobile_export_backup(self.uniffiClonePointer(),
                                                                       FfiConverterString.lower(password), $0)
+        })
+    }
+
+    /**
+     * Export all user data for GDPR compliance.
+     */
+    open func exportGdprData() throws -> MobileGdprExport {
+        return try FfiConverterTypeMobileGdprExport.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_export_gdpr_data(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -1685,12 +1772,30 @@ open class VauchiMobile:
     }
 
     /**
+     * Get all consent records.
+     */
+    open func getConsentRecords() throws -> [MobileConsentRecord] {
+        return try FfiConverterSequenceTypeMobileConsentRecord.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_get_consent_records(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
      * Get single contact by ID.
      */
     open func getContact(id: String) throws -> MobileContact? {
         return try FfiConverterOptionTypeMobileContact.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_mobile_fn_method_vauchimobile_get_contact(self.uniffiClonePointer(),
                                                                     FfiConverterString.lower(id), $0)
+        })
+    }
+
+    /**
+     * Get current deletion state.
+     */
+    open func getDeletionState() throws -> MobileDeletionInfo {
+        return try FfiConverterTypeMobileDeletionInfo.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_get_deletion_state(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -1963,6 +2068,16 @@ open class VauchiMobile:
     }
 
     /**
+     * Grant consent for a specific type.
+     */
+    open func grantConsent(consentType: MobileConsentType) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_grant_consent(self.uniffiClonePointer(),
+                                                                      FfiConverterTypeMobileConsentType.lower(consentType), $0)
+        }
+    }
+
+    /**
      * Check if identity exists.
      */
     open func hasIdentity() -> Bool {
@@ -2090,6 +2205,17 @@ open class VauchiMobile:
     open func listContacts() throws -> [MobileContact] {
         return try FfiConverterSequenceTypeMobileContact.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_mobile_fn_method_vauchimobile_list_contacts(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * List contacts with pagination.
+     */
+    open func listContactsPaginated(offset: UInt32, limit: UInt32) throws -> [MobileContact] {
+        return try FfiConverterSequenceTypeMobileContact.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_list_contacts_paginated(self.uniffiClonePointer(),
+                                                                                FfiConverterUInt32.lower(offset),
+                                                                                FfiConverterUInt32.lower(limit), $0)
         })
     }
 
@@ -2254,6 +2380,16 @@ open class VauchiMobile:
     }
 
     /**
+     * Revoke consent for a specific type.
+     */
+    open func revokeConsent(consentType: MobileConsentType) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_revoke_consent(self.uniffiClonePointer(),
+                                                                       FfiConverterTypeMobileConsentType.lower(consentType), $0)
+        }
+    }
+
+    /**
      * Revoke your validation of a contact's field.
      *
      * Returns true if a validation was revoked, false if you hadn't validated.
@@ -2267,7 +2403,16 @@ open class VauchiMobile:
     }
 
     /**
-     * Search contacts.
+     * Schedule account deletion with 7-day grace period.
+     */
+    open func scheduleAccountDeletion() throws -> MobileDeletionInfo {
+        return try FfiConverterTypeMobileDeletionInfo.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_schedule_account_deletion(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Search contacts using SQL-level search.
      */
     open func searchContacts(query: String) throws -> [MobileContact] {
         return try FfiConverterSequenceTypeMobileContact.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
@@ -2683,6 +2828,125 @@ public func FfiConverterTypeMobileApplyFailure_lower(_ value: MobileApplyFailure
 }
 
 /**
+ * A recorded consent decision.
+ */
+public struct MobileConsentRecord {
+    /**
+     * Unique record ID.
+     */
+    public var id: String
+    /**
+     * Type of consent.
+     */
+    public var consentType: MobileConsentType
+    /**
+     * Whether consent was granted.
+     */
+    public var granted: Bool
+    /**
+     * Unix timestamp of the decision.
+     */
+    public var timestamp: UInt64
+    /**
+     * Privacy policy version at time of consent.
+     */
+    public var policyVersion: String?
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(
+        /* 
+         * Unique record ID.
+         */ id: String,
+        /* 
+            * Type of consent.
+            */ consentType: MobileConsentType,
+        /* 
+            * Whether consent was granted.
+            */ granted: Bool,
+        /* 
+            * Unix timestamp of the decision.
+            */ timestamp: UInt64,
+        /* 
+            * Privacy policy version at time of consent.
+            */ policyVersion: String?
+    ) {
+        self.id = id
+        self.consentType = consentType
+        self.granted = granted
+        self.timestamp = timestamp
+        self.policyVersion = policyVersion
+    }
+}
+
+extension MobileConsentRecord: Equatable, Hashable {
+    public static func == (lhs: MobileConsentRecord, rhs: MobileConsentRecord) -> Bool {
+        if lhs.id != rhs.id {
+            return false
+        }
+        if lhs.consentType != rhs.consentType {
+            return false
+        }
+        if lhs.granted != rhs.granted {
+            return false
+        }
+        if lhs.timestamp != rhs.timestamp {
+            return false
+        }
+        if lhs.policyVersion != rhs.policyVersion {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+        hasher.combine(consentType)
+        hasher.combine(granted)
+        hasher.combine(timestamp)
+        hasher.combine(policyVersion)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileConsentRecord: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileConsentRecord {
+        return
+            try MobileConsentRecord(
+                id: FfiConverterString.read(from: &buf),
+                consentType: FfiConverterTypeMobileConsentType.read(from: &buf),
+                granted: FfiConverterBool.read(from: &buf),
+                timestamp: FfiConverterUInt64.read(from: &buf),
+                policyVersion: FfiConverterOptionString.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileConsentRecord, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.id, into: &buf)
+        FfiConverterTypeMobileConsentType.write(value.consentType, into: &buf)
+        FfiConverterBool.write(value.granted, into: &buf)
+        FfiConverterUInt64.write(value.timestamp, into: &buf)
+        FfiConverterOptionString.write(value.policyVersion, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileConsentRecord_lift(_ buf: RustBuffer) throws -> MobileConsentRecord {
+    return try FfiConverterTypeMobileConsentRecord.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileConsentRecord_lower(_ value: MobileConsentRecord) -> RustBuffer {
+    return FfiConverterTypeMobileConsentRecord.lower(value)
+}
+
+/**
  * Mobile-friendly contact.
  */
 public struct MobileContact {
@@ -3003,6 +3267,111 @@ public func FfiConverterTypeMobileContentConfig_lift(_ buf: RustBuffer) throws -
 #endif
 public func FfiConverterTypeMobileContentConfig_lower(_ value: MobileContentConfig) -> RustBuffer {
     return FfiConverterTypeMobileContentConfig.lower(value)
+}
+
+/**
+ * Deletion info with timing details.
+ */
+public struct MobileDeletionInfo {
+    /**
+     * Current deletion state.
+     */
+    public var state: MobileDeletionState
+    /**
+     * When deletion was scheduled (0 if not scheduled).
+     */
+    public var scheduledAt: UInt64
+    /**
+     * When deletion can be executed (0 if not scheduled).
+     */
+    public var executeAt: UInt64
+    /**
+     * Days remaining in grace period (0 if not scheduled).
+     */
+    public var daysRemaining: UInt32
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(
+        /* 
+         * Current deletion state.
+         */ state: MobileDeletionState,
+        /* 
+            * When deletion was scheduled (0 if not scheduled).
+            */ scheduledAt: UInt64,
+        /* 
+            * When deletion can be executed (0 if not scheduled).
+            */ executeAt: UInt64,
+        /* 
+            * Days remaining in grace period (0 if not scheduled).
+            */ daysRemaining: UInt32
+    ) {
+        self.state = state
+        self.scheduledAt = scheduledAt
+        self.executeAt = executeAt
+        self.daysRemaining = daysRemaining
+    }
+}
+
+extension MobileDeletionInfo: Equatable, Hashable {
+    public static func == (lhs: MobileDeletionInfo, rhs: MobileDeletionInfo) -> Bool {
+        if lhs.state != rhs.state {
+            return false
+        }
+        if lhs.scheduledAt != rhs.scheduledAt {
+            return false
+        }
+        if lhs.executeAt != rhs.executeAt {
+            return false
+        }
+        if lhs.daysRemaining != rhs.daysRemaining {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(state)
+        hasher.combine(scheduledAt)
+        hasher.combine(executeAt)
+        hasher.combine(daysRemaining)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileDeletionInfo: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileDeletionInfo {
+        return
+            try MobileDeletionInfo(
+                state: FfiConverterTypeMobileDeletionState.read(from: &buf),
+                scheduledAt: FfiConverterUInt64.read(from: &buf),
+                executeAt: FfiConverterUInt64.read(from: &buf),
+                daysRemaining: FfiConverterUInt32.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileDeletionInfo, into buf: inout [UInt8]) {
+        FfiConverterTypeMobileDeletionState.write(value.state, into: &buf)
+        FfiConverterUInt64.write(value.scheduledAt, into: &buf)
+        FfiConverterUInt64.write(value.executeAt, into: &buf)
+        FfiConverterUInt32.write(value.daysRemaining, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileDeletionInfo_lift(_ buf: RustBuffer) throws -> MobileDeletionInfo {
+    return try FfiConverterTypeMobileDeletionInfo.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileDeletionInfo_lower(_ value: MobileDeletionInfo) -> RustBuffer {
+    return FfiConverterTypeMobileDeletionInfo.lower(value)
 }
 
 /**
@@ -4464,6 +4833,97 @@ public func FfiConverterTypeMobileFieldValidation_lift(_ buf: RustBuffer) throws
 #endif
 public func FfiConverterTypeMobileFieldValidation_lower(_ value: MobileFieldValidation) -> RustBuffer {
     return FfiConverterTypeMobileFieldValidation.lower(value)
+}
+
+/**
+ * GDPR data export result.
+ */
+public struct MobileGdprExport {
+    /**
+     * Exported data as JSON string.
+     */
+    public var jsonData: String
+    /**
+     * When the export was created (Unix timestamp).
+     */
+    public var exportedAt: UInt64
+    /**
+     * Export format version.
+     */
+    public var version: UInt32
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(
+        /* 
+         * Exported data as JSON string.
+         */ jsonData: String,
+        /* 
+            * When the export was created (Unix timestamp).
+            */ exportedAt: UInt64,
+        /* 
+            * Export format version.
+            */ version: UInt32
+    ) {
+        self.jsonData = jsonData
+        self.exportedAt = exportedAt
+        self.version = version
+    }
+}
+
+extension MobileGdprExport: Equatable, Hashable {
+    public static func == (lhs: MobileGdprExport, rhs: MobileGdprExport) -> Bool {
+        if lhs.jsonData != rhs.jsonData {
+            return false
+        }
+        if lhs.exportedAt != rhs.exportedAt {
+            return false
+        }
+        if lhs.version != rhs.version {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(jsonData)
+        hasher.combine(exportedAt)
+        hasher.combine(version)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileGdprExport: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileGdprExport {
+        return
+            try MobileGdprExport(
+                jsonData: FfiConverterString.read(from: &buf),
+                exportedAt: FfiConverterUInt64.read(from: &buf),
+                version: FfiConverterUInt32.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileGdprExport, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.jsonData, into: &buf)
+        FfiConverterUInt64.write(value.exportedAt, into: &buf)
+        FfiConverterUInt32.write(value.version, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileGdprExport_lift(_ buf: RustBuffer) throws -> MobileGdprExport {
+    return try FfiConverterTypeMobileGdprExport.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileGdprExport_lower(_ value: MobileGdprExport) -> RustBuffer {
+    return FfiConverterTypeMobileGdprExport.lower(value)
 }
 
 /**
@@ -6499,6 +6959,85 @@ extension MobileApplyResult: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /* 
+ * Types of consent that can be granted or revoked.
+ */
+
+public enum MobileConsentType {
+    /**
+     * Consent for local data processing.
+     */
+    case dataProcessing
+    /**
+     * Consent for sharing contact information.
+     */
+    case contactSharing
+    /**
+     * Consent for anonymous usage analytics.
+     */
+    case analytics
+    /**
+     * Consent to participate in recovery vouching.
+     */
+    case recoveryVouching
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileConsentType: FfiConverterRustBuffer {
+    typealias SwiftType = MobileConsentType
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileConsentType {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return .dataProcessing
+
+        case 2: return .contactSharing
+
+        case 3: return .analytics
+
+        case 4: return .recoveryVouching
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileConsentType, into buf: inout [UInt8]) {
+        switch value {
+        case .dataProcessing:
+            writeInt(&buf, Int32(1))
+
+        case .contactSharing:
+            writeInt(&buf, Int32(2))
+
+        case .analytics:
+            writeInt(&buf, Int32(3))
+
+        case .recoveryVouching:
+            writeInt(&buf, Int32(4))
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileConsentType_lift(_ buf: RustBuffer) throws -> MobileConsentType {
+    return try FfiConverterTypeMobileConsentType.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileConsentType_lower(_ value: MobileConsentType) -> RustBuffer {
+    return FfiConverterTypeMobileConsentType.lower(value)
+}
+
+extension MobileConsentType: Equatable, Hashable {}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/* 
  * Content type for mobile platforms.
  */
 
@@ -6574,6 +7113,76 @@ public func FfiConverterTypeMobileContentType_lower(_ value: MobileContentType) 
 }
 
 extension MobileContentType: Equatable, Hashable {}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/* 
+ * Deletion state for mobile.
+ */
+
+public enum MobileDeletionState {
+    /**
+     * No deletion scheduled.
+     */
+    case none
+    /**
+     * Deletion scheduled with grace period.
+     */
+    case scheduled
+    /**
+     * Deletion has been executed.
+     */
+    case executed
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileDeletionState: FfiConverterRustBuffer {
+    typealias SwiftType = MobileDeletionState
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileDeletionState {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return .none
+
+        case 2: return .scheduled
+
+        case 3: return .executed
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileDeletionState, into buf: inout [UInt8]) {
+        switch value {
+        case .none:
+            writeInt(&buf, Int32(1))
+
+        case .scheduled:
+            writeInt(&buf, Int32(2))
+
+        case .executed:
+            writeInt(&buf, Int32(3))
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileDeletionState_lift(_ buf: RustBuffer) throws -> MobileDeletionState {
+    return try FfiConverterTypeMobileDeletionState.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileDeletionState_lower(_ value: MobileDeletionState) -> RustBuffer {
+    return FfiConverterTypeMobileDeletionState.lower(value)
+}
+
+extension MobileDeletionState: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
@@ -6767,6 +7376,8 @@ public enum MobileError {
     case SerializationError(String)
     case NetworkError(String)
     case InvalidInput(String)
+    case GdprError(String)
+    case DeletionNotAllowed(String)
     case Internal(String)
 }
 
@@ -6807,7 +7418,13 @@ public struct FfiConverterTypeMobileError: FfiConverterRustBuffer {
         case 12: return try .InvalidInput(
                 FfiConverterString.read(from: &buf)
             )
-        case 13: return try .Internal(
+        case 13: return try .GdprError(
+                FfiConverterString.read(from: &buf)
+            )
+        case 14: return try .DeletionNotAllowed(
+                FfiConverterString.read(from: &buf)
+            )
+        case 15: return try .Internal(
                 FfiConverterString.read(from: &buf)
             )
         default: throw UniffiInternalError.unexpectedEnumCase
@@ -6860,8 +7477,16 @@ public struct FfiConverterTypeMobileError: FfiConverterRustBuffer {
             writeInt(&buf, Int32(12))
             FfiConverterString.write(v1, into: &buf)
 
-        case let .Internal(v1):
+        case let .GdprError(v1):
             writeInt(&buf, Int32(13))
+            FfiConverterString.write(v1, into: &buf)
+
+        case let .DeletionNotAllowed(v1):
+            writeInt(&buf, Int32(14))
+            FfiConverterString.write(v1, into: &buf)
+
+        case let .Internal(v1):
+            writeInt(&buf, Int32(15))
             FfiConverterString.write(v1, into: &buf)
         }
     }
@@ -8002,6 +8627,31 @@ private struct FfiConverterSequenceTypeMobileApplyFailure: FfiConverterRustBuffe
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
+private struct FfiConverterSequenceTypeMobileConsentRecord: FfiConverterRustBuffer {
+    typealias SwiftType = [MobileConsentRecord]
+
+    static func write(_ value: [MobileConsentRecord], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeMobileConsentRecord.write(item, into: &buf)
+        }
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileConsentRecord] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [MobileConsentRecord]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            try seq.append(FfiConverterTypeMobileConsentRecord.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
 private struct FfiConverterSequenceTypeMobileContact: FfiConverterRustBuffer {
     typealias SwiftType = [MobileContact]
 
@@ -8706,6 +9356,12 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_calculate_retry_backoff() != 60454 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_cancel_account_deletion() != 49743 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_check_consent() != 20830 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_check_content_updates() != 7487 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -8745,7 +9401,13 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_dismiss_demo_contact() != 52421 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_execute_account_deletion() != 40961 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_export_backup() != 14975 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_export_gdpr_data() != 23597 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_export_storage_key() != 42895 {
@@ -8760,7 +9422,13 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_all_delivery_records() != 60693 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_consent_records() != 7910 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_contact() != 17724 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_deletion_state() != 30292 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_delivery_count_by_status() != 25864 {
@@ -8844,6 +9512,9 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_total_pending_count() != 28547 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_grant_consent() != 28571 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_has_identity() != 17028 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -8881,6 +9552,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_list_contacts() != 21454 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_list_contacts_paginated() != 30748 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_list_labels() != 31739 {
@@ -8928,10 +9602,16 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_restore_demo_contact() != 31302 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_revoke_consent() != 7992 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_revoke_field_validation() != 14878 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_search_contacts() != 63776 {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_schedule_account_deletion() != 23295 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_search_contacts() != 4061 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_search_social_networks() != 27909 {

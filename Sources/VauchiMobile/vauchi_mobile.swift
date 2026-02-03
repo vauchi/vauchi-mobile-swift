@@ -799,6 +799,11 @@ public protocol VauchiMobileProtocol: AnyObject {
     func cancelAccountDeletion() throws
 
     /**
+     * Cancel a scheduled shred during the grace period.
+     */
+    func cancelShred(token: MobileShredToken) throws
+
+    /**
      * Check whether consent is currently granted for a type.
      */
     func checkConsent(consentType: MobileConsentType) throws -> Bool
@@ -886,8 +891,12 @@ public protocol VauchiMobileProtocol: AnyObject {
 
     /**
      * Execute account deletion (only after grace period).
+     *
+     * Generates revocation messages for all contacts and shreds CEKs.
+     * Returns the number of revocation messages generated (caller should
+     * arrange relay delivery).
      */
-    func executeAccountDeletion() throws
+    func executeAccountDeletion() throws -> UInt32
 
     /**
      * Export encrypted backup.
@@ -1088,6 +1097,17 @@ public protocol VauchiMobileProtocol: AnyObject {
     func grantConsent(consentType: MobileConsentType) throws
 
     /**
+     * Execute irreversible crypto-shredding (Hard Shred).
+     *
+     * Requires the grace period to have elapsed. Destroys all key material,
+     * secure-deletes the database, and removes all local data.
+     *
+     * **WARNING**: This operation is irreversible. All account data will be
+     * permanently destroyed.
+     */
+    func hardShred(token: MobileShredToken) throws -> MobileShredReport
+
+    /**
      * Check if identity exists.
      */
     func hasIdentity() -> Bool
@@ -1186,6 +1206,16 @@ public protocol VauchiMobileProtocol: AnyObject {
      * Returns true if the retry entry was found and rescheduled.
      */
     func manualRetry(messageId: String) throws -> Bool
+
+    /**
+     * Execute immediate crypto-shredding without grace period (Panic Shred).
+     *
+     * Loads pre-signed messages before destroying keys, then sends them
+     * best-effort. Use only in emergencies.
+     *
+     * **WARNING**: This operation is irreversible and immediate. No grace period.
+     */
+    func panicShred() throws -> MobileShredReport
 
     /**
      * Parse a device link QR code.
@@ -1304,9 +1334,36 @@ public protocol VauchiMobileProtocol: AnyObject {
     func setPinnedCertificate(certPem: String)
 
     /**
+     * Set the platform keychain for crypto-shredding operations.
+     *
+     * Must be called before any shred operation. The keychain provides
+     * access to the platform's native secure storage (iOS Keychain,
+     * Android KeyStore) for SMK management.
+     */
+    func setPlatformKeychain(keychain: MobilePlatformKeychain)
+
+    /**
      * Show field to contact.
      */
     func showFieldToContact(contactId: String, fieldLabel: String) throws
+
+    /**
+     * Get current shred status.
+     *
+     * Returns whether no shred is in progress, one is scheduled (with remaining
+     * time), or has been executed.
+     */
+    func shredStatus() throws -> MobileShredStatus
+
+    /**
+     * Schedule crypto-shredding with 7-day grace period (Soft Shred).
+     *
+     * Returns a token that must be passed to `hard_shred()` after the grace period.
+     * Also refreshes the pre-signed messages file for future panic shred.
+     *
+     * Requires `set_platform_keychain()` to be called first.
+     */
+    func softShred() throws -> MobileShredToken
 
     /**
      * Sync with relay server.
@@ -1366,6 +1423,13 @@ public protocol VauchiMobileProtocol: AnyObject {
      * on whether to accept the recovered identity.
      */
     func verifyRecoveryProof(proofB64: String) throws -> MobileRecoveryVerification
+
+    /**
+     * Verify that shredding was successful by checking for residual data.
+     *
+     * Returns verification results showing which items were confirmed destroyed.
+     */
+    func verifyShred() throws -> MobileShredVerification
 }
 
 /**
@@ -1554,6 +1618,16 @@ open class VauchiMobile:
     }
 
     /**
+     * Cancel a scheduled shred during the grace period.
+     */
+    open func cancelShred(token: MobileShredToken) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_cancel_shred(self.uniffiClonePointer(),
+                                                                     FfiConverterTypeMobileShredToken.lower(token), $0)
+        }
+    }
+
+    /**
      * Check whether consent is currently granted for a type.
      */
     open func checkConsent(consentType: MobileConsentType) throws -> Bool {
@@ -1706,11 +1780,15 @@ open class VauchiMobile:
 
     /**
      * Execute account deletion (only after grace period).
+     *
+     * Generates revocation messages for all contacts and shreds CEKs.
+     * Returns the number of revocation messages generated (caller should
+     * arrange relay delivery).
      */
-    open func executeAccountDeletion() throws {
-        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+    open func executeAccountDeletion() throws -> UInt32 {
+        return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_mobile_fn_method_vauchimobile_execute_account_deletion(self.uniffiClonePointer(), $0)
-        }
+        })
     }
 
     /**
@@ -2078,6 +2156,22 @@ open class VauchiMobile:
     }
 
     /**
+     * Execute irreversible crypto-shredding (Hard Shred).
+     *
+     * Requires the grace period to have elapsed. Destroys all key material,
+     * secure-deletes the database, and removes all local data.
+     *
+     * **WARNING**: This operation is irreversible. All account data will be
+     * permanently destroyed.
+     */
+    open func hardShred(token: MobileShredToken) throws -> MobileShredReport {
+        return try FfiConverterTypeMobileShredReport.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_hard_shred(self.uniffiClonePointer(),
+                                                                   FfiConverterTypeMobileShredToken.lower(token), $0)
+        })
+    }
+
+    /**
      * Check if identity exists.
      */
     open func hasIdentity() -> Bool {
@@ -2258,6 +2352,20 @@ open class VauchiMobile:
         return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_mobile_fn_method_vauchimobile_manual_retry(self.uniffiClonePointer(),
                                                                      FfiConverterString.lower(messageId), $0)
+        })
+    }
+
+    /**
+     * Execute immediate crypto-shredding without grace period (Panic Shred).
+     *
+     * Loads pre-signed messages before destroying keys, then sends them
+     * best-effort. Use only in emergencies.
+     *
+     * **WARNING**: This operation is irreversible and immediate. No grace period.
+     */
+    open func panicShred() throws -> MobileShredReport {
+        return try FfiConverterTypeMobileShredReport.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_panic_shred(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -2481,6 +2589,20 @@ open class VauchiMobile:
     }
 
     /**
+     * Set the platform keychain for crypto-shredding operations.
+     *
+     * Must be called before any shred operation. The keychain provides
+     * access to the platform's native secure storage (iOS Keychain,
+     * Android KeyStore) for SMK management.
+     */
+    open func setPlatformKeychain(keychain: MobilePlatformKeychain) {
+        try! rustCall {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_set_platform_keychain(self.uniffiClonePointer(),
+                                                                              FfiConverterCallbackInterfaceMobilePlatformKeychain.lower(keychain), $0)
+        }
+    }
+
+    /**
      * Show field to contact.
      */
     open func showFieldToContact(contactId: String, fieldLabel: String) throws {
@@ -2489,6 +2611,32 @@ open class VauchiMobile:
                                                                               FfiConverterString.lower(contactId),
                                                                               FfiConverterString.lower(fieldLabel), $0)
         }
+    }
+
+    /**
+     * Get current shred status.
+     *
+     * Returns whether no shred is in progress, one is scheduled (with remaining
+     * time), or has been executed.
+     */
+    open func shredStatus() throws -> MobileShredStatus {
+        return try FfiConverterTypeMobileShredStatus.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_shred_status(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Schedule crypto-shredding with 7-day grace period (Soft Shred).
+     *
+     * Returns a token that must be passed to `hard_shred()` after the grace period.
+     * Also refreshes the pre-signed messages file for future panic shred.
+     *
+     * Requires `set_platform_keychain()` to be called first.
+     */
+    open func softShred() throws -> MobileShredToken {
+        return try FfiConverterTypeMobileShredToken.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_soft_shred(self.uniffiClonePointer(), $0)
+        })
     }
 
     /**
@@ -2594,6 +2742,17 @@ open class VauchiMobile:
         return try FfiConverterTypeMobileRecoveryVerification.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_mobile_fn_method_vauchimobile_verify_recovery_proof(self.uniffiClonePointer(),
                                                                               FfiConverterString.lower(proofB64), $0)
+        })
+    }
+
+    /**
+     * Verify that shredding was successful by checking for residual data.
+     *
+     * Returns verification results showing which items were confirmed destroyed.
+     */
+    open func verifyShred() throws -> MobileShredVerification {
+        return try FfiConverterTypeMobileShredVerification.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_verify_shred(self.uniffiClonePointer(), $0)
         })
     }
 }
@@ -5872,6 +6031,363 @@ public func FfiConverterTypeMobileRetryEntry_lower(_ value: MobileRetryEntry) ->
 }
 
 /**
+ * Report of shred operations performed.
+ */
+public struct MobileShredReport {
+    /**
+     * Number of contacts notified of deletion.
+     */
+    public var contactsNotified: UInt32
+    /**
+     * Whether the relay purge was sent successfully.
+     */
+    public var relayPurgeSent: Bool
+    /**
+     * Number of linked devices notified.
+     */
+    public var devicesNotified: UInt32
+    /**
+     * Whether SMK was destroyed from SecureStorage.
+     */
+    public var smkDestroyed: Bool
+    /**
+     * Whether the identity backup file was securely deleted.
+     */
+    public var identityFileDestroyed: Bool
+    /**
+     * Number of key files deleted.
+     */
+    public var keyFilesDestroyed: UInt32
+    /**
+     * Whether the SQLite database was securely deleted.
+     */
+    public var sqliteDestroyed: Bool
+    /**
+     * Whether the pre-signed messages file was deleted.
+     */
+    public var preSignedDeleted: Bool
+    /**
+     * Whether the data directory was removed.
+     */
+    public var dataDirDeleted: Bool
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(
+        /* 
+         * Number of contacts notified of deletion.
+         */ contactsNotified: UInt32,
+        /* 
+            * Whether the relay purge was sent successfully.
+            */ relayPurgeSent: Bool,
+        /* 
+            * Number of linked devices notified.
+            */ devicesNotified: UInt32,
+        /* 
+            * Whether SMK was destroyed from SecureStorage.
+            */ smkDestroyed: Bool,
+        /* 
+            * Whether the identity backup file was securely deleted.
+            */ identityFileDestroyed: Bool,
+        /* 
+            * Number of key files deleted.
+            */ keyFilesDestroyed: UInt32,
+        /* 
+            * Whether the SQLite database was securely deleted.
+            */ sqliteDestroyed: Bool,
+        /* 
+            * Whether the pre-signed messages file was deleted.
+            */ preSignedDeleted: Bool,
+        /* 
+            * Whether the data directory was removed.
+            */ dataDirDeleted: Bool
+    ) {
+        self.contactsNotified = contactsNotified
+        self.relayPurgeSent = relayPurgeSent
+        self.devicesNotified = devicesNotified
+        self.smkDestroyed = smkDestroyed
+        self.identityFileDestroyed = identityFileDestroyed
+        self.keyFilesDestroyed = keyFilesDestroyed
+        self.sqliteDestroyed = sqliteDestroyed
+        self.preSignedDeleted = preSignedDeleted
+        self.dataDirDeleted = dataDirDeleted
+    }
+}
+
+extension MobileShredReport: Equatable, Hashable {
+    public static func == (lhs: MobileShredReport, rhs: MobileShredReport) -> Bool {
+        if lhs.contactsNotified != rhs.contactsNotified {
+            return false
+        }
+        if lhs.relayPurgeSent != rhs.relayPurgeSent {
+            return false
+        }
+        if lhs.devicesNotified != rhs.devicesNotified {
+            return false
+        }
+        if lhs.smkDestroyed != rhs.smkDestroyed {
+            return false
+        }
+        if lhs.identityFileDestroyed != rhs.identityFileDestroyed {
+            return false
+        }
+        if lhs.keyFilesDestroyed != rhs.keyFilesDestroyed {
+            return false
+        }
+        if lhs.sqliteDestroyed != rhs.sqliteDestroyed {
+            return false
+        }
+        if lhs.preSignedDeleted != rhs.preSignedDeleted {
+            return false
+        }
+        if lhs.dataDirDeleted != rhs.dataDirDeleted {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(contactsNotified)
+        hasher.combine(relayPurgeSent)
+        hasher.combine(devicesNotified)
+        hasher.combine(smkDestroyed)
+        hasher.combine(identityFileDestroyed)
+        hasher.combine(keyFilesDestroyed)
+        hasher.combine(sqliteDestroyed)
+        hasher.combine(preSignedDeleted)
+        hasher.combine(dataDirDeleted)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileShredReport: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileShredReport {
+        return
+            try MobileShredReport(
+                contactsNotified: FfiConverterUInt32.read(from: &buf),
+                relayPurgeSent: FfiConverterBool.read(from: &buf),
+                devicesNotified: FfiConverterUInt32.read(from: &buf),
+                smkDestroyed: FfiConverterBool.read(from: &buf),
+                identityFileDestroyed: FfiConverterBool.read(from: &buf),
+                keyFilesDestroyed: FfiConverterUInt32.read(from: &buf),
+                sqliteDestroyed: FfiConverterBool.read(from: &buf),
+                preSignedDeleted: FfiConverterBool.read(from: &buf),
+                dataDirDeleted: FfiConverterBool.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileShredReport, into buf: inout [UInt8]) {
+        FfiConverterUInt32.write(value.contactsNotified, into: &buf)
+        FfiConverterBool.write(value.relayPurgeSent, into: &buf)
+        FfiConverterUInt32.write(value.devicesNotified, into: &buf)
+        FfiConverterBool.write(value.smkDestroyed, into: &buf)
+        FfiConverterBool.write(value.identityFileDestroyed, into: &buf)
+        FfiConverterUInt32.write(value.keyFilesDestroyed, into: &buf)
+        FfiConverterBool.write(value.sqliteDestroyed, into: &buf)
+        FfiConverterBool.write(value.preSignedDeleted, into: &buf)
+        FfiConverterBool.write(value.dataDirDeleted, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileShredReport_lift(_ buf: RustBuffer) throws -> MobileShredReport {
+    return try FfiConverterTypeMobileShredReport.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileShredReport_lower(_ value: MobileShredReport) -> RustBuffer {
+    return FfiConverterTypeMobileShredReport.lower(value)
+}
+
+/**
+ * Token returned by soft_shred to authorize hard_shred.
+ */
+public struct MobileShredToken {
+    /**
+     * When the token was created (unix seconds).
+     */
+    public var createdAt: UInt64
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(
+        /* 
+         * When the token was created (unix seconds).
+         */ createdAt: UInt64
+    ) {
+        self.createdAt = createdAt
+    }
+}
+
+extension MobileShredToken: Equatable, Hashable {
+    public static func == (lhs: MobileShredToken, rhs: MobileShredToken) -> Bool {
+        if lhs.createdAt != rhs.createdAt {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(createdAt)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileShredToken: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileShredToken {
+        return
+            try MobileShredToken(
+                createdAt: FfiConverterUInt64.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileShredToken, into buf: inout [UInt8]) {
+        FfiConverterUInt64.write(value.createdAt, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileShredToken_lift(_ buf: RustBuffer) throws -> MobileShredToken {
+    return try FfiConverterTypeMobileShredToken.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileShredToken_lower(_ value: MobileShredToken) -> RustBuffer {
+    return FfiConverterTypeMobileShredToken.lower(value)
+}
+
+/**
+ * Post-shred verification result.
+ */
+public struct MobileShredVerification {
+    /**
+     * Whether SMK is absent from SecureStorage.
+     */
+    public var smkAbsent: Bool
+    /**
+     * Whether the database file is absent.
+     */
+    public var databaseAbsent: Bool
+    /**
+     * Whether the data directory is absent.
+     */
+    public var dataDirAbsent: Bool
+    /**
+     * Whether the pre-signed messages file is absent.
+     */
+    public var preSignedAbsent: Bool
+    /**
+     * Overall: all checks passed.
+     */
+    public var allClear: Bool
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(
+        /* 
+         * Whether SMK is absent from SecureStorage.
+         */ smkAbsent: Bool,
+        /* 
+            * Whether the database file is absent.
+            */ databaseAbsent: Bool,
+        /* 
+            * Whether the data directory is absent.
+            */ dataDirAbsent: Bool,
+        /* 
+            * Whether the pre-signed messages file is absent.
+            */ preSignedAbsent: Bool,
+        /* 
+            * Overall: all checks passed.
+            */ allClear: Bool
+    ) {
+        self.smkAbsent = smkAbsent
+        self.databaseAbsent = databaseAbsent
+        self.dataDirAbsent = dataDirAbsent
+        self.preSignedAbsent = preSignedAbsent
+        self.allClear = allClear
+    }
+}
+
+extension MobileShredVerification: Equatable, Hashable {
+    public static func == (lhs: MobileShredVerification, rhs: MobileShredVerification) -> Bool {
+        if lhs.smkAbsent != rhs.smkAbsent {
+            return false
+        }
+        if lhs.databaseAbsent != rhs.databaseAbsent {
+            return false
+        }
+        if lhs.dataDirAbsent != rhs.dataDirAbsent {
+            return false
+        }
+        if lhs.preSignedAbsent != rhs.preSignedAbsent {
+            return false
+        }
+        if lhs.allClear != rhs.allClear {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(smkAbsent)
+        hasher.combine(databaseAbsent)
+        hasher.combine(dataDirAbsent)
+        hasher.combine(preSignedAbsent)
+        hasher.combine(allClear)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileShredVerification: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileShredVerification {
+        return
+            try MobileShredVerification(
+                smkAbsent: FfiConverterBool.read(from: &buf),
+                databaseAbsent: FfiConverterBool.read(from: &buf),
+                dataDirAbsent: FfiConverterBool.read(from: &buf),
+                preSignedAbsent: FfiConverterBool.read(from: &buf),
+                allClear: FfiConverterBool.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileShredVerification, into buf: inout [UInt8]) {
+        FfiConverterBool.write(value.smkAbsent, into: &buf)
+        FfiConverterBool.write(value.databaseAbsent, into: &buf)
+        FfiConverterBool.write(value.dataDirAbsent, into: &buf)
+        FfiConverterBool.write(value.preSignedAbsent, into: &buf)
+        FfiConverterBool.write(value.allClear, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileShredVerification_lift(_ buf: RustBuffer) throws -> MobileShredVerification {
+    return try FfiConverterTypeMobileShredVerification.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileShredVerification_lower(_ value: MobileShredVerification) -> RustBuffer {
+    return FfiConverterTypeMobileShredVerification.lower(value)
+}
+
+/**
  * Social network info.
  */
 public struct MobileSocialNetwork {
@@ -6779,6 +7295,50 @@ public func FfiConverterTypeMobileVisibilityLabelDetail_lower(_ value: MobileVis
     return FfiConverterTypeMobileVisibilityLabelDetail.lower(value)
 }
 
+/**
+ * Error type for platform keychain callback interface.
+ *
+ * UniFFI requires a named error enum for callback interfaces (String is not supported).
+ * Mobile platforms return this from keychain operations.
+ */
+public enum KeychainError {
+    case OperationFailed(msg: String)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeKeychainError: FfiConverterRustBuffer {
+    typealias SwiftType = KeychainError
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> KeychainError {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return try .OperationFailed(
+                msg: FfiConverterString.read(from: &buf)
+            )
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: KeychainError, into buf: inout [UInt8]) {
+        switch value {
+        case let .OperationFailed(msg):
+            writeInt(&buf, Int32(1))
+            FfiConverterString.write(msg, into: &buf)
+        }
+    }
+}
+
+extension KeychainError: Equatable, Hashable {}
+
+extension KeychainError: Foundation.LocalizedError {
+    public var errorDescription: String? {
+        String(reflecting: self)
+    }
+}
+
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /* 
@@ -7378,6 +7938,7 @@ public enum MobileError {
     case InvalidInput(String)
     case GdprError(String)
     case DeletionNotAllowed(String)
+    case ShredError(String)
     case Internal(String)
 }
 
@@ -7424,7 +7985,10 @@ public struct FfiConverterTypeMobileError: FfiConverterRustBuffer {
         case 14: return try .DeletionNotAllowed(
                 FfiConverterString.read(from: &buf)
             )
-        case 15: return try .Internal(
+        case 15: return try .ShredError(
+                FfiConverterString.read(from: &buf)
+            )
+        case 16: return try .Internal(
                 FfiConverterString.read(from: &buf)
             )
         default: throw UniffiInternalError.unexpectedEnumCase
@@ -7485,8 +8049,12 @@ public struct FfiConverterTypeMobileError: FfiConverterRustBuffer {
             writeInt(&buf, Int32(14))
             FfiConverterString.write(v1, into: &buf)
 
-        case let .Internal(v1):
+        case let .ShredError(v1):
             writeInt(&buf, Int32(15))
+            FfiConverterString.write(v1, into: &buf)
+
+        case let .Internal(v1):
+            writeInt(&buf, Int32(16))
             FfiConverterString.write(v1, into: &buf)
         }
     }
@@ -7807,6 +8375,81 @@ extension MobilePasswordStrength: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /* 
+ * Current shred status for the account.
+ */
+
+public enum MobileShredStatus {
+    /**
+     * No shred operation in progress.
+     */
+    case none
+    /**
+     * Soft shred scheduled — waiting for grace period to elapse.
+     */
+    case scheduled(
+        /* 
+         * Seconds remaining in grace period.
+         */ remainingSecs: UInt64
+    )
+    /**
+     * Hard shred has been executed — all data destroyed.
+     */
+    case executed
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileShredStatus: FfiConverterRustBuffer {
+    typealias SwiftType = MobileShredStatus
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileShredStatus {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return .none
+
+        case 2: return try .scheduled(remainingSecs: FfiConverterUInt64.read(from: &buf))
+
+        case 3: return .executed
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileShredStatus, into buf: inout [UInt8]) {
+        switch value {
+        case .none:
+            writeInt(&buf, Int32(1))
+
+        case let .scheduled(remainingSecs):
+            writeInt(&buf, Int32(2))
+            FfiConverterUInt64.write(remainingSecs, into: &buf)
+
+        case .executed:
+            writeInt(&buf, Int32(3))
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileShredStatus_lift(_ buf: RustBuffer) throws -> MobileShredStatus {
+    return try FfiConverterTypeMobileShredStatus.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileShredStatus_lower(_ value: MobileShredStatus) -> RustBuffer {
+    return FfiConverterTypeMobileShredStatus.lower(value)
+}
+
+extension MobileShredStatus: Equatable, Hashable {}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/* 
  * Sync status.
  */
 
@@ -8081,6 +8724,176 @@ public func FfiConverterTypeMobileUpdateStatus_lower(_ value: MobileUpdateStatus
 extension MobileUpdateStatus: Equatable, Hashable {}
 
 /**
+ * Callback interface for platform-specific secure key storage.
+ *
+ * The mobile platform (iOS/Android) implements this interface to provide
+ * access to the native keychain (iOS Keychain, Android KeyStore).
+ * Used by shred operations to destroy the Shredding Master Key (SMK).
+ */
+public protocol MobilePlatformKeychain: AnyObject {
+    /**
+     * Saves a key to the platform keychain.
+     */
+    func saveKey(name: String, key: Data) throws
+
+    /**
+     * Loads a key from the platform keychain.
+     * Returns None if the key doesn't exist.
+     */
+    func loadKey(name: String) throws -> Data?
+
+    /**
+     * Deletes a key from the platform keychain.
+     */
+    func deleteKey(name: String) throws
+}
+
+/// Magic number for the Rust proxy to call using the same mechanism as every other method,
+/// to free the callback once it's dropped by Rust.
+private let IDX_CALLBACK_FREE: Int32 = 0
+// Callback return codes
+private let UNIFFI_CALLBACK_SUCCESS: Int32 = 0
+private let UNIFFI_CALLBACK_ERROR: Int32 = 1
+private let UNIFFI_CALLBACK_UNEXPECTED_ERROR: Int32 = 2
+
+/// Put the implementation in a struct so we don't pollute the top-level namespace
+private enum UniffiCallbackInterfaceMobilePlatformKeychain {
+    /// Create the VTable using a series of closures.
+    /// Swift automatically converts these into C callback functions.
+    static var vtable: UniffiVTableCallbackInterfaceMobilePlatformKeychain = .init(
+        saveKey: { (
+            uniffiHandle: UInt64,
+            name: RustBuffer,
+            key: RustBuffer,
+            _: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceMobilePlatformKeychain.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return try uniffiObj.saveKey(
+                    name: FfiConverterString.lift(name),
+                    key: FfiConverterData.lift(key)
+                )
+            }
+
+            let writeReturn = { () }
+            uniffiTraitInterfaceCallWithError(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn,
+                lowerError: FfiConverterTypeKeychainError.lower
+            )
+        },
+        loadKey: { (
+            uniffiHandle: UInt64,
+            name: RustBuffer,
+            uniffiOutReturn: UnsafeMutablePointer<RustBuffer>,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> Data? in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceMobilePlatformKeychain.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return try uniffiObj.loadKey(
+                    name: FfiConverterString.lift(name)
+                )
+            }
+
+            let writeReturn = { uniffiOutReturn.pointee = FfiConverterOptionData.lower($0) }
+            uniffiTraitInterfaceCallWithError(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn,
+                lowerError: FfiConverterTypeKeychainError.lower
+            )
+        },
+        deleteKey: { (
+            uniffiHandle: UInt64,
+            name: RustBuffer,
+            _: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceMobilePlatformKeychain.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return try uniffiObj.deleteKey(
+                    name: FfiConverterString.lift(name)
+                )
+            }
+
+            let writeReturn = { () }
+            uniffiTraitInterfaceCallWithError(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn,
+                lowerError: FfiConverterTypeKeychainError.lower
+            )
+        },
+        uniffiFree: { (uniffiHandle: UInt64) in
+            let result = try? FfiConverterCallbackInterfaceMobilePlatformKeychain.handleMap.remove(handle: uniffiHandle)
+            if result == nil {
+                print("Uniffi callback interface MobilePlatformKeychain: handle missing in uniffiFree")
+            }
+        }
+    )
+}
+
+private func uniffiCallbackInitMobilePlatformKeychain() {
+    uniffi_vauchi_mobile_fn_init_callback_vtable_mobileplatformkeychain(&UniffiCallbackInterfaceMobilePlatformKeychain.vtable)
+}
+
+// FfiConverter protocol for callback interfaces
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+private enum FfiConverterCallbackInterfaceMobilePlatformKeychain {
+    fileprivate static var handleMap = UniffiHandleMap<MobilePlatformKeychain>()
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+extension FfiConverterCallbackInterfaceMobilePlatformKeychain: FfiConverter {
+    typealias SwiftType = MobilePlatformKeychain
+    typealias FfiType = UInt64
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public static func lift(_ handle: UInt64) throws -> SwiftType {
+        try handleMap.get(handle: handle)
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public static func lower(_ v: SwiftType) -> UInt64 {
+        return handleMap.insert(obj: v)
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public static func write(_ v: SwiftType, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(v))
+    }
+}
+
+/**
  * Callback interface for platform-specific audio operations.
  *
  * Implement this trait in Swift (iOS) or Kotlin (Android) to provide
@@ -8124,14 +8937,6 @@ public protocol PlatformAudioHandler: AnyObject {
      */
     func stop()
 }
-
-/// Magic number for the Rust proxy to call using the same mechanism as every other method,
-/// to free the callback once it's dropped by Rust.
-private let IDX_CALLBACK_FREE: Int32 = 0
-// Callback return codes
-private let UNIFFI_CALLBACK_SUCCESS: Int32 = 0
-private let UNIFFI_CALLBACK_ERROR: Int32 = 1
-private let UNIFFI_CALLBACK_UNEXPECTED_ERROR: Int32 = 2
 
 /// Put the implementation in a struct so we don't pollute the top-level namespace
 private enum UniffiCallbackInterfacePlatformAudioHandler {
@@ -8352,6 +9157,30 @@ private struct FfiConverterOptionString: FfiConverterRustBuffer {
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterString.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+private struct FfiConverterOptionData: FfiConverterRustBuffer {
+    typealias SwiftType = Data?
+
+    static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterData.write(value, into: &buf)
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterData.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
     }
@@ -9359,6 +10188,9 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_cancel_account_deletion() != 49743 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_cancel_shred() != 45075 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_check_consent() != 20830 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -9401,7 +10233,7 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_dismiss_demo_contact() != 52421 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_execute_account_deletion() != 40961 {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_execute_account_deletion() != 5865 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_export_backup() != 14975 {
@@ -9515,6 +10347,9 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_grant_consent() != 28571 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_hard_shred() != 25712 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_has_identity() != 17028 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -9567,6 +10402,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_manual_retry() != 42209 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_panic_shred() != 52835 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_parse_device_link_qr() != 14305 {
@@ -9629,7 +10467,16 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_set_pinned_certificate() != 2029 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_set_platform_keychain() != 45535 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_show_field_to_contact() != 3699 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_shred_status() != 19648 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_soft_shred() != 22022 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_sync() != 44616 {
@@ -9659,6 +10506,9 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_verify_recovery_proof() != 55854 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_verify_shred() != 51157 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_mobile_checksum_constructor_mobileproximityverifier_new() != 33177 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -9669,6 +10519,15 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_constructor_vauchimobile_new_with_secure_key() != 16278 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobileplatformkeychain_save_key() != 54986 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobileplatformkeychain_load_key() != 19543 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobileplatformkeychain_delete_key() != 34382 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_platformaudiohandler_check_capability() != 34713 {
@@ -9687,6 +10546,7 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
 
+    uniffiCallbackInitMobilePlatformKeychain()
     uniffiCallbackInitPlatformAudioHandler()
     return InitializationResult.ok
 }()

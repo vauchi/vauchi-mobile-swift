@@ -7995,6 +7995,7 @@ public enum MobileError {
     case GdprError(String)
     case DeletionNotAllowed(String)
     case ShredError(String)
+    case InitError(String)
     case Internal(String)
 }
 
@@ -8044,7 +8045,10 @@ public struct FfiConverterTypeMobileError: FfiConverterRustBuffer {
         case 15: return try .ShredError(
                 FfiConverterString.read(from: &buf)
             )
-        case 16: return try .Internal(
+        case 16: return try .InitError(
+                FfiConverterString.read(from: &buf)
+            )
+        case 17: return try .Internal(
                 FfiConverterString.read(from: &buf)
             )
         default: throw UniffiInternalError.unexpectedEnumCase
@@ -8109,8 +8113,12 @@ public struct FfiConverterTypeMobileError: FfiConverterRustBuffer {
             writeInt(&buf, Int32(15))
             FfiConverterString.write(v1, into: &buf)
 
-        case let .Internal(v1):
+        case let .InitError(v1):
             writeInt(&buf, Int32(16))
+            FfiConverterString.write(v1, into: &buf)
+
+        case let .Internal(v1):
+            writeInt(&buf, Int32(17))
             FfiConverterString.write(v1, into: &buf)
         }
     }
@@ -10118,6 +10126,21 @@ public func getTheme(themeId: String) -> MobileTheme? {
 }
 
 /**
+ * Initialize the i18n system by loading locale files from a directory.
+ *
+ * Must be called once at app startup before any i18n functions.
+ * The resource_dir should point to a directory containing locale JSON files
+ * (e.g., en.json, de.json, fr.json, es.json).
+ */
+public func initLocales(resourceDir: String) throws {
+    try rustCallWithError(FfiConverterTypeMobileError.lift) {
+        uniffi_vauchi_mobile_fn_func_init_locales(
+            FfiConverterString.lower(resourceDir), $0
+        )
+    }
+}
+
+/**
  * Check if a URL scheme is in the allowed list.
  *
  * Allowed schemes: tel, mailto, sms, https, http, geo.
@@ -10265,6 +10288,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_func_get_theme() != 36476 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_func_init_locales() != 4158 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_func_is_allowed_scheme() != 10327 {

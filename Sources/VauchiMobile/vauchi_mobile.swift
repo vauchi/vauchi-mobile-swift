@@ -9881,6 +9881,23 @@ public func generateStorageKey() -> Data {
 }
 
 /**
+ * Get localized aha moment content for a given moment type.
+ *
+ * Returns the title, message, and animation flag for display.
+ * This is a stateless helper — it doesn't check whether the moment
+ * has been seen. Use `try_trigger_aha_moment` on VauchiMobile for
+ * state-tracked triggering.
+ */
+public func getAhaMomentLocalized(momentType: MobileAhaMomentType, locale: MobileLocale) -> MobileAhaMoment {
+    return try! FfiConverterTypeMobileAhaMoment.lift(try! rustCall {
+        uniffi_vauchi_mobile_fn_func_get_aha_moment_localized(
+            FfiConverterTypeMobileAhaMomentType.lower(momentType),
+            FfiConverterTypeMobileLocale.lower(locale), $0
+        )
+    })
+}
+
+/**
  * Get all available locales.
  */
 public func getAvailableLocales() -> [MobileLocaleInfo] {
@@ -9925,6 +9942,20 @@ public func getFaqById(id: String) -> MobileFaqItem? {
 }
 
 /**
+ * Get a specific FAQ item by ID in the specified locale.
+ *
+ * Returns None if the FAQ is not found.
+ */
+public func getFaqByIdLocalized(id: String, locale: MobileLocale) -> MobileFaqItem? {
+    return try! FfiConverterOptionTypeMobileFaqItem.lift(try! rustCall {
+        uniffi_vauchi_mobile_fn_func_get_faq_by_id_localized(
+            FfiConverterString.lower(id),
+            FfiConverterTypeMobileLocale.lower(locale), $0
+        )
+    })
+}
+
+/**
  * Get all FAQ items.
  */
 public func getFaqs() -> [MobileFaqItem] {
@@ -9940,6 +9971,29 @@ public func getFaqsByCategory(category: MobileHelpCategory) -> [MobileFaqItem] {
     return try! FfiConverterSequenceTypeMobileFaqItem.lift(try! rustCall {
         uniffi_vauchi_mobile_fn_func_get_faqs_by_category(
             FfiConverterTypeMobileHelpCategory.lower(category), $0
+        )
+    })
+}
+
+/**
+ * Get FAQ items for a specific category in the specified locale.
+ */
+public func getFaqsByCategoryLocalized(category: MobileHelpCategory, locale: MobileLocale) -> [MobileFaqItem] {
+    return try! FfiConverterSequenceTypeMobileFaqItem.lift(try! rustCall {
+        uniffi_vauchi_mobile_fn_func_get_faqs_by_category_localized(
+            FfiConverterTypeMobileHelpCategory.lower(category),
+            FfiConverterTypeMobileLocale.lower(locale), $0
+        )
+    })
+}
+
+/**
+ * Get all FAQ items in the specified locale.
+ */
+public func getFaqsLocalized(locale: MobileLocale) -> [MobileFaqItem] {
+    return try! FfiConverterSequenceTypeMobileFaqItem.lift(try! rustCall {
+        uniffi_vauchi_mobile_fn_func_get_faqs_localized(
+            FfiConverterTypeMobileLocale.lower(locale), $0
         )
     })
 }
@@ -10076,6 +10130,20 @@ public func searchFaqs(query: String) -> [MobileFaqItem] {
     })
 }
 
+/**
+ * Search FAQs by query text in the specified locale.
+ *
+ * Searches in both questions and answers (case-insensitive).
+ */
+public func searchFaqsLocalized(query: String, locale: MobileLocale) -> [MobileFaqItem] {
+    return try! FfiConverterSequenceTypeMobileFaqItem.lift(try! rustCall {
+        uniffi_vauchi_mobile_fn_func_search_faqs_localized(
+            FfiConverterString.lower(query),
+            FfiConverterTypeMobileLocale.lower(locale), $0
+        )
+    })
+}
+
 private enum InitializationResult {
     case ok
     case contractVersionMismatch
@@ -10098,6 +10166,9 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_func_generate_storage_key() != 24673 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_mobile_checksum_func_get_aha_moment_localized() != 58190 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_mobile_checksum_func_get_available_locales() != 16699 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -10110,10 +10181,19 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_func_get_faq_by_id() != 53682 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_mobile_checksum_func_get_faq_by_id_localized() != 4391 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_mobile_checksum_func_get_faqs() != 34098 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_func_get_faqs_by_category() != 19763 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_func_get_faqs_by_category_localized() != 52283 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_func_get_faqs_localized() != 46848 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_func_get_help_categories() != 65096 {
@@ -10144,6 +10224,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_func_search_faqs() != 9146 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_func_search_faqs_localized() != 57224 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_mobileproximityverifier_emit_challenge() != 35393 {

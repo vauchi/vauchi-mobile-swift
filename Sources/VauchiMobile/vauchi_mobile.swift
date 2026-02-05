@@ -1376,6 +1376,18 @@ public protocol VauchiMobileProtocol: AnyObject {
     func triggerDemoUpdate() throws -> MobileDemoContact?
 
     /**
+     * Mark a contact as trusted for recovery.
+     *
+     * Blocked contacts cannot be trusted for recovery.
+     */
+    func trustContactForRecovery(id: String) throws
+
+    /**
+     * Get the number of contacts trusted for recovery.
+     */
+    func trustedContactCount() throws -> UInt32
+
+    /**
      * Try to trigger an aha moment. Returns the moment if not yet seen, None otherwise.
      */
     func tryTriggerAhaMoment(momentType: MobileAhaMomentType) throws -> MobileAhaMoment?
@@ -1396,6 +1408,11 @@ public protocol VauchiMobileProtocol: AnyObject {
      * The device_index is the position in the devices list (0-based).
      */
     func unlinkDevice(deviceIndex: UInt32) throws -> Bool
+
+    /**
+     * Remove recovery trust from a contact.
+     */
+    func untrustContactForRecovery(id: String) throws
 
     /**
      * Update field value.
@@ -2658,6 +2675,27 @@ open class VauchiMobile:
     }
 
     /**
+     * Mark a contact as trusted for recovery.
+     *
+     * Blocked contacts cannot be trusted for recovery.
+     */
+    open func trustContactForRecovery(id: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_trust_contact_for_recovery(self.uniffiClonePointer(),
+                                                                                   FfiConverterString.lower(id), $0)
+        }
+    }
+
+    /**
+     * Get the number of contacts trusted for recovery.
+     */
+    open func trustedContactCount() throws -> UInt32 {
+        return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_trusted_contact_count(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
      * Try to trigger an aha moment. Returns the moment if not yet seen, None otherwise.
      */
     open func tryTriggerAhaMoment(momentType: MobileAhaMomentType) throws -> MobileAhaMoment? {
@@ -2693,6 +2731,16 @@ open class VauchiMobile:
             uniffi_vauchi_mobile_fn_method_vauchimobile_unlink_device(self.uniffiClonePointer(),
                                                                       FfiConverterUInt32.lower(deviceIndex), $0)
         })
+    }
+
+    /**
+     * Remove recovery trust from a contact.
+     */
+    open func untrustContactForRecovery(id: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_untrust_contact_for_recovery(self.uniffiClonePointer(),
+                                                                                     FfiConverterString.lower(id), $0)
+        }
     }
 
     /**
@@ -3112,15 +3160,17 @@ public struct MobileContact {
     public var id: String
     public var displayName: String
     public var isVerified: Bool
+    public var isRecoveryTrusted: Bool
     public var card: MobileContactCard
     public var addedAt: UInt64
 
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
-    public init(id: String, displayName: String, isVerified: Bool, card: MobileContactCard, addedAt: UInt64) {
+    public init(id: String, displayName: String, isVerified: Bool, isRecoveryTrusted: Bool, card: MobileContactCard, addedAt: UInt64) {
         self.id = id
         self.displayName = displayName
         self.isVerified = isVerified
+        self.isRecoveryTrusted = isRecoveryTrusted
         self.card = card
         self.addedAt = addedAt
     }
@@ -3137,6 +3187,9 @@ extension MobileContact: Equatable, Hashable {
         if lhs.isVerified != rhs.isVerified {
             return false
         }
+        if lhs.isRecoveryTrusted != rhs.isRecoveryTrusted {
+            return false
+        }
         if lhs.card != rhs.card {
             return false
         }
@@ -3150,6 +3203,7 @@ extension MobileContact: Equatable, Hashable {
         hasher.combine(id)
         hasher.combine(displayName)
         hasher.combine(isVerified)
+        hasher.combine(isRecoveryTrusted)
         hasher.combine(card)
         hasher.combine(addedAt)
     }
@@ -3165,6 +3219,7 @@ public struct FfiConverterTypeMobileContact: FfiConverterRustBuffer {
                 id: FfiConverterString.read(from: &buf),
                 displayName: FfiConverterString.read(from: &buf),
                 isVerified: FfiConverterBool.read(from: &buf),
+                isRecoveryTrusted: FfiConverterBool.read(from: &buf),
                 card: FfiConverterTypeMobileContactCard.read(from: &buf),
                 addedAt: FfiConverterUInt64.read(from: &buf)
             )
@@ -3174,6 +3229,7 @@ public struct FfiConverterTypeMobileContact: FfiConverterRustBuffer {
         FfiConverterString.write(value.id, into: &buf)
         FfiConverterString.write(value.displayName, into: &buf)
         FfiConverterBool.write(value.isVerified, into: &buf)
+        FfiConverterBool.write(value.isRecoveryTrusted, into: &buf)
         FfiConverterTypeMobileContactCard.write(value.card, into: &buf)
         FfiConverterUInt64.write(value.addedAt, into: &buf)
     }
@@ -10568,6 +10624,12 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_trigger_demo_update() != 56863 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_trust_contact_for_recovery() != 65532 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_trusted_contact_count() != 12819 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_try_trigger_aha_moment() != 32158 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -10575,6 +10637,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_unlink_device() != 30553 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_untrust_contact_for_recovery() != 31348 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_update_field() != 13386 {

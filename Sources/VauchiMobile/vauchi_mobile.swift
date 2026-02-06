@@ -527,6 +527,247 @@ private struct FfiConverterData: FfiConverterRustBuffer {
 }
 
 /**
+ * Mobile exchange session wrapping the core `ExchangeSession` state machine.
+ *
+ * Drives the exchange flow: generate/scan QR -> verify proximity -> key agreement -> complete.
+ */
+public protocol MobileExchangeSessionProtocol: AnyObject {
+    /**
+     * Complete the card exchange. Transitions AwaitingCardExchange -> Complete.
+     *
+     * The `their_card_name` is used to create a placeholder card for the contact.
+     * The real card will be received via relay sync.
+     */
+    func completeCardExchange(theirCardName: String) throws
+
+    /**
+     * Confirm manual proximity (for sessions without audio hardware).
+     *
+     * Sets the confirmation flag so that the next `verify_proximity()` call succeeds.
+     * Only valid for manual confirmation sessions.
+     */
+    func confirmProximity() throws
+
+    /**
+     * Generate a QR code (initiator only). Transitions Idle -> AwaitingScan.
+     */
+    func generateQr() throws -> String
+
+    /**
+     * Check if the session has timed out.
+     */
+    func isTimedOut() -> Bool
+
+    /**
+     * Perform key agreement. Transitions AwaitingKeyAgreement -> AwaitingCardExchange.
+     */
+    func performKeyAgreement() throws
+
+    /**
+     * Process a scanned QR code (responder only). Transitions Idle -> AwaitingProximity.
+     */
+    func processQr(qrData: String) throws
+
+    /**
+     * Get the current state of the exchange session.
+     */
+    func state() -> MobileExchangeState
+
+    /**
+     * Verify proximity. Transitions AwaitingProximity -> AwaitingKeyAgreement.
+     *
+     * For audio-based sessions, this calls the MobileProximityHandler callback.
+     * For manual sessions, call `confirm_proximity()` first, then this method.
+     */
+    func verifyProximity() throws
+}
+
+/**
+ * Mobile exchange session wrapping the core `ExchangeSession` state machine.
+ *
+ * Drives the exchange flow: generate/scan QR -> verify proximity -> key agreement -> complete.
+ */
+open class MobileExchangeSession:
+    MobileExchangeSessionProtocol
+{
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    // Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noPointer _: NoPointer) {
+        pointer = nil
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobileexchangesession(self.pointer, $0) }
+    }
+
+    // No primary constructor declared for this class.
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_vauchi_mobile_fn_free_mobileexchangesession(pointer, $0) }
+    }
+
+    /**
+     * Complete the card exchange. Transitions AwaitingCardExchange -> Complete.
+     *
+     * The `their_card_name` is used to create a placeholder card for the contact.
+     * The real card will be received via relay sync.
+     */
+    open func completeCardExchange(theirCardName: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobileexchangesession_complete_card_exchange(self.uniffiClonePointer(),
+                                                                                        FfiConverterString.lower(theirCardName), $0)
+        }
+    }
+
+    /**
+     * Confirm manual proximity (for sessions without audio hardware).
+     *
+     * Sets the confirmation flag so that the next `verify_proximity()` call succeeds.
+     * Only valid for manual confirmation sessions.
+     */
+    open func confirmProximity() throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobileexchangesession_confirm_proximity(self.uniffiClonePointer(), $0)
+        }
+    }
+
+    /**
+     * Generate a QR code (initiator only). Transitions Idle -> AwaitingScan.
+     */
+    open func generateQr() throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobileexchangesession_generate_qr(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Check if the session has timed out.
+     */
+    open func isTimedOut() -> Bool {
+        return try! FfiConverterBool.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_mobileexchangesession_is_timed_out(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Perform key agreement. Transitions AwaitingKeyAgreement -> AwaitingCardExchange.
+     */
+    open func performKeyAgreement() throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobileexchangesession_perform_key_agreement(self.uniffiClonePointer(), $0)
+        }
+    }
+
+    /**
+     * Process a scanned QR code (responder only). Transitions Idle -> AwaitingProximity.
+     */
+    open func processQr(qrData: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobileexchangesession_process_qr(self.uniffiClonePointer(),
+                                                                            FfiConverterString.lower(qrData), $0)
+        }
+    }
+
+    /**
+     * Get the current state of the exchange session.
+     */
+    open func state() -> MobileExchangeState {
+        return try! FfiConverterTypeMobileExchangeState.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_mobileexchangesession_state(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Verify proximity. Transitions AwaitingProximity -> AwaitingKeyAgreement.
+     *
+     * For audio-based sessions, this calls the MobileProximityHandler callback.
+     * For manual sessions, call `confirm_proximity()` first, then this method.
+     */
+    open func verifyProximity() throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobileexchangesession_verify_proximity(self.uniffiClonePointer(), $0)
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileExchangeSession: FfiConverter {
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = MobileExchangeSession
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileExchangeSession {
+        return MobileExchangeSession(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: MobileExchangeSession) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileExchangeSession {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if ptr == nil {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: MobileExchangeSession, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileExchangeSession_lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileExchangeSession {
+    return try FfiConverterTypeMobileExchangeSession.lift(pointer)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileExchangeSession_lower(_ value: MobileExchangeSession) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeMobileExchangeSession.lower(value)
+}
+
+/**
  * Mobile-friendly proximity verification API.
  */
 public protocol MobileProximityVerifierProtocol: AnyObject {
@@ -826,11 +1067,6 @@ public protocol VauchiMobileProtocol: AnyObject {
     func clearPendingUpdatesForContact(contactId: String) throws -> UInt32
 
     /**
-     * Complete exchange with scanned QR data.
-     */
-    func completeExchange(qrData: String) throws -> MobileExchangeResult
-
-    /**
      * Get contact count.
      */
     func contactCount() throws -> UInt32
@@ -839,6 +1075,29 @@ public protocol VauchiMobileProtocol: AnyObject {
      * Count failed deliveries.
      */
     func countFailedDeliveries() throws -> UInt32
+
+    /**
+     * Create an exchange session as initiator (displaying QR) with proximity verification.
+     *
+     * The `proximity` handler is called during proximity verification with the
+     * audio challenge from the QR code.
+     */
+    func createExchangeInitiator(proximity: MobileProximityHandler) throws -> MobileExchangeSession
+
+    /**
+     * Create an exchange session as initiator with manual confirmation (no audio hardware).
+     */
+    func createExchangeInitiatorManual() throws -> MobileExchangeSession
+
+    /**
+     * Create an exchange session as responder (scanning QR) with proximity verification.
+     */
+    func createExchangeResponder(proximity: MobileProximityHandler) throws -> MobileExchangeSession
+
+    /**
+     * Create an exchange session as responder with manual confirmation (no audio hardware).
+     */
+    func createExchangeResponderManual() throws -> MobileExchangeSession
 
     /**
      * Create a new identity.
@@ -914,17 +1173,23 @@ public protocol VauchiMobileProtocol: AnyObject {
     func exportStorageKey() -> Data
 
     /**
+     * Finalize a completed exchange session.
+     *
+     * Extracts the contact from the session's Complete state, saves it to storage,
+     * initializes the double ratchet, and sends the encrypted exchange message via relay.
+     *
+     * The session must be in the Complete state (i.e., the state machine has been
+     * driven through all steps).
+     */
+    func finalizeExchange(session: MobileExchangeSession) throws -> MobileExchangeResult
+
+    /**
      * Generate a device link QR code.
      *
      * Display this QR code on the existing device for a new device to scan.
      * The QR expires after 10 minutes.
      */
     func generateDeviceLinkQr() throws -> MobileDeviceLinkData
-
-    /**
-     * Generate exchange QR data.
-     */
-    func generateExchangeQr() throws -> MobileExchangeData
 
     /**
      * Get all delivery records.
@@ -1681,16 +1946,6 @@ open class VauchiMobile:
     }
 
     /**
-     * Complete exchange with scanned QR data.
-     */
-    open func completeExchange(qrData: String) throws -> MobileExchangeResult {
-        return try FfiConverterTypeMobileExchangeResult.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_complete_exchange(self.uniffiClonePointer(),
-                                                                          FfiConverterString.lower(qrData), $0)
-        })
-    }
-
-    /**
      * Get contact count.
      */
     open func contactCount() throws -> UInt32 {
@@ -1705,6 +1960,47 @@ open class VauchiMobile:
     open func countFailedDeliveries() throws -> UInt32 {
         return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_mobile_fn_method_vauchimobile_count_failed_deliveries(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Create an exchange session as initiator (displaying QR) with proximity verification.
+     *
+     * The `proximity` handler is called during proximity verification with the
+     * audio challenge from the QR code.
+     */
+    open func createExchangeInitiator(proximity: MobileProximityHandler) throws -> MobileExchangeSession {
+        return try FfiConverterTypeMobileExchangeSession.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_create_exchange_initiator(self.uniffiClonePointer(),
+                                                                                  FfiConverterCallbackInterfaceMobileProximityHandler.lower(proximity), $0)
+        })
+    }
+
+    /**
+     * Create an exchange session as initiator with manual confirmation (no audio hardware).
+     */
+    open func createExchangeInitiatorManual() throws -> MobileExchangeSession {
+        return try FfiConverterTypeMobileExchangeSession.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_create_exchange_initiator_manual(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Create an exchange session as responder (scanning QR) with proximity verification.
+     */
+    open func createExchangeResponder(proximity: MobileProximityHandler) throws -> MobileExchangeSession {
+        return try FfiConverterTypeMobileExchangeSession.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_create_exchange_responder(self.uniffiClonePointer(),
+                                                                                  FfiConverterCallbackInterfaceMobileProximityHandler.lower(proximity), $0)
+        })
+    }
+
+    /**
+     * Create an exchange session as responder with manual confirmation (no audio hardware).
+     */
+    open func createExchangeResponderManual() throws -> MobileExchangeSession {
+        return try FfiConverterTypeMobileExchangeSession.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_create_exchange_responder_manual(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -1837,6 +2133,22 @@ open class VauchiMobile:
     }
 
     /**
+     * Finalize a completed exchange session.
+     *
+     * Extracts the contact from the session's Complete state, saves it to storage,
+     * initializes the double ratchet, and sends the encrypted exchange message via relay.
+     *
+     * The session must be in the Complete state (i.e., the state machine has been
+     * driven through all steps).
+     */
+    open func finalizeExchange(session: MobileExchangeSession) throws -> MobileExchangeResult {
+        return try FfiConverterTypeMobileExchangeResult.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_finalize_exchange(self.uniffiClonePointer(),
+                                                                          FfiConverterTypeMobileExchangeSession.lower(session), $0)
+        })
+    }
+
+    /**
      * Generate a device link QR code.
      *
      * Display this QR code on the existing device for a new device to scan.
@@ -1845,15 +2157,6 @@ open class VauchiMobile:
     open func generateDeviceLinkQr() throws -> MobileDeviceLinkData {
         return try FfiConverterTypeMobileDeviceLinkData.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_mobile_fn_method_vauchimobile_generate_device_link_qr(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Generate exchange QR data.
-     */
-    open func generateExchangeQr() throws -> MobileExchangeData {
-        return try FfiConverterTypeMobileExchangeData.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_generate_exchange_qr(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -4672,78 +4975,6 @@ public func FfiConverterTypeMobileDeviceLinkResult_lift(_ buf: RustBuffer) throw
 #endif
 public func FfiConverterTypeMobileDeviceLinkResult_lower(_ value: MobileDeviceLinkResult) -> RustBuffer {
     return FfiConverterTypeMobileDeviceLinkResult.lower(value)
-}
-
-/**
- * Exchange QR data.
- */
-public struct MobileExchangeData {
-    public var qrData: String
-    public var publicId: String
-    public var expiresAt: UInt64
-
-    /// Default memberwise initializers are never public by default, so we
-    /// declare one manually.
-    public init(qrData: String, publicId: String, expiresAt: UInt64) {
-        self.qrData = qrData
-        self.publicId = publicId
-        self.expiresAt = expiresAt
-    }
-}
-
-extension MobileExchangeData: Equatable, Hashable {
-    public static func == (lhs: MobileExchangeData, rhs: MobileExchangeData) -> Bool {
-        if lhs.qrData != rhs.qrData {
-            return false
-        }
-        if lhs.publicId != rhs.publicId {
-            return false
-        }
-        if lhs.expiresAt != rhs.expiresAt {
-            return false
-        }
-        return true
-    }
-
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(qrData)
-        hasher.combine(publicId)
-        hasher.combine(expiresAt)
-    }
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public struct FfiConverterTypeMobileExchangeData: FfiConverterRustBuffer {
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileExchangeData {
-        return
-            try MobileExchangeData(
-                qrData: FfiConverterString.read(from: &buf),
-                publicId: FfiConverterString.read(from: &buf),
-                expiresAt: FfiConverterUInt64.read(from: &buf)
-            )
-    }
-
-    public static func write(_ value: MobileExchangeData, into buf: inout [UInt8]) {
-        FfiConverterString.write(value.qrData, into: &buf)
-        FfiConverterString.write(value.publicId, into: &buf)
-        FfiConverterUInt64.write(value.expiresAt, into: &buf)
-    }
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMobileExchangeData_lift(_ buf: RustBuffer) throws -> MobileExchangeData {
-    return try FfiConverterTypeMobileExchangeData.lift(buf)
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMobileExchangeData_lower(_ value: MobileExchangeData) -> RustBuffer {
-    return FfiConverterTypeMobileExchangeData.lower(value)
 }
 
 /**
@@ -8135,6 +8366,96 @@ extension MobileError: Foundation.LocalizedError {
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /* 
+ * Mobile-friendly exchange state (no raw bytes or core types).
+ */
+
+public enum MobileExchangeState {
+    case idle
+    case awaitingScan(qrData: String)
+    case awaitingProximity(theirPublicId: String)
+    case awaitingKeyAgreement
+    case awaitingCardExchange
+    case complete(contactId: String, contactName: String)
+    case failed(error: String)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileExchangeState: FfiConverterRustBuffer {
+    typealias SwiftType = MobileExchangeState
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileExchangeState {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return .idle
+
+        case 2: return try .awaitingScan(qrData: FfiConverterString.read(from: &buf))
+
+        case 3: return try .awaitingProximity(theirPublicId: FfiConverterString.read(from: &buf))
+
+        case 4: return .awaitingKeyAgreement
+
+        case 5: return .awaitingCardExchange
+
+        case 6: return try .complete(contactId: FfiConverterString.read(from: &buf), contactName: FfiConverterString.read(from: &buf))
+
+        case 7: return try .failed(error: FfiConverterString.read(from: &buf))
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileExchangeState, into buf: inout [UInt8]) {
+        switch value {
+        case .idle:
+            writeInt(&buf, Int32(1))
+
+        case let .awaitingScan(qrData):
+            writeInt(&buf, Int32(2))
+            FfiConverterString.write(qrData, into: &buf)
+
+        case let .awaitingProximity(theirPublicId):
+            writeInt(&buf, Int32(3))
+            FfiConverterString.write(theirPublicId, into: &buf)
+
+        case .awaitingKeyAgreement:
+            writeInt(&buf, Int32(4))
+
+        case .awaitingCardExchange:
+            writeInt(&buf, Int32(5))
+
+        case let .complete(contactId, contactName):
+            writeInt(&buf, Int32(6))
+            FfiConverterString.write(contactId, into: &buf)
+            FfiConverterString.write(contactName, into: &buf)
+
+        case let .failed(error):
+            writeInt(&buf, Int32(7))
+            FfiConverterString.write(error, into: &buf)
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileExchangeState_lift(_ buf: RustBuffer) throws -> MobileExchangeState {
+    return try FfiConverterTypeMobileExchangeState.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileExchangeState_lower(_ value: MobileExchangeState) -> RustBuffer {
+    return FfiConverterTypeMobileExchangeState.lower(value)
+}
+
+extension MobileExchangeState: Equatable, Hashable {}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/* 
  * Mobile-friendly field type enum.
  */
 
@@ -8925,6 +9246,112 @@ private enum FfiConverterCallbackInterfaceMobilePlatformKeychain {
 #endif
 extension FfiConverterCallbackInterfaceMobilePlatformKeychain: FfiConverter {
     typealias SwiftType = MobilePlatformKeychain
+    typealias FfiType = UInt64
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public static func lift(_ handle: UInt64) throws -> SwiftType {
+        try handleMap.get(handle: handle)
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public static func lower(_ v: SwiftType) -> UInt64 {
+        return handleMap.insert(obj: v)
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public static func write(_ v: SwiftType, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(v))
+    }
+}
+
+/**
+ * Callback interface for platform-specific proximity verification.
+ *
+ * Mobile apps (iOS/Android) implement this to provide proximity verification
+ * using ultrasonic audio or other hardware-based mechanisms.
+ */
+public protocol MobileProximityHandler: AnyObject {
+    /**
+     * Perform proximity verification with the given challenge.
+     *
+     * challenge: 16 bytes from the QR code's audio_challenge field.
+     * timeout_ms: maximum time to wait in milliseconds.
+     *
+     * Returns empty string on success, error message on failure.
+     */
+    func verifyProximity(challenge: Data, timeoutMs: UInt64) -> String
+}
+
+/// Put the implementation in a struct so we don't pollute the top-level namespace
+private enum UniffiCallbackInterfaceMobileProximityHandler {
+    /// Create the VTable using a series of closures.
+    /// Swift automatically converts these into C callback functions.
+    static var vtable: UniffiVTableCallbackInterfaceMobileProximityHandler = .init(
+        verifyProximity: { (
+            uniffiHandle: UInt64,
+            challenge: RustBuffer,
+            timeoutMs: UInt64,
+            uniffiOutReturn: UnsafeMutablePointer<RustBuffer>,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> String in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceMobileProximityHandler.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return try uniffiObj.verifyProximity(
+                    challenge: FfiConverterData.lift(challenge),
+                    timeoutMs: FfiConverterUInt64.lift(timeoutMs)
+                )
+            }
+
+            let writeReturn = { uniffiOutReturn.pointee = FfiConverterString.lower($0) }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        uniffiFree: { (uniffiHandle: UInt64) in
+            let result = try? FfiConverterCallbackInterfaceMobileProximityHandler.handleMap.remove(handle: uniffiHandle)
+            if result == nil {
+                print("Uniffi callback interface MobileProximityHandler: handle missing in uniffiFree")
+            }
+        }
+    )
+}
+
+private func uniffiCallbackInitMobileProximityHandler() {
+    uniffi_vauchi_mobile_fn_init_callback_vtable_mobileproximityhandler(&UniffiCallbackInterfaceMobileProximityHandler.vtable)
+}
+
+// FfiConverter protocol for callback interfaces
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+private enum FfiConverterCallbackInterfaceMobileProximityHandler {
+    fileprivate static var handleMap = UniffiHandleMap<MobileProximityHandler>()
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+extension FfiConverterCallbackInterfaceMobileProximityHandler: FfiConverter {
+    typealias SwiftType = MobileProximityHandler
     typealias FfiType = UInt64
 
     #if swift(>=5.8)
@@ -10311,6 +10738,30 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_func_search_faqs_localized() != 57224 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_mobile_checksum_method_mobileexchangesession_complete_card_exchange() != 64003 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobileexchangesession_confirm_proximity() != 5518 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobileexchangesession_generate_qr() != 6354 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobileexchangesession_is_timed_out() != 25990 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobileexchangesession_perform_key_agreement() != 4833 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobileexchangesession_process_qr() != 18614 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobileexchangesession_state() != 19066 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobileexchangesession_verify_proximity() != 43836 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_mobile_checksum_method_mobileproximityverifier_emit_challenge() != 35393 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -10365,13 +10816,22 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_clear_pending_updates_for_contact() != 25049 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_complete_exchange() != 59225 {
-        return InitializationResult.apiChecksumMismatch
-    }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_contact_count() != 30960 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_count_failed_deliveries() != 59375 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_create_exchange_initiator() != 40728 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_create_exchange_initiator_manual() != 56747 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_create_exchange_responder() != 45401 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_create_exchange_responder_manual() != 7174 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_create_identity() != 63328 {
@@ -10410,10 +10870,10 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_export_storage_key() != 42895 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_generate_device_link_qr() != 28478 {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_finalize_exchange() != 62679 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_generate_exchange_qr() != 23797 {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_generate_device_link_qr() != 28478 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_all_delivery_records() != 60693 {
@@ -10704,6 +11164,9 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_method_mobileplatformkeychain_delete_key() != 34382 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_mobile_checksum_method_mobileproximityhandler_verify_proximity() != 10196 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_mobile_checksum_method_platformaudiohandler_check_capability() != 34713 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -10721,6 +11184,7 @@ private var initializationResult: InitializationResult = {
     }
 
     uniffiCallbackInitMobilePlatformKeychain()
+    uniffiCallbackInitMobileProximityHandler()
     uniffiCallbackInitPlatformAudioHandler()
     return InitializationResult.ok
 }()

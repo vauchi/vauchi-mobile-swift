@@ -31,8 +31,7 @@ workflow:
 validate:package:
   stage: validate
   image: swift:5.9
-  before_script:
-    - rm -rf ~/Library/Caches/org.swift.swiftpm/artifacts/ 2>/dev/null || true
+  tags: [docker]
   script:
     - swift package dump-package
   rules:

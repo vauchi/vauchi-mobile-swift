@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Mattia Egloff <mattia.egloff@pm.me>
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 // VauchiMobile - Swift bindings for Vauchi
 //
 // This file re-exports the UniFFI-generated bindings from the FFI layer.

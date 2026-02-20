@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Mattia Egloff <mattia.egloff@pm.me>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 # GitLab CI for vauchi-mobile-swift
 #
 # Swift Package distribution for VauchiMobile
@@ -12,9 +16,6 @@ include:
     ref: main
     file: '/ci-templates/reuse.yml'
 
-# Generated repo — REUSE headers may be incomplete
-reuse-lint:
-  allow_failure: true
 
 stages:
   - lint
@@ -131,7 +132,6 @@ notify:ios-app:
     - update:version
   rules:
     - if: ($CI_PIPELINE_SOURCE == "trigger" || $CI_PIPELINE_SOURCE == "pipeline" || $CI_PIPELINE_SOURCE == "api") && $UPSTREAM_VERSION
-  allow_failure: true
   before_script:
     - apk add --no-cache curl
   script:

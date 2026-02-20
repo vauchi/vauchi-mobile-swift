@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: 2026 Mattia Egloff <mattia.egloff@pm.me> -->
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+
 # VauchiMobile Swift Package
 
 Swift Package Manager distribution for VauchiMobile iOS/macOS bindings.
@@ -54,7 +57,7 @@ The XCFramework includes:
 
 ## License
 
-MIT License - see [LICENSE](LICENSE)
+GPL-3.0-or-later - see [LICENSE](LICENSE)
 
 ## Links
 

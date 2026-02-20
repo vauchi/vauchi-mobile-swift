@@ -8,11 +8,11 @@ import Foundation
 // might be in a separate module, or it might be compiled inline into
 // this module. This is a bit of light hackery to work with both.
 #if canImport(vauchi_mobileFFI)
-import vauchi_mobileFFI
+    import vauchi_mobileFFI
 #endif
 
-fileprivate extension RustBuffer {
-    // Allocate a new buffer, copying the contents of a `UInt8` array.
+private extension RustBuffer {
+    /// Allocate a new buffer, copying the contents of a `UInt8` array.
     init(bytes: [UInt8]) {
         let rbuf = bytes.withUnsafeBufferPointer { ptr in
             RustBuffer.from(ptr)
@@ -21,21 +21,21 @@ fileprivate extension RustBuffer {
     }
 
     static func empty() -> RustBuffer {
-        RustBuffer(capacity: 0, len:0, data: nil)
+        RustBuffer(capacity: 0, len: 0, data: nil)
     }
 
     static func from(_ ptr: UnsafeBufferPointer<UInt8>) -> RustBuffer {
         try! rustCall { ffi_vauchi_mobile_rustbuffer_from_bytes(ForeignBytes(bufferPointer: ptr), $0) }
     }
 
-    // Frees the buffer in place.
-    // The buffer must not be used after this is called.
+    /// Frees the buffer in place.
+    /// The buffer must not be used after this is called.
     func deallocate() {
         try! rustCall { ffi_vauchi_mobile_rustbuffer_free(self, $0) }
     }
 }
 
-fileprivate extension ForeignBytes {
+private extension ForeignBytes {
     init(bufferPointer: UnsafeBufferPointer<UInt8>) {
         self.init(len: Int32(bufferPointer.count), data: bufferPointer.baseAddress)
     }
@@ -48,7 +48,7 @@ fileprivate extension ForeignBytes {
 // Helper classes/extensions that don't change.
 // Someday, this will be in a library of its own.
 
-fileprivate extension Data {
+private extension Data {
     init(rustBuffer: RustBuffer) {
         self.init(
             bytesNoCopy: rustBuffer.data!,
@@ -72,15 +72,15 @@ fileprivate extension Data {
 //
 // Instead, the read() method and these helper functions input a tuple of data
 
-fileprivate func createReader(data: Data) -> (data: Data, offset: Data.Index) {
+private func createReader(data: Data) -> (data: Data, offset: Data.Index) {
     (data: data, offset: 0)
 }
 
-// Reads an integer at the current offset, in big-endian order, and advances
-// the offset on success. Throws if reading the integer would move the
-// offset past the end of the buffer.
-fileprivate func readInt<T: FixedWidthInteger>(_ reader: inout (data: Data, offset: Data.Index)) throws -> T {
-    let range = reader.offset..<reader.offset + MemoryLayout<T>.size
+/// Reads an integer at the current offset, in big-endian order, and advances
+/// the offset on success. Throws if reading the integer would move the
+/// offset past the end of the buffer.
+private func readInt<T: FixedWidthInteger>(_ reader: inout (data: Data, offset: Data.Index)) throws -> T {
+    let range = reader.offset ..< reader.offset + MemoryLayout<T>.size
     guard reader.data.count >= range.upperBound else {
         throw UniffiInternalError.bufferOverflow
     }
@@ -90,38 +90,38 @@ fileprivate func readInt<T: FixedWidthInteger>(_ reader: inout (data: Data, offs
         return value as! T
     }
     var value: T = 0
-    let _ = withUnsafeMutableBytes(of: &value, { reader.data.copyBytes(to: $0, from: range)})
+    let _ = withUnsafeMutableBytes(of: &value) { reader.data.copyBytes(to: $0, from: range) }
     reader.offset = range.upperBound
     return value.bigEndian
 }
 
-// Reads an arbitrary number of bytes, to be used to read
-// raw bytes, this is useful when lifting strings
-fileprivate func readBytes(_ reader: inout (data: Data, offset: Data.Index), count: Int) throws -> Array<UInt8> {
-    let range = reader.offset..<(reader.offset+count)
+/// Reads an arbitrary number of bytes, to be used to read
+/// raw bytes, this is useful when lifting strings
+private func readBytes(_ reader: inout (data: Data, offset: Data.Index), count: Int) throws -> [UInt8] {
+    let range = reader.offset ..< (reader.offset + count)
     guard reader.data.count >= range.upperBound else {
         throw UniffiInternalError.bufferOverflow
     }
     var value = [UInt8](repeating: 0, count: count)
-    value.withUnsafeMutableBufferPointer({ buffer in
+    value.withUnsafeMutableBufferPointer { buffer in
         reader.data.copyBytes(to: buffer, from: range)
-    })
+    }
     reader.offset = range.upperBound
     return value
 }
 
-// Reads a float at the current offset.
-fileprivate func readFloat(_ reader: inout (data: Data, offset: Data.Index)) throws -> Float {
-    return Float(bitPattern: try readInt(&reader))
+/// Reads a float at the current offset.
+private func readFloat(_ reader: inout (data: Data, offset: Data.Index)) throws -> Float {
+    return try Float(bitPattern: readInt(&reader))
 }
 
-// Reads a float at the current offset.
-fileprivate func readDouble(_ reader: inout (data: Data, offset: Data.Index)) throws -> Double {
-    return Double(bitPattern: try readInt(&reader))
+/// Reads a float at the current offset.
+private func readDouble(_ reader: inout (data: Data, offset: Data.Index)) throws -> Double {
+    return try Double(bitPattern: readInt(&reader))
 }
 
-// Indicates if the offset has reached the end of the buffer.
-fileprivate func hasRemaining(_ reader: (data: Data, offset: Data.Index)) -> Bool {
+/// Indicates if the offset has reached the end of the buffer.
+private func hasRemaining(_ reader: (data: Data, offset: Data.Index)) -> Bool {
     return reader.offset < reader.data.count
 }
 
@@ -129,34 +129,34 @@ fileprivate func hasRemaining(_ reader: (data: Data, offset: Data.Index)) -> Boo
 // struct, but we use standalone functions instead in order to make external
 // types work.  See the above discussion on Readers for details.
 
-fileprivate func createWriter() -> [UInt8] {
+private func createWriter() -> [UInt8] {
     return []
 }
 
-fileprivate func writeBytes<S>(_ writer: inout [UInt8], _ byteArr: S) where S: Sequence, S.Element == UInt8 {
+private func writeBytes<S: Sequence>(_ writer: inout [UInt8], _ byteArr: S) where S.Element == UInt8 {
     writer.append(contentsOf: byteArr)
 }
 
-// Writes an integer in big-endian order.
-//
-// Warning: make sure what you are trying to write
-// is in the correct type!
-fileprivate func writeInt<T: FixedWidthInteger>(_ writer: inout [UInt8], _ value: T) {
+/// Writes an integer in big-endian order.
+///
+/// Warning: make sure what you are trying to write
+/// is in the correct type!
+private func writeInt<T: FixedWidthInteger>(_ writer: inout [UInt8], _ value: T) {
     var value = value.bigEndian
     withUnsafeBytes(of: &value) { writer.append(contentsOf: $0) }
 }
 
-fileprivate func writeFloat(_ writer: inout [UInt8], _ value: Float) {
+private func writeFloat(_ writer: inout [UInt8], _ value: Float) {
     writeInt(&writer, value.bitPattern)
 }
 
-fileprivate func writeDouble(_ writer: inout [UInt8], _ value: Double) {
+private func writeDouble(_ writer: inout [UInt8], _ value: Double) {
     writeInt(&writer, value.bitPattern)
 }
 
-// Protocol for types that transfer other types across the FFI. This is
-// analogous to the Rust trait of the same name.
-fileprivate protocol FfiConverter {
+/// Protocol for types that transfer other types across the FFI. This is
+/// analogous to the Rust trait of the same name.
+private protocol FfiConverter {
     associatedtype FfiType
     associatedtype SwiftType
 
@@ -166,33 +166,33 @@ fileprivate protocol FfiConverter {
     static func write(_ value: SwiftType, into buf: inout [UInt8])
 }
 
-// Types conforming to `Primitive` pass themselves directly over the FFI.
-fileprivate protocol FfiConverterPrimitive: FfiConverter where FfiType == SwiftType { }
+/// Types conforming to `Primitive` pass themselves directly over the FFI.
+private protocol FfiConverterPrimitive: FfiConverter where FfiType == SwiftType {}
 
 extension FfiConverterPrimitive {
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public static func lift(_ value: FfiType) throws -> SwiftType {
         return value
     }
 
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public static func lower(_ value: SwiftType) -> FfiType {
         return value
     }
 }
 
-// Types conforming to `FfiConverterRustBuffer` lift and lower into a `RustBuffer`.
-// Used for complex types where it's hard to write a custom lift/lower.
-fileprivate protocol FfiConverterRustBuffer: FfiConverter where FfiType == RustBuffer {}
+/// Types conforming to `FfiConverterRustBuffer` lift and lower into a `RustBuffer`.
+/// Used for complex types where it's hard to write a custom lift/lower.
+private protocol FfiConverterRustBuffer: FfiConverter where FfiType == RustBuffer {}
 
 extension FfiConverterRustBuffer {
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public static func lift(_ buf: RustBuffer) throws -> SwiftType {
         var reader = createReader(data: Data(rustBuffer: buf))
         let value = try read(from: &reader)
@@ -203,18 +203,19 @@ extension FfiConverterRustBuffer {
         return value
     }
 
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public static func lower(_ value: SwiftType) -> RustBuffer {
-          var writer = createWriter()
-          write(value, into: &writer)
-          return RustBuffer(bytes: writer)
+        var writer = createWriter()
+        write(value, into: &writer)
+        return RustBuffer(bytes: writer)
     }
 }
-// An error type for FFI errors. These errors occur at the UniFFI level, not
-// the library level.
-fileprivate enum UniffiInternalError: LocalizedError {
+
+/// An error type for FFI errors. These errors occur at the UniFFI level, not
+/// the library level.
+private enum UniffiInternalError: LocalizedError {
     case bufferOverflow
     case incompleteData
     case unexpectedOptionalTag
@@ -225,7 +226,7 @@ fileprivate enum UniffiInternalError: LocalizedError {
     case unexpectedStaleHandle
     case rustPanic(_ message: String)
 
-    public var errorDescription: String? {
+    var errorDescription: String? {
         switch self {
         case .bufferOverflow: return "Reading the requested value would read past the end of the buffer"
         case .incompleteData: return "The buffer still has data after lifting its containing value"
@@ -240,24 +241,24 @@ fileprivate enum UniffiInternalError: LocalizedError {
     }
 }
 
-fileprivate extension NSLock {
+private extension NSLock {
     func withLock<T>(f: () throws -> T) rethrows -> T {
-        self.lock()
+        lock()
         defer { self.unlock() }
         return try f()
     }
 }
 
-fileprivate let CALL_SUCCESS: Int8 = 0
-fileprivate let CALL_ERROR: Int8 = 1
-fileprivate let CALL_UNEXPECTED_ERROR: Int8 = 2
-fileprivate let CALL_CANCELLED: Int8 = 3
+private let CALL_SUCCESS: Int8 = 0
+private let CALL_ERROR: Int8 = 1
+private let CALL_UNEXPECTED_ERROR: Int8 = 2
+private let CALL_CANCELLED: Int8 = 3
 
-fileprivate extension RustCallStatus {
+private extension RustCallStatus {
     init() {
         self.init(
             code: CALL_SUCCESS,
-            errorBuf: RustBuffer.init(
+            errorBuf: RustBuffer(
                 capacity: 0,
                 len: 0,
                 data: nil
@@ -273,7 +274,8 @@ private func rustCall<T>(_ callback: (UnsafeMutablePointer<RustCallStatus>) -> T
 
 private func rustCallWithError<T, E: Swift.Error>(
     _ errorHandler: @escaping (RustBuffer) throws -> E,
-    _ callback: (UnsafeMutablePointer<RustCallStatus>) -> T) throws -> T {
+    _ callback: (UnsafeMutablePointer<RustCallStatus>) -> T
+) throws -> T {
     try makeRustCall(callback, errorHandler: errorHandler)
 }
 
@@ -282,7 +284,7 @@ private func makeRustCall<T, E: Swift.Error>(
     errorHandler: ((RustBuffer) throws -> E)?
 ) throws -> T {
     uniffiEnsureInitialized()
-    var callStatus = RustCallStatus.init()
+    var callStatus = RustCallStatus()
     let returnedVal = callback(&callStatus)
     try uniffiCheckCallStatus(callStatus: callStatus, errorHandler: errorHandler)
     return returnedVal
@@ -293,44 +295,44 @@ private func uniffiCheckCallStatus<E: Swift.Error>(
     errorHandler: ((RustBuffer) throws -> E)?
 ) throws {
     switch callStatus.code {
-        case CALL_SUCCESS:
-            return
+    case CALL_SUCCESS:
+        return
 
-        case CALL_ERROR:
-            if let errorHandler = errorHandler {
-                throw try errorHandler(callStatus.errorBuf)
-            } else {
-                callStatus.errorBuf.deallocate()
-                throw UniffiInternalError.unexpectedRustCallError
-            }
+    case CALL_ERROR:
+        if let errorHandler = errorHandler {
+            throw try errorHandler(callStatus.errorBuf)
+        } else {
+            callStatus.errorBuf.deallocate()
+            throw UniffiInternalError.unexpectedRustCallError
+        }
 
-        case CALL_UNEXPECTED_ERROR:
-            // When the rust code sees a panic, it tries to construct a RustBuffer
-            // with the message.  But if that code panics, then it just sends back
-            // an empty buffer.
-            if callStatus.errorBuf.len > 0 {
-                throw UniffiInternalError.rustPanic(try FfiConverterString.lift(callStatus.errorBuf))
-            } else {
-                callStatus.errorBuf.deallocate()
-                throw UniffiInternalError.rustPanic("Rust panic")
-            }
+    case CALL_UNEXPECTED_ERROR:
+        // When the rust code sees a panic, it tries to construct a RustBuffer
+        // with the message.  But if that code panics, then it just sends back
+        // an empty buffer.
+        if callStatus.errorBuf.len > 0 {
+            throw try UniffiInternalError.rustPanic(FfiConverterString.lift(callStatus.errorBuf))
+        } else {
+            callStatus.errorBuf.deallocate()
+            throw UniffiInternalError.rustPanic("Rust panic")
+        }
 
-        case CALL_CANCELLED:
-            fatalError("Cancellation not supported yet")
+    case CALL_CANCELLED:
+        fatalError("Cancellation not supported yet")
 
-        default:
-            throw UniffiInternalError.unexpectedRustCallStatusCode
+    default:
+        throw UniffiInternalError.unexpectedRustCallStatusCode
     }
 }
 
 private func uniffiTraitInterfaceCall<T>(
     callStatus: UnsafeMutablePointer<RustCallStatus>,
     makeCall: () throws -> T,
-    writeReturn: (T) -> ()
+    writeReturn: (T) -> Void
 ) {
     do {
         try writeReturn(makeCall())
-    } catch let error {
+    } catch {
         callStatus.pointee.code = CALL_UNEXPECTED_ERROR
         callStatus.pointee.errorBuf = FfiConverterString.lower(String(describing: error))
     }
@@ -339,7 +341,7 @@ private func uniffiTraitInterfaceCall<T>(
 private func uniffiTraitInterfaceCallWithError<T, E>(
     callStatus: UnsafeMutablePointer<RustCallStatus>,
     makeCall: () throws -> T,
-    writeReturn: (T) -> (),
+    writeReturn: (T) -> Void,
     lowerError: (E) -> RustBuffer
 ) {
     do {
@@ -352,7 +354,8 @@ private func uniffiTraitInterfaceCallWithError<T, E>(
         callStatus.pointee.errorBuf = FfiConverterString.lower(String(describing: error))
     }
 }
-fileprivate class UniffiHandleMap<T> {
+
+private class UniffiHandleMap<T> {
     private var map: [UInt64: T] = [:]
     private let lock = NSLock()
     private var currentHandle: UInt64 = 1
@@ -366,7 +369,7 @@ fileprivate class UniffiHandleMap<T> {
         }
     }
 
-     func get(handle: UInt64) throws -> T {
+    func get(handle: UInt64) throws -> T {
         try lock.withLock {
             guard let obj = map[handle] else {
                 throw UniffiInternalError.unexpectedStaleHandle
@@ -386,96 +389,92 @@ fileprivate class UniffiHandleMap<T> {
     }
 
     var count: Int {
-        get {
-            map.count
-        }
+        map.count
     }
 }
-
 
 // Public interface members begin here.
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterUInt32: FfiConverterPrimitive {
+private struct FfiConverterUInt32: FfiConverterPrimitive {
     typealias FfiType = UInt32
     typealias SwiftType = UInt32
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UInt32 {
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UInt32 {
         return try lift(readInt(&buf))
     }
 
-    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+    static func write(_ value: SwiftType, into buf: inout [UInt8]) {
         writeInt(&buf, lower(value))
     }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterUInt64: FfiConverterPrimitive {
+private struct FfiConverterUInt64: FfiConverterPrimitive {
     typealias FfiType = UInt64
     typealias SwiftType = UInt64
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UInt64 {
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UInt64 {
         return try lift(readInt(&buf))
     }
 
-    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+    static func write(_ value: SwiftType, into buf: inout [UInt8]) {
         writeInt(&buf, lower(value))
     }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterFloat: FfiConverterPrimitive {
+private struct FfiConverterFloat: FfiConverterPrimitive {
     typealias FfiType = Float
     typealias SwiftType = Float
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Float {
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Float {
         return try lift(readFloat(&buf))
     }
 
-    public static func write(_ value: Float, into buf: inout [UInt8]) {
+    static func write(_ value: Float, into buf: inout [UInt8]) {
         writeFloat(&buf, lower(value))
     }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterBool : FfiConverter {
+private struct FfiConverterBool: FfiConverter {
     typealias FfiType = Int8
     typealias SwiftType = Bool
 
-    public static func lift(_ value: Int8) throws -> Bool {
+    static func lift(_ value: Int8) throws -> Bool {
         return value != 0
     }
 
-    public static func lower(_ value: Bool) -> Int8 {
+    static func lower(_ value: Bool) -> Int8 {
         return value ? 1 : 0
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Bool {
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Bool {
         return try lift(readInt(&buf))
     }
 
-    public static func write(_ value: Bool, into buf: inout [UInt8]) {
+    static func write(_ value: Bool, into buf: inout [UInt8]) {
         writeInt(&buf, lower(value))
     }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterString: FfiConverter {
+private struct FfiConverterString: FfiConverter {
     typealias SwiftType = String
     typealias FfiType = RustBuffer
 
-    public static func lift(_ value: RustBuffer) throws -> String {
+    static func lift(_ value: RustBuffer) throws -> String {
         defer {
             value.deallocate()
         }
@@ -486,7 +485,7 @@ fileprivate struct FfiConverterString: FfiConverter {
         return String(bytes: bytes, encoding: String.Encoding.utf8)!
     }
 
-    public static func lower(_ value: String) -> RustBuffer {
+    static func lower(_ value: String) -> RustBuffer {
         return value.utf8CString.withUnsafeBufferPointer { ptr in
             // The swift string gives us int8_t, we want uint8_t.
             ptr.withMemoryRebound(to: UInt8.self) { ptr in
@@ -497,12 +496,12 @@ fileprivate struct FfiConverterString: FfiConverter {
         }
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> String {
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> String {
         let len: Int32 = try readInt(&buf)
-        return String(bytes: try readBytes(&buf, count: Int(len)), encoding: String.Encoding.utf8)!
+        return try String(bytes: readBytes(&buf, count: Int(len)), encoding: String.Encoding.utf8)!
     }
 
-    public static func write(_ value: String, into buf: inout [UInt8]) {
+    static func write(_ value: String, into buf: inout [UInt8]) {
         let len = Int32(value.utf8.count)
         writeInt(&buf, len)
         writeBytes(&buf, value.utf8)
@@ -510,86 +509,77 @@ fileprivate struct FfiConverterString: FfiConverter {
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterData: FfiConverterRustBuffer {
+private struct FfiConverterData: FfiConverterRustBuffer {
     typealias SwiftType = Data
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Data {
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Data {
         let len: Int32 = try readInt(&buf)
-        return Data(try readBytes(&buf, count: Int(len)))
+        return try Data(readBytes(&buf, count: Int(len)))
     }
 
-    public static func write(_ value: Data, into buf: inout [UInt8]) {
+    static func write(_ value: Data, into buf: inout [UInt8]) {
         let len = Int32(value.count)
         writeInt(&buf, len)
         writeBytes(&buf, value)
     }
 }
 
-
-
-
 /**
- * Mobile exchange session wrapping the core `ExchangeSession` state machine.
+ * UniFFI-exposed wrapper around DeviceLinkInitiator.
  *
- * Drives the exchange flow: generate/scan QR -> verify proximity -> key agreement -> complete.
+ * Uses Mutex for interior mutability (required by UniFFI's Arc<T>).
+ * Holds both the initiator and a pending request between prepare_confirmation
+ * and confirm_link calls.
  */
-public protocol MobileExchangeSessionProtocol : AnyObject {
-    
+public protocol MobileDeviceLinkInitiatorProtocol: AnyObject {
     /**
-     * Complete the card exchange. Transitions AwaitingCardExchange -> Complete.
+     * After user confirms, creates the encrypted response.
      *
-     * The `their_card_name` is used to create a placeholder card for the contact.
-     * The real card will be received via relay sync.
+     * Must call prepare_confirmation() and set_proximity_verified() first.
      */
-    func completeCardExchange(theirCardName: String) throws 
-    
+    func confirmLink() throws -> MobileDeviceLinkResult
+
     /**
-     * Generate and display a QR code. Transitions Idle -> DisplayingQr.
+     * Decrypts an incoming link request and returns confirmation details.
+     *
+     * The caller displays the confirmation code and device name to the user.
      */
-    func generateQr() throws  -> String
-    
+    func prepareConfirmation(encryptedRequest: Data) throws -> MobileDeviceLinkConfirmation
+
     /**
-     * Check if the session has timed out.
+     * Returns the 16-byte proximity challenge.
      */
-    func isTimedOut()  -> Bool
-    
+    func proximityChallenge() -> Data
+
     /**
-     * Perform key agreement. Transitions AwaitingKeyAgreement -> AwaitingCardExchange.
+     * Returns the QR data string for display.
      */
-    func performKeyAgreement() throws 
-    
+    func qrData() -> String
+
     /**
-     * Process a scanned QR code. Transitions DisplayingQr -> PeerScanned.
+     * Marks proximity as verified.
      */
-    func processQr(qrData: String) throws 
-    
-    /**
-     * Get the current state of the exchange session.
-     */
-    func state()  -> MobileExchangeState
-    
-    /**
-     * Signal that the other party scanned our QR. Transitions PeerScanned -> AwaitingKeyAgreement.
-     */
-    func theyScannedOurQr() throws 
-    
+    func setProximityVerified()
 }
 
 /**
- * Mobile exchange session wrapping the core `ExchangeSession` state machine.
+ * UniFFI-exposed wrapper around DeviceLinkInitiator.
  *
- * Drives the exchange flow: generate/scan QR -> verify proximity -> key agreement -> complete.
+ * Uses Mutex for interior mutability (required by UniFFI's Arc<T>).
+ * Holds both the initiator and a pending request between prepare_confirmation
+ * and confirm_link calls.
  */
-open class MobileExchangeSession:
-    MobileExchangeSessionProtocol {
+open class MobileDeviceLinkInitiator:
+    MobileDeviceLinkInitiatorProtocol
+{
     fileprivate let pointer: UnsafeMutableRawPointer!
 
-    /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    // Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public struct NoPointer {
         public init() {}
     }
@@ -597,7 +587,7 @@ open class MobileExchangeSession:
     // TODO: We'd like this to be `private` but for Swifty reasons,
     // we can't implement `FfiConverter` without making this `required` and we can't
     // make it `required` without making it `public`.
-    required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
         self.pointer = pointer
     }
 
@@ -606,19 +596,390 @@ open class MobileExchangeSession:
     //
     // - Warning:
     //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-    public init(noPointer: NoPointer) {
-        self.pointer = nil
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noPointer _: NoPointer) {
+        pointer = nil
     }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobiledevicelinkinitiator(self.pointer, $0) }
+    }
+
+    // No primary constructor declared for this class.
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_vauchi_mobile_fn_free_mobiledevicelinkinitiator(pointer, $0) }
+    }
+
+    /**
+     * After user confirms, creates the encrypted response.
+     *
+     * Must call prepare_confirmation() and set_proximity_verified() first.
+     */
+    open func confirmLink() throws -> MobileDeviceLinkResult {
+        return try FfiConverterTypeMobileDeviceLinkResult.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobiledevicelinkinitiator_confirm_link(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Decrypts an incoming link request and returns confirmation details.
+     *
+     * The caller displays the confirmation code and device name to the user.
+     */
+    open func prepareConfirmation(encryptedRequest: Data) throws -> MobileDeviceLinkConfirmation {
+        return try FfiConverterTypeMobileDeviceLinkConfirmation.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobiledevicelinkinitiator_prepare_confirmation(self.uniffiClonePointer(),
+                                                                                          FfiConverterData.lower(encryptedRequest), $0)
+        })
+    }
+
+    /**
+     * Returns the 16-byte proximity challenge.
+     */
+    open func proximityChallenge() -> Data {
+        return try! FfiConverterData.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_mobiledevicelinkinitiator_proximity_challenge(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Returns the QR data string for display.
+     */
+    open func qrData() -> String {
+        return try! FfiConverterString.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_mobiledevicelinkinitiator_qr_data(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Marks proximity as verified.
+     */
+    open func setProximityVerified() {
+        try! rustCall {
+            uniffi_vauchi_mobile_fn_method_mobiledevicelinkinitiator_set_proximity_verified(self.uniffiClonePointer(), $0)
+        }
+    }
+}
 
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
+public struct FfiConverterTypeMobileDeviceLinkInitiator: FfiConverter {
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = MobileDeviceLinkInitiator
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileDeviceLinkInitiator {
+        return MobileDeviceLinkInitiator(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: MobileDeviceLinkInitiator) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileDeviceLinkInitiator {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if ptr == nil {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: MobileDeviceLinkInitiator, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileDeviceLinkInitiator_lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileDeviceLinkInitiator {
+    return try FfiConverterTypeMobileDeviceLinkInitiator.lift(pointer)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileDeviceLinkInitiator_lower(_ value: MobileDeviceLinkInitiator) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeMobileDeviceLinkInitiator.lower(value)
+}
+
+/**
+ * UniFFI-exposed wrapper around DeviceLinkResponder.
+ */
+public protocol MobileDeviceLinkResponderProtocol: AnyObject {
+    /**
+     * Computes the confirmation code (must call create_request first).
+     */
+    func computeConfirmationCode() throws -> String
+
+    /**
+     * Creates an encrypted request to send to the existing device.
+     */
+    func createRequest() throws -> Data
+
+    /**
+     * Processes the encrypted response from the existing device.
+     */
+    func finishJoin(encryptedResponse: Data) throws -> MobileDeviceJoinResult
+
+    /**
+     * Returns the identity fingerprint from the QR.
+     */
+    func identityFingerprint() -> String
+}
+
+/**
+ * UniFFI-exposed wrapper around DeviceLinkResponder.
+ */
+open class MobileDeviceLinkResponder:
+    MobileDeviceLinkResponderProtocol
+{
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    // Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noPointer _: NoPointer) {
+        pointer = nil
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobiledevicelinkresponder(self.pointer, $0) }
+    }
+
+    // No primary constructor declared for this class.
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_vauchi_mobile_fn_free_mobiledevicelinkresponder(pointer, $0) }
+    }
+
+    /**
+     * Computes the confirmation code (must call create_request first).
+     */
+    open func computeConfirmationCode() throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobiledevicelinkresponder_compute_confirmation_code(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Creates an encrypted request to send to the existing device.
+     */
+    open func createRequest() throws -> Data {
+        return try FfiConverterData.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobiledevicelinkresponder_create_request(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Processes the encrypted response from the existing device.
+     */
+    open func finishJoin(encryptedResponse: Data) throws -> MobileDeviceJoinResult {
+        return try FfiConverterTypeMobileDeviceJoinResult.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobiledevicelinkresponder_finish_join(self.uniffiClonePointer(),
+                                                                                 FfiConverterData.lower(encryptedResponse), $0)
+        })
+    }
+
+    /**
+     * Returns the identity fingerprint from the QR.
+     */
+    open func identityFingerprint() -> String {
+        return try! FfiConverterString.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_mobiledevicelinkresponder_identity_fingerprint(self.uniffiClonePointer(), $0)
+        })
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileDeviceLinkResponder: FfiConverter {
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = MobileDeviceLinkResponder
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileDeviceLinkResponder {
+        return MobileDeviceLinkResponder(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: MobileDeviceLinkResponder) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileDeviceLinkResponder {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if ptr == nil {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: MobileDeviceLinkResponder, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileDeviceLinkResponder_lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileDeviceLinkResponder {
+    return try FfiConverterTypeMobileDeviceLinkResponder.lift(pointer)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileDeviceLinkResponder_lower(_ value: MobileDeviceLinkResponder) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeMobileDeviceLinkResponder.lower(value)
+}
+
+/**
+ * Mobile exchange session wrapping the core `ExchangeSession` state machine.
+ *
+ * Drives the exchange flow: generate/scan QR -> verify proximity -> key agreement -> complete.
+ */
+public protocol MobileExchangeSessionProtocol: AnyObject {
+    /**
+     * Complete the card exchange. Transitions AwaitingCardExchange -> Complete.
+     *
+     * The `their_card_name` is used to create a placeholder card for the contact.
+     * The real card will be received via relay sync.
+     */
+    func completeCardExchange(theirCardName: String) throws
+
+    /**
+     * Confirm physical proximity (manual verification).
+     *
+     * For manual sessions: sets the confirmation flag so the exchange
+     * can proceed. Call this after the user confirms they are physically
+     * present with the other party.
+     *
+     * For proximity sessions: no-op (auto-verified via audio hardware).
+     */
+    func confirmProximity() throws
+
+    /**
+     * Generate and display a QR code. Transitions Idle -> DisplayingQr.
+     */
+    func generateQr() throws -> String
+
+    /**
+     * Check if the session has timed out.
+     */
+    func isTimedOut() -> Bool
+
+    /**
+     * Perform key agreement. Transitions AwaitingKeyAgreement -> AwaitingCardExchange.
+     */
+    func performKeyAgreement() throws
+
+    /**
+     * Process a scanned QR code. Transitions DisplayingQr -> PeerScanned.
+     */
+    func processQr(qrData: String) throws
+
+    /**
+     * Get the current state of the exchange session.
+     */
+    func state() -> MobileExchangeState
+
+    /**
+     * Signal that the other party scanned our QR. Transitions PeerScanned -> AwaitingKeyAgreement.
+     */
+    func theyScannedOurQr() throws
+}
+
+/**
+ * Mobile exchange session wrapping the core `ExchangeSession` state machine.
+ *
+ * Drives the exchange flow: generate/scan QR -> verify proximity -> key agreement -> complete.
+ */
+open class MobileExchangeSession:
+    MobileExchangeSessionProtocol
+{
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    // Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noPointer _: NoPointer) {
+        pointer = nil
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
         return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobileexchangesession(self.pointer, $0) }
     }
+
     // No primary constructor declared for this class.
 
     deinit {
@@ -629,88 +990,94 @@ open class MobileExchangeSession:
         try! rustCall { uniffi_vauchi_mobile_fn_free_mobileexchangesession(pointer, $0) }
     }
 
-    
-
-    
     /**
      * Complete the card exchange. Transitions AwaitingCardExchange -> Complete.
      *
      * The `their_card_name` is used to create a placeholder card for the contact.
      * The real card will be received via relay sync.
      */
-open func completeCardExchange(theirCardName: String)throws  {try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_mobileexchangesession_complete_card_exchange(self.uniffiClonePointer(),
-        FfiConverterString.lower(theirCardName),$0
-    )
-}
-}
-    
+    open func completeCardExchange(theirCardName: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobileexchangesession_complete_card_exchange(self.uniffiClonePointer(),
+                                                                                        FfiConverterString.lower(theirCardName), $0)
+        }
+    }
+
+    /**
+     * Confirm physical proximity (manual verification).
+     *
+     * For manual sessions: sets the confirmation flag so the exchange
+     * can proceed. Call this after the user confirms they are physically
+     * present with the other party.
+     *
+     * For proximity sessions: no-op (auto-verified via audio hardware).
+     */
+    open func confirmProximity() throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobileexchangesession_confirm_proximity(self.uniffiClonePointer(), $0)
+        }
+    }
+
     /**
      * Generate and display a QR code. Transitions Idle -> DisplayingQr.
      */
-open func generateQr()throws  -> String {
-    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_mobileexchangesession_generate_qr(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func generateQr() throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobileexchangesession_generate_qr(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Check if the session has timed out.
      */
-open func isTimedOut() -> Bool {
-    return try!  FfiConverterBool.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_method_mobileexchangesession_is_timed_out(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func isTimedOut() -> Bool {
+        return try! FfiConverterBool.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_mobileexchangesession_is_timed_out(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Perform key agreement. Transitions AwaitingKeyAgreement -> AwaitingCardExchange.
      */
-open func performKeyAgreement()throws  {try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_mobileexchangesession_perform_key_agreement(self.uniffiClonePointer(),$0
-    )
-}
-}
-    
+    open func performKeyAgreement() throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobileexchangesession_perform_key_agreement(self.uniffiClonePointer(), $0)
+        }
+    }
+
     /**
      * Process a scanned QR code. Transitions DisplayingQr -> PeerScanned.
      */
-open func processQr(qrData: String)throws  {try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_mobileexchangesession_process_qr(self.uniffiClonePointer(),
-        FfiConverterString.lower(qrData),$0
-    )
-}
-}
-    
+    open func processQr(qrData: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobileexchangesession_process_qr(self.uniffiClonePointer(),
+                                                                            FfiConverterString.lower(qrData), $0)
+        }
+    }
+
     /**
      * Get the current state of the exchange session.
      */
-open func state() -> MobileExchangeState {
-    return try!  FfiConverterTypeMobileExchangeState.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_method_mobileexchangesession_state(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func state() -> MobileExchangeState {
+        return try! FfiConverterTypeMobileExchangeState.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_mobileexchangesession_state(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Signal that the other party scanned our QR. Transitions PeerScanned -> AwaitingKeyAgreement.
      */
-open func theyScannedOurQr()throws  {try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_mobileexchangesession_they_scanned_our_qr(self.uniffiClonePointer(),$0
-    )
-}
-}
-    
-
+    open func theyScannedOurQr() throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobileexchangesession_they_scanned_our_qr(self.uniffiClonePointer(), $0)
+        }
+    }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileExchangeSession: FfiConverter {
-
     typealias FfiType = UnsafeMutableRawPointer
     typealias SwiftType = MobileExchangeSession
 
@@ -727,7 +1094,7 @@ public struct FfiConverterTypeMobileExchangeSession: FfiConverter {
         // The Rust code won't compile if a pointer won't fit in a UInt64.
         // We have to go via `UInt` because that's the thing that's the size of a pointer.
         let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
-        if (ptr == nil) {
+        if ptr == nil {
             throw UniffiInternalError.unexpectedNullPointer
         }
         return try lift(ptr!)
@@ -740,75 +1107,68 @@ public struct FfiConverterTypeMobileExchangeSession: FfiConverter {
     }
 }
 
-
-
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileExchangeSession_lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileExchangeSession {
     return try FfiConverterTypeMobileExchangeSession.lift(pointer)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileExchangeSession_lower(_ value: MobileExchangeSession) -> UnsafeMutableRawPointer {
     return FfiConverterTypeMobileExchangeSession.lower(value)
 }
 
-
-
-
 /**
  * Mobile-friendly proximity verification API.
  */
-public protocol MobileProximityVerifierProtocol : AnyObject {
-    
+public protocol MobileProximityVerifierProtocol: AnyObject {
     /**
      * Emit a proximity challenge.
      *
      * The challenge should be 16 bytes from the QR code.
      */
-    func emitChallenge(challenge: Data)  -> MobileProximityResult
-    
+    func emitChallenge(challenge: Data) -> MobileProximityResult
+
     /**
      * Get device capability.
      *
      * Returns: "full", "emit_only", "receive_only", or "none"
      */
-    func getCapability()  -> String
-    
+    func getCapability() -> String
+
     /**
      * Check if proximity verification is supported.
      */
-    func isSupported()  -> Bool
-    
+    func isSupported() -> Bool
+
     /**
      * Listen for a proximity response.
      *
      * Returns the received challenge bytes, or empty on timeout.
      */
-    func listenForResponse(timeoutMs: UInt64)  -> Data
-    
+    func listenForResponse(timeoutMs: UInt64) -> Data
+
     /**
      * Stop any ongoing audio operation.
      */
-    func stop() 
-    
+    func stop()
 }
 
 /**
  * Mobile-friendly proximity verification API.
  */
 open class MobileProximityVerifier:
-    MobileProximityVerifierProtocol {
+    MobileProximityVerifierProtocol
+{
     fileprivate let pointer: UnsafeMutableRawPointer!
 
-    /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    // Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public struct NoPointer {
         public init() {}
     }
@@ -816,7 +1176,7 @@ open class MobileProximityVerifier:
     // TODO: We'd like this to be `private` but for Swifty reasons,
     // we can't implement `FfiConverter` without making this `required` and we can't
     // make it `required` without making it `public`.
-    required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
         self.pointer = pointer
     }
 
@@ -825,31 +1185,32 @@ open class MobileProximityVerifier:
     //
     // - Warning:
     //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-    public init(noPointer: NoPointer) {
-        self.pointer = nil
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noPointer _: NoPointer) {
+        pointer = nil
     }
 
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
         return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobileproximityverifier(self.pointer, $0) }
     }
+
     /**
      * Create a new proximity verifier with a platform audio handler.
      */
-public convenience init(handler: PlatformAudioHandler) {
-    let pointer =
-        try! rustCall() {
-    uniffi_vauchi_mobile_fn_constructor_mobileproximityverifier_new(
-        FfiConverterCallbackInterfacePlatformAudioHandler.lower(handler),$0
-    )
-}
-    self.init(unsafeFromRawPointer: pointer)
-}
+    public convenience init(handler: PlatformAudioHandler) {
+        let pointer =
+            try! rustCall {
+                uniffi_vauchi_mobile_fn_constructor_mobileproximityverifier_new(
+                    FfiConverterCallbackInterfacePlatformAudioHandler.lower(handler), $0
+                )
+            }
+        self.init(unsafeFromRawPointer: pointer)
+    }
 
     deinit {
         guard let pointer = pointer else {
@@ -859,86 +1220,75 @@ public convenience init(handler: PlatformAudioHandler) {
         try! rustCall { uniffi_vauchi_mobile_fn_free_mobileproximityverifier(pointer, $0) }
     }
 
-    
     /**
      * Create a proximity verifier without an audio handler.
      *
      * Will report as unsupported until a handler is provided.
      */
-public static func withoutHandler() -> MobileProximityVerifier {
-    return try!  FfiConverterTypeMobileProximityVerifier.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_constructor_mobileproximityverifier_without_handler($0
-    )
-})
-}
-    
+    public static func withoutHandler() -> MobileProximityVerifier {
+        return try! FfiConverterTypeMobileProximityVerifier.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_constructor_mobileproximityverifier_without_handler($0)
+        })
+    }
 
-    
     /**
      * Emit a proximity challenge.
      *
      * The challenge should be 16 bytes from the QR code.
      */
-open func emitChallenge(challenge: Data) -> MobileProximityResult {
-    return try!  FfiConverterTypeMobileProximityResult.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_method_mobileproximityverifier_emit_challenge(self.uniffiClonePointer(),
-        FfiConverterData.lower(challenge),$0
-    )
-})
-}
-    
+    open func emitChallenge(challenge: Data) -> MobileProximityResult {
+        return try! FfiConverterTypeMobileProximityResult.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_mobileproximityverifier_emit_challenge(self.uniffiClonePointer(),
+                                                                                  FfiConverterData.lower(challenge), $0)
+        })
+    }
+
     /**
      * Get device capability.
      *
      * Returns: "full", "emit_only", "receive_only", or "none"
      */
-open func getCapability() -> String {
-    return try!  FfiConverterString.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_method_mobileproximityverifier_get_capability(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func getCapability() -> String {
+        return try! FfiConverterString.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_mobileproximityverifier_get_capability(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Check if proximity verification is supported.
      */
-open func isSupported() -> Bool {
-    return try!  FfiConverterBool.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_method_mobileproximityverifier_is_supported(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func isSupported() -> Bool {
+        return try! FfiConverterBool.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_mobileproximityverifier_is_supported(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Listen for a proximity response.
      *
      * Returns the received challenge bytes, or empty on timeout.
      */
-open func listenForResponse(timeoutMs: UInt64) -> Data {
-    return try!  FfiConverterData.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_method_mobileproximityverifier_listen_for_response(self.uniffiClonePointer(),
-        FfiConverterUInt64.lower(timeoutMs),$0
-    )
-})
-}
-    
+    open func listenForResponse(timeoutMs: UInt64) -> Data {
+        return try! FfiConverterData.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_mobileproximityverifier_listen_for_response(self.uniffiClonePointer(),
+                                                                                       FfiConverterUInt64.lower(timeoutMs), $0)
+        })
+    }
+
     /**
      * Stop any ongoing audio operation.
      */
-open func stop() {try! rustCall() {
-    uniffi_vauchi_mobile_fn_method_mobileproximityverifier_stop(self.uniffiClonePointer(),$0
-    )
-}
-}
-    
-
+    open func stop() {
+        try! rustCall {
+            uniffi_vauchi_mobile_fn_method_mobileproximityverifier_stop(self.uniffiClonePointer(), $0)
+        }
+    }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileProximityVerifier: FfiConverter {
-
     typealias FfiType = UnsafeMutableRawPointer
     typealias SwiftType = MobileProximityVerifier
 
@@ -955,7 +1305,7 @@ public struct FfiConverterTypeMobileProximityVerifier: FfiConverter {
         // The Rust code won't compile if a pointer won't fit in a UInt64.
         // We have to go via `UInt` because that's the thing that's the size of a pointer.
         let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
-        if (ptr == nil) {
+        if ptr == nil {
             throw UniffiInternalError.unexpectedNullPointer
         }
         return try lift(ptr!)
@@ -968,60 +1318,61 @@ public struct FfiConverterTypeMobileProximityVerifier: FfiConverter {
     }
 }
 
-
-
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileProximityVerifier_lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileProximityVerifier {
     return try FfiConverterTypeMobileProximityVerifier.lift(pointer)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileProximityVerifier_lower(_ value: MobileProximityVerifier) -> UnsafeMutableRawPointer {
     return FfiConverterTypeMobileProximityVerifier.lower(value)
 }
-
-
-
 
 /**
  * Main Vauchi interface for mobile platforms.
  *
  * Uses on-demand storage connections for thread safety.
  */
-public protocol VauchiMobileProtocol : AnyObject {
-    
+public protocol VauchiMobileProtocol: AnyObject {
     /**
      * Add a contact to a label.
      */
-    func addContactToLabel(labelId: String, contactId: String) throws 
-    
+    func addContactToLabel(labelId: String, contactId: String) throws
+
+    /**
+     * Adds a decoy contact for duress mode.
+     *
+     * The card_json should be a JSON-serialized ContactCard.
+     * Returns the generated ID.
+     */
+    func addDecoyContact(name: String, cardJson: String) throws -> String
+
     /**
      * Add field to own card.
      */
-    func addField(fieldType: MobileFieldType, label: String, value: String) throws 
-    
+    func addField(fieldType: MobileFieldType, label: String, value: String) throws
+
     /**
      * Add a voucher to the current recovery claim.
      *
      * Returns the updated progress.
      */
-    func addRecoveryVoucher(voucherB64: String) throws  -> MobileRecoveryProgress
-    
+    func addRecoveryVoucher(voucherB64: String) throws -> MobileRecoveryProgress
+
     /**
      * Get the count of seen aha moments.
      */
-    func ahaMomentsSeenCount()  -> UInt32
-    
+    func ahaMomentsSeenCount() -> UInt32
+
     /**
      * Get the total count of aha moments.
      */
-    func ahaMomentsTotalCount()  -> UInt32
-    
+    func ahaMomentsTotalCount() -> UInt32
+
     /**
      * Apply available content updates.
      *
@@ -1030,36 +1381,46 @@ public protocol VauchiMobileProtocol : AnyObject {
      *
      * Note: Returns Disabled if the `content-updates` feature is not enabled.
      */
-    func applyContentUpdates()  -> MobileApplyResult
-    
+    func applyContentUpdates() -> MobileApplyResult
+
+    /**
+     * Authenticates with a password.
+     *
+     * Returns the authentication mode:
+     * - `Normal` if the real password matches
+     * - `Duress` if the duress PIN matches
+     * - Returns an error if neither matches
+     */
+    func authenticate(password: String) throws -> MobileAuthMode
+
     /**
      * Auto-remove demo contact after first real exchange.
      * Call this after a successful contact exchange.
      */
-    func autoRemoveDemoContact() throws  -> Bool
-    
+    func autoRemoveDemoContact() throws -> Bool
+
     /**
      * Calculate the backoff time for a given retry attempt.
      *
      * Returns seconds until next retry: 2^attempt, max 3600 (1 hour).
      */
-    func calculateRetryBackoff(attempt: UInt32)  -> UInt64
-    
+    func calculateRetryBackoff(attempt: UInt32) -> UInt64
+
     /**
      * Cancel a scheduled account deletion.
      */
-    func cancelAccountDeletion() throws 
-    
+    func cancelAccountDeletion() throws
+
     /**
      * Cancel a scheduled shred during the grace period.
      */
-    func cancelShred(token: MobileShredToken) throws 
-    
+    func cancelShred(token: MobileShredToken) throws
+
     /**
      * Check whether consent is currently granted for a type.
      */
-    func checkConsent(consentType: MobileConsentType) throws  -> Bool
-    
+    func checkConsent(consentType: MobileConsentType) throws -> Bool
+
     /**
      * Check for available content updates.
      *
@@ -1068,48 +1429,64 @@ public protocol VauchiMobileProtocol : AnyObject {
      *
      * Note: Returns Disabled if the `content-updates` feature is not enabled.
      */
-    func checkContentUpdates()  -> MobileUpdateStatus
-    
+    func checkContentUpdates() -> MobileUpdateStatus
+
     /**
      * Clear all pending updates for a contact.
      *
      * Returns the number of cleared updates.
      */
-    func clearPendingUpdatesForContact(contactId: String) throws  -> UInt32
-    
+    func clearPendingUpdatesForContact(contactId: String) throws -> UInt32
+
+    /**
+     * Configures duress alert settings.
+     *
+     * Sets which contacts receive alerts, the alert message, and
+     * whether to include device location.
+     */
+    func configureDuressAlerts(contactIds: [String], message: String) throws
+
+    /**
+     * Configures the emergency broadcast system.
+     *
+     * Sets which contacts receive emergency alerts, the alert message,
+     * and whether to include device location.
+     */
+    func configureEmergencyBroadcast(contactIds: [String], message: String, includeLocation: Bool) throws
+
     /**
      * Get contact count.
      */
-    func contactCount() throws  -> UInt32
-    
+    func contactCount() throws -> UInt32
+
     /**
      * Count failed deliveries.
      */
-    func countFailedDeliveries() throws  -> UInt32
-    
+    func countFailedDeliveries() throws -> UInt32
+
     /**
      * Create a new identity.
      */
-    func createIdentity(displayName: String) throws 
-    
+    func createIdentity(displayName: String) throws
+
     /**
      * Create a new visibility label.
      */
-    func createLabel(name: String) throws  -> MobileVisibilityLabel
-    
+    func createLabel(name: String) throws -> MobileVisibilityLabel
+
     /**
      * Create a QR exchange session with proximity verification.
      *
      * Both parties display and scan QR codes. Uses fresh ephemeral keys
      * for full forward secrecy.
      */
-    func createQrExchange(proximity: MobileProximityHandler) throws  -> MobileExchangeSession
-    
+    func createQrExchange(proximity: MobileProximityHandler) throws -> MobileExchangeSession
+
     /**
      * Create a QR exchange session with manual confirmation (no audio hardware).
      */
-    func createQrExchangeManual() throws  -> MobileExchangeSession
-    
+    func createQrExchangeManual() throws -> MobileExchangeSession
+
     /**
      * Create a recovery claim for a lost identity.
      *
@@ -1117,38 +1494,53 @@ public protocol VauchiMobileProtocol : AnyObject {
      * This starts the recovery process by creating a claim that contacts
      * can vouch for.
      */
-    func createRecoveryClaim(oldPkHex: String) throws  -> MobileRecoveryClaim
-    
+    func createRecoveryClaim(oldPkHex: String) throws -> MobileRecoveryClaim
+
     /**
      * Create a voucher for someone's recovery claim.
      *
      * This vouches that you trust the person claiming to own the old identity
      * is the same person as the new identity.
      */
-    func createRecoveryVoucher(claimB64: String) throws  -> MobileRecoveryVoucher
-    
+    func createRecoveryVoucher(claimB64: String) throws -> MobileRecoveryVoucher
+
+    /**
+     * Deletes a decoy contact by ID.
+     */
+    func deleteDecoyContact(id: String) throws
+
     /**
      * Delete a label.
      */
-    func deleteLabel(labelId: String) throws 
-    
+    func deleteLabel(labelId: String) throws
+
     /**
      * Delete a retry entry (after successful delivery or max attempts).
      */
-    func deleteRetry(messageId: String) throws  -> Bool
-    
+    func deleteRetry(messageId: String) throws -> Bool
+
     /**
      * Get the device count.
      *
      * Returns the number of devices linked to this identity.
      */
-    func deviceCount() throws  -> UInt32
-    
+    func deviceCount() throws -> UInt32
+
+    /**
+     * Disables duress mode and clears duress hash/salt.
+     */
+    func disableDuress() throws
+
+    /**
+     * Disables the emergency broadcast by deleting the configuration.
+     */
+    func disableEmergencyBroadcast() throws
+
     /**
      * Dismiss the demo contact.
      */
-    func dismissDemoContact() throws 
-    
+    func dismissDemoContact() throws
+
     /**
      * Execute account deletion (only after grace period).
      *
@@ -1156,23 +1548,23 @@ public protocol VauchiMobileProtocol : AnyObject {
      * Returns the number of revocation messages generated (caller should
      * arrange relay delivery).
      */
-    func executeAccountDeletion() throws  -> UInt32
-    
+    func executeAccountDeletion() throws -> UInt32
+
     /**
      * Export encrypted backup.
      */
-    func exportBackup(password: String) throws  -> String
-    
+    func exportBackup(password: String) throws -> String
+
     /**
      * Export all user data for GDPR compliance.
      */
-    func exportGdprData() throws  -> MobileGdprExport
-    
+    func exportGdprData() throws -> MobileGdprExport
+
     /**
      * Export the current storage key bytes for migration to secure storage.
      */
-    func exportStorageKey()  -> Data
-    
+    func exportStorageKey() -> Data
+
     /**
      * Finalize a completed exchange session.
      *
@@ -1182,186 +1574,208 @@ public protocol VauchiMobileProtocol : AnyObject {
      * The session must be in the Complete state (i.e., the state machine has been
      * driven through all steps).
      */
-    func finalizeExchange(session: MobileExchangeSession) throws  -> MobileExchangeResult
-    
+    func finalizeExchange(session: MobileExchangeSession) throws -> MobileExchangeResult
+
     /**
      * Generate a device link QR code.
      *
      * Display this QR code on the existing device for a new device to scan.
      * The QR expires after 10 minutes.
      */
-    func generateDeviceLinkQr() throws  -> MobileDeviceLinkData
-    
+    func generateDeviceLinkQr() throws -> MobileDeviceLinkData
+
     /**
      * Get all delivery records.
      */
-    func getAllDeliveryRecords() throws  -> [MobileDeliveryRecord]
-    
+    func getAllDeliveryRecords() throws -> [MobileDeliveryRecord]
+
     /**
      * Get all consent records.
      */
-    func getConsentRecords() throws  -> [MobileConsentRecord]
-    
+    func getConsentRecords() throws -> [MobileConsentRecord]
+
     /**
      * Get single contact by ID.
      */
-    func getContact(id: String) throws  -> MobileContact?
-    
+    func getContact(id: String) throws -> MobileContact?
+
     /**
      * Get current deletion state.
      */
-    func getDeletionState() throws  -> MobileDeletionInfo
-    
+    func getDeletionState() throws -> MobileDeletionInfo
+
     /**
      * Get delivery count by status.
      */
-    func getDeliveryCountByStatus(status: MobileDeliveryStatus) throws  -> UInt32
-    
+    func getDeliveryCountByStatus(status: MobileDeliveryStatus) throws -> UInt32
+
     /**
      * Get delivery record for a message.
      */
-    func getDeliveryRecord(messageId: String) throws  -> MobileDeliveryRecord?
-    
+    func getDeliveryRecord(messageId: String) throws -> MobileDeliveryRecord?
+
     /**
      * Get all delivery records for a recipient.
      */
-    func getDeliveryRecordsForContact(recipientId: String) throws  -> [MobileDeliveryRecord]
-    
+    func getDeliveryRecordsForContact(recipientId: String) throws -> [MobileDeliveryRecord]
+
     /**
      * Get delivery summary for a message (X of Y devices delivered).
      */
-    func getDeliverySummary(messageId: String) throws  -> MobileDeliverySummary
-    
+    func getDeliverySummary(messageId: String) throws -> MobileDeliverySummary
+
     /**
      * Get the current demo contact if active.
      */
-    func getDemoContact() throws  -> MobileDemoContact?
-    
+    func getDemoContact() throws -> MobileDemoContact?
+
     /**
      * Get the demo contact state.
      */
-    func getDemoContactState()  -> MobileDemoContactState
-    
+    func getDemoContactState() -> MobileDemoContactState
+
     /**
      * Get all device delivery records for a message.
      */
-    func getDeviceDeliveries(messageId: String) throws  -> [MobileDeviceDeliveryRecord]
-    
+    func getDeviceDeliveries(messageId: String) throws -> [MobileDeviceDeliveryRecord]
+
     /**
      * Get list of linked devices.
      *
      * Returns information about all devices linked to this identity.
      * The first device (index 0) is the primary device.
      */
-    func getDevices() throws  -> [MobileDeviceInfo]
-    
+    func getDevices() throws -> [MobileDeviceInfo]
+
     /**
      * Get display name.
      */
-    func getDisplayName() throws  -> String
-    
+    func getDisplayName() throws -> String
+
     /**
      * Get all retry entries that are due for retry.
      */
-    func getDueRetries() throws  -> [MobileRetryEntry]
-    
+    func getDueRetries() throws -> [MobileRetryEntry]
+
+    /**
+     * Gets the current duress alert settings.
+     *
+     * Returns `None` if no settings have been configured.
+     */
+    func getDuressSettings() throws -> MobileDuressSettings?
+
+    /**
+     * Gets the current emergency broadcast configuration.
+     *
+     * Returns `None` if no configuration has been set.
+     */
+    func getEmergencyConfig() throws -> MobileEmergencyConfig?
+
     /**
      * Get the validation count for a field (quick check without full status).
      */
-    func getFieldValidationCount(contactId: String, fieldId: String) throws  -> UInt32
-    
+    func getFieldValidationCount(contactId: String, fieldId: String) throws -> UInt32
+
     /**
      * Get validation status for a contact's field.
      *
      * Returns aggregated validation information including count, trust level,
      * and whether you have validated this field.
      */
-    func getFieldValidationStatus(contactId: String, fieldId: String, fieldValue: String) throws  -> MobileValidationStatus
-    
+    func getFieldValidationStatus(contactId: String, fieldId: String, fieldValue: String) throws -> MobileValidationStatus
+
     /**
      * Get a label by ID with full details.
      */
-    func getLabel(labelId: String) throws  -> MobileVisibilityLabelDetail
-    
+    func getLabel(labelId: String) throws -> MobileVisibilityLabelDetail
+
     /**
      * Get all labels that contain a contact.
      */
-    func getLabelsForContact(contactId: String) throws  -> [MobileVisibilityLabel]
-    
+    func getLabelsForContact(contactId: String) throws -> [MobileVisibilityLabel]
+
     /**
      * Get remaining capacity in the offline queue.
      */
-    func getOfflineQueueCapacity() throws  -> UInt32
-    
+    func getOfflineQueueCapacity() throws -> UInt32
+
     /**
      * Get own contact card.
      */
-    func getOwnCard() throws  -> MobileContactCard
-    
+    func getOwnCard() throws -> MobileContactCard
+
+    /**
+     * Get formatted fingerprint of own identity public key.
+     *
+     * Returns the fingerprint as 16 groups of 4 uppercase hex characters,
+     * suitable for display and manual comparison with contacts.
+     */
+    func getOwnFingerprint() throws -> String
+
     /**
      * Get all pending (non-terminal) deliveries.
      */
-    func getPendingDeliveries() throws  -> [MobileDeliveryRecord]
-    
+    func getPendingDeliveries() throws -> [MobileDeliveryRecord]
+
     /**
      * Get all pending device deliveries.
      */
-    func getPendingDeviceDeliveries() throws  -> [MobileDeviceDeliveryRecord]
-    
+    func getPendingDeviceDeliveries() throws -> [MobileDeviceDeliveryRecord]
+
     /**
      * Get profile URL for a social field.
      */
-    func getProfileUrl(networkId: String, username: String)  -> String?
-    
+    func getProfileUrl(networkId: String, username: String) -> String?
+
     /**
      * Get public ID.
      */
-    func getPublicId() throws  -> String
-    
+    func getPublicId() throws -> String
+
     /**
      * Get the completed recovery proof as base64.
      *
      * Returns None if recovery is not complete.
      */
-    func getRecoveryProof() throws  -> String?
-    
+    func getRecoveryProof() throws -> String?
+
     /**
      * Get the current recovery progress.
      *
      * Returns None if no recovery is in progress.
      */
-    func getRecoveryStatus() throws  -> MobileRecoveryProgress?
-    
+    func getRecoveryStatus() throws -> MobileRecoveryProgress?
+
     /**
      * Get all retry entries for a contact.
      */
-    func getRetriesForContact(contactId: String) throws  -> [MobileRetryEntry]
-    
+    func getRetriesForContact(contactId: String) throws -> [MobileRetryEntry]
+
     /**
      * Get the total count of retry entries.
      */
-    func getRetryCount() throws  -> UInt32
-    
+    func getRetryCount() throws -> UInt32
+
     /**
      * Get suggested default labels.
      */
-    func getSuggestedLabels()  -> [String]
-    
+    func getSuggestedLabels() -> [String]
+
     /**
      * Get sync status.
      */
-    func getSyncStatus()  -> MobileSyncStatus
-    
+    func getSyncStatus() -> MobileSyncStatus
+
     /**
      * Get total count of all pending updates across all contacts.
      */
-    func getTotalPendingCount() throws  -> UInt32
-    
+    func getTotalPendingCount() throws -> UInt32
+
     /**
      * Grant consent for a specific type.
      */
-    func grantConsent(consentType: MobileConsentType) throws 
-    
+    func grantConsent(consentType: MobileConsentType) throws
+
     /**
      * Execute irreversible crypto-shredding (Hard Shred).
      *
@@ -1371,108 +1785,138 @@ public protocol VauchiMobileProtocol : AnyObject {
      * **WARNING**: This operation is irreversible. All account data will be
      * permanently destroyed.
      */
-    func hardShred(token: MobileShredToken) throws  -> MobileShredReport
-    
+    func hardShred(token: MobileShredToken) throws -> MobileShredReport
+
     /**
      * Check if identity exists.
      */
-    func hasIdentity()  -> Bool
-    
+    func hasIdentity() -> Bool
+
     /**
      * Check if an aha moment has been seen.
      */
-    func hasSeenAhaMoment(momentType: MobileAhaMomentType)  -> Bool
-    
+    func hasSeenAhaMoment(momentType: MobileAhaMomentType) -> Bool
+
     /**
      * Check if you have validated a specific field.
      */
-    func hasValidatedField(contactId: String, fieldId: String) throws  -> Bool
-    
+    func hasValidatedField(contactId: String, fieldId: String) throws -> Bool
+
+    /**
+     * Hides a contact from the main contact list.
+     *
+     * Hidden contacts provide plausible deniability - they only appear
+     * via secret access (gesture, PIN, or special settings navigation).
+     * Routes through the Vauchi API to ensure `ContactHidden` events are dispatched.
+     */
+    func hideContact(contactId: String) throws
+
     /**
      * Hide field from contact.
      */
-    func hideFieldFromContact(contactId: String, fieldLabel: String) throws 
-    
+    func hideFieldFromContact(contactId: String, fieldLabel: String) throws
+
     /**
      * Import backup.
      */
-    func importBackup(backupData: String, password: String) throws 
-    
+    func importBackup(backupData: String, password: String) throws
+
     /**
      * Initialize the demo contact if user has no real contacts.
      * Call this after onboarding completes.
      */
-    func initDemoContactIfNeeded() throws  -> MobileDemoContact?
-    
+    func initDemoContactIfNeeded() throws -> MobileDemoContact?
+
     /**
      * Check if certificate pinning is enabled.
      */
-    func isCertificatePinningEnabled()  -> Bool
-    
+    func isCertificatePinningEnabled() -> Bool
+
     /**
      * Check if remote content updates are supported.
      *
      * Returns true if the content-updates feature is enabled at compile time.
      */
-    func isContentUpdatesSupported()  -> Bool
-    
+    func isContentUpdatesSupported() -> Bool
+
     /**
      * Check if a demo update is available.
      */
-    func isDemoUpdateAvailable()  -> Bool
-    
+    func isDemoUpdateAvailable() -> Bool
+
+    /**
+     * Returns whether duress mode is enabled.
+     */
+    func isDuressEnabled() throws -> Bool
+
     /**
      * Check if field is visible to contact.
      */
-    func isFieldVisibleToContact(contactId: String, fieldLabel: String) throws  -> Bool
-    
+    func isFieldVisibleToContact(contactId: String, fieldLabel: String) throws -> Bool
+
     /**
      * Check if the offline queue is full.
      *
      * Default max size is 1000 updates.
      */
-    func isOfflineQueueFull() throws  -> Bool
-    
+    func isOfflineQueueFull() throws -> Bool
+
+    /**
+     * Returns whether an app password has been configured.
+     */
+    func isPasswordEnabled() throws -> Bool
+
     /**
      * Check if this device is the primary device (index 0).
      */
-    func isPrimaryDevice() throws  -> Bool
-    
+    func isPrimaryDevice() throws -> Bool
+
     /**
      * List all contacts.
      */
-    func listContacts() throws  -> [MobileContact]
-    
+    func listContacts() throws -> [MobileContact]
+
     /**
      * List contacts with pagination.
      */
-    func listContactsPaginated(offset: UInt32, limit: UInt32) throws  -> [MobileContact]
-    
+    func listContactsPaginated(offset: UInt32, limit: UInt32) throws -> [MobileContact]
+
+    /**
+     * Lists all decoy contacts.
+     */
+    func listDecoyContacts() throws -> [MobileDecoyContact]
+
+    /**
+     * Lists all hidden contacts.
+     * Routes through the Vauchi API for consistency with hide/unhide operations.
+     */
+    func listHiddenContacts() throws -> [MobileContact]
+
     /**
      * List all visibility labels.
      */
-    func listLabels() throws  -> [MobileVisibilityLabel]
-    
+    func listLabels() throws -> [MobileVisibilityLabel]
+
     /**
      * List all validations you have made.
      *
      * Returns a list of all fields you have validated, sorted by
      * validation timestamp (most recent first).
      */
-    func listMyValidations() throws  -> [MobileFieldValidation]
-    
+    func listMyValidations() throws -> [MobileFieldValidation]
+
     /**
      * List available social networks.
      */
-    func listSocialNetworks()  -> [MobileSocialNetwork]
-    
+    func listSocialNetworks() -> [MobileSocialNetwork]
+
     /**
      * Manually retry a failed delivery.
      *
      * Returns true if the retry entry was found and rescheduled.
      */
-    func manualRetry(messageId: String) throws  -> Bool
-    
+    func manualRetry(messageId: String) throws -> Bool
+
     /**
      * Execute immediate crypto-shredding without grace period (Panic Shred).
      *
@@ -1481,8 +1925,8 @@ public protocol VauchiMobileProtocol : AnyObject {
      *
      * **WARNING**: This operation is irreversible and immediate. No grace period.
      */
-    func panicShred() throws  -> MobileShredReport
-    
+    func panicShred() throws -> MobileShredReport
+
     /**
      * Parse a device link QR code.
      *
@@ -1490,115 +1934,122 @@ public protocol VauchiMobileProtocol : AnyObject {
      * on an existing device. Returns information about the identity
      * to link with.
      */
-    func parseDeviceLinkQr(qrData: String) throws  -> MobileDeviceLinkInfo
-    
+    func parseDeviceLinkQr(qrData: String) throws -> MobileDeviceLinkInfo
+
     /**
      * Parse a recovery claim from base64.
      *
      * Used to inspect a claim before vouching for it.
      */
-    func parseRecoveryClaim(claimB64: String) throws  -> MobileRecoveryClaim
-    
+    func parseRecoveryClaim(claimB64: String) throws -> MobileRecoveryClaim
+
     /**
      * Get pending update count.
      */
-    func pendingUpdateCount() throws  -> UInt32
-    
+    func pendingUpdateCount() throws -> UInt32
+
     /**
      * Reload social networks from content cache.
      *
      * Call this after applying content updates to refresh the
      * list of social networks available in the app.
      */
-    func reloadSocialNetworks()  -> [MobileSocialNetwork]
-    
+    func reloadSocialNetworks() -> [MobileSocialNetwork]
+
     /**
      * Remove contact.
      */
-    func removeContact(id: String) throws  -> Bool
-    
+    func removeContact(id: String) throws -> Bool
+
     /**
      * Remove a per-contact override for field visibility.
      */
-    func removeContactFieldOverride(contactId: String, fieldLabel: String) throws 
-    
+    func removeContactFieldOverride(contactId: String, fieldLabel: String) throws
+
     /**
      * Remove a contact from a label.
      */
-    func removeContactFromLabel(labelId: String, contactId: String) throws 
-    
+    func removeContactFromLabel(labelId: String, contactId: String) throws
+
     /**
      * Remove field from card.
      */
-    func removeField(label: String) throws  -> Bool
-    
+    func removeField(label: String) throws -> Bool
+
     /**
      * Rename a label.
      */
-    func renameLabel(labelId: String, newName: String) throws 
-    
+    func renameLabel(labelId: String, newName: String) throws
+
     /**
      * Reset all aha moments (for testing/debugging).
      */
-    func resetAhaMoments() throws 
-    
+    func resetAhaMoments() throws
+
     /**
      * Restore the demo contact from Settings.
      */
-    func restoreDemoContact() throws  -> MobileDemoContact?
-    
+    func restoreDemoContact() throws -> MobileDemoContact?
+
     /**
      * Revoke consent for a specific type.
      */
-    func revokeConsent(consentType: MobileConsentType) throws 
-    
+    func revokeConsent(consentType: MobileConsentType) throws
+
     /**
      * Revoke your validation of a contact's field.
      *
      * Returns true if a validation was revoked, false if you hadn't validated.
      */
-    func revokeFieldValidation(contactId: String, fieldId: String) throws  -> Bool
-    
+    func revokeFieldValidation(contactId: String, fieldId: String) throws -> Bool
+
     /**
      * Schedule account deletion with 7-day grace period.
      */
-    func scheduleAccountDeletion() throws  -> MobileDeletionInfo
-    
+    func scheduleAccountDeletion() throws -> MobileDeletionInfo
+
     /**
      * Search contacts using SQL-level search.
      */
-    func searchContacts(query: String) throws  -> [MobileContact]
-    
+    func searchContacts(query: String) throws -> [MobileContact]
+
     /**
      * Search social networks.
      */
-    func searchSocialNetworks(query: String)  -> [MobileSocialNetwork]
-    
+    func searchSocialNetworks(query: String) -> [MobileSocialNetwork]
+
+    /**
+     * Sends an emergency broadcast to all trusted contacts.
+     *
+     * Returns the number of alerts sent and total configured.
+     */
+    func sendEmergencyBroadcast() throws -> MobileBroadcastResult
+
     /**
      * Set a per-contact override for field visibility.
      *
      * Per-contact overrides take precedence over label-based visibility.
      */
-    func setContactFieldOverride(contactId: String, fieldLabel: String, isVisible: Bool) throws 
-    
+    func setContactFieldOverride(contactId: String, fieldLabel: String, isVisible: Bool) throws
+
     /**
      * Set display name.
      */
-    func setDisplayName(name: String) throws 
-    
+    func setDisplayName(name: String) throws
+
     /**
      * Set whether a field is visible to contacts in a label.
      */
-    func setLabelFieldVisibility(labelId: String, fieldLabel: String, isVisible: Bool) throws 
-    
+    func setLabelFieldVisibility(labelId: String, fieldLabel: String, isVisible: Bool) throws
+
     /**
      * Set the pinned certificate for relay TLS connections.
      *
      * The certificate should be in PEM format. Once set, only connections
      * to relay servers presenting this exact certificate will be allowed.
      */
-    func setPinnedCertificate(certPem: String) 
-    
+    func setPinnedCertificate(certPem: String)
+
     /**
      * Set the platform keychain for crypto-shredding operations.
      *
@@ -1606,21 +2057,35 @@ public protocol VauchiMobileProtocol : AnyObject {
      * access to the platform's native secure storage (iOS Keychain,
      * Android KeyStore) for SMK management.
      */
-    func setPlatformKeychain(keychain: MobilePlatformKeychain) 
-    
+    func setPlatformKeychain(keychain: MobilePlatformKeychain)
+
+    /**
+     * Sets up an app password (PIN).
+     *
+     * Requires an identity to be created first.
+     */
+    func setupAppPassword(password: String) throws
+
+    /**
+     * Sets up a duress PIN.
+     *
+     * Requires an app password to be configured first.
+     */
+    func setupDuressPassword(duressPassword: String) throws
+
     /**
      * Show field to contact.
      */
-    func showFieldToContact(contactId: String, fieldLabel: String) throws 
-    
+    func showFieldToContact(contactId: String, fieldLabel: String) throws
+
     /**
      * Get current shred status.
      *
      * Returns whether no shred is in progress, one is scheduled (with remaining
      * time), or has been executed.
      */
-    func shredStatus() throws  -> MobileShredStatus
-    
+    func shredStatus() throws -> MobileShredStatus
+
     /**
      * Schedule crypto-shredding with 7-day grace period (Soft Shred).
      *
@@ -1629,40 +2094,71 @@ public protocol VauchiMobileProtocol : AnyObject {
      *
      * Requires `set_platform_keychain()` to be called first.
      */
-    func softShred() throws  -> MobileShredToken
-    
+    func softShred() throws -> MobileShredToken
+
+    /**
+     * Start a device join as the new device (responder).
+     *
+     * Parses the QR data scanned from the existing device and returns a
+     * `MobileDeviceLinkResponder` that can create requests and process responses.
+     */
+    func startDeviceJoin(qrData: String, deviceName: String) throws -> MobileDeviceLinkResponder
+
+    /**
+     * Start a device link as the existing device (initiator).
+     *
+     * Returns a `MobileDeviceLinkInitiator` that holds the QR data and can
+     * process incoming link requests from new devices.
+     */
+    func startDeviceLink() throws -> MobileDeviceLinkInitiator
+
     /**
      * Sync with relay server.
      */
-    func sync() throws  -> MobileSyncResult
-    
+    func sync() throws -> MobileSyncResult
+
+    /**
+     * Async version of sync using native async WebSocket.
+     *
+     * Use this from mobile UI threads to prevent freezing.
+     * Storage is opened in scoped blocks and dropped before `.await` to keep
+     * the future `Send` (required by UniFFI async exports).
+     */
+    func syncAsync() async throws -> MobileSyncResult
+
     /**
      * Trigger a demo update and get the new content.
      */
-    func triggerDemoUpdate() throws  -> MobileDemoContact?
-    
+    func triggerDemoUpdate() throws -> MobileDemoContact?
+
     /**
      * Mark a contact as trusted for recovery.
      *
      * Blocked contacts cannot be trusted for recovery.
      */
-    func trustContactForRecovery(id: String) throws 
-    
+    func trustContactForRecovery(id: String) throws
+
     /**
      * Get the number of contacts trusted for recovery.
      */
-    func trustedContactCount() throws  -> UInt32
-    
+    func trustedContactCount() throws -> UInt32
+
     /**
      * Try to trigger an aha moment. Returns the moment if not yet seen, None otherwise.
      */
-    func tryTriggerAhaMoment(momentType: MobileAhaMomentType) throws  -> MobileAhaMoment?
-    
+    func tryTriggerAhaMoment(momentType: MobileAhaMomentType) throws -> MobileAhaMoment?
+
     /**
      * Try to trigger an aha moment with context (e.g., contact name).
      */
-    func tryTriggerAhaMomentWithContext(momentType: MobileAhaMomentType, context: String) throws  -> MobileAhaMoment?
-    
+    func tryTriggerAhaMomentWithContext(momentType: MobileAhaMomentType, context: String) throws -> MobileAhaMoment?
+
+    /**
+     * Unhides a contact, making it visible in the main contact list again.
+     * Routes through the Vauchi API to ensure `ContactUnhidden` events are dispatched.
+     */
+    func unhideContact(contactId: String) throws
+
     /**
      * Unlink a device from this identity.
      *
@@ -1673,18 +2169,18 @@ public protocol VauchiMobileProtocol : AnyObject {
      * Note: Cannot unlink the current device (use account deletion instead).
      * The device_index is the position in the devices list (0-based).
      */
-    func unlinkDevice(deviceIndex: UInt32) throws  -> Bool
-    
+    func unlinkDevice(deviceIndex: UInt32) throws -> Bool
+
     /**
      * Remove recovery trust from a contact.
      */
-    func untrustContactForRecovery(id: String) throws 
-    
+    func untrustContactForRecovery(id: String) throws
+
     /**
      * Update field value.
      */
-    func updateField(label: String, newValue: String) throws 
-    
+    func updateField(label: String, newValue: String) throws
+
     /**
      * Validate a contact's field.
      *
@@ -1692,28 +2188,27 @@ public protocol VauchiMobileProtocol : AnyObject {
      * that you believe this field value belongs to this contact.
      * Returns the created validation.
      */
-    func validateField(contactId: String, fieldId: String, fieldValue: String) throws  -> MobileFieldValidation
-    
+    func validateField(contactId: String, fieldId: String, fieldValue: String) throws -> MobileFieldValidation
+
     /**
      * Verify contact fingerprint.
      */
-    func verifyContact(id: String) throws 
-    
+    func verifyContact(id: String) throws
+
     /**
      * Verify a recovery proof from a contact.
      *
      * This checks if the proof is valid and provides a recommendation
      * on whether to accept the recovered identity.
      */
-    func verifyRecoveryProof(proofB64: String) throws  -> MobileRecoveryVerification
-    
+    func verifyRecoveryProof(proofB64: String) throws -> MobileRecoveryVerification
+
     /**
      * Verify that shredding was successful by checking for residual data.
      *
      * Returns verification results showing which items were confirmed destroyed.
      */
-    func verifyShred() throws  -> MobileShredVerification
-    
+    func verifyShred() throws -> MobileShredVerification
 }
 
 /**
@@ -1722,13 +2217,14 @@ public protocol VauchiMobileProtocol : AnyObject {
  * Uses on-demand storage connections for thread safety.
  */
 open class VauchiMobile:
-    VauchiMobileProtocol {
+    VauchiMobileProtocol
+{
     fileprivate let pointer: UnsafeMutableRawPointer!
 
-    /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    // Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public struct NoPointer {
         public init() {}
     }
@@ -1736,7 +2232,7 @@ open class VauchiMobile:
     // TODO: We'd like this to be `private` but for Swifty reasons,
     // we can't implement `FfiConverter` without making this `required` and we can't
     // make it `required` without making it `public`.
-    required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
         self.pointer = pointer
     }
 
@@ -1745,35 +2241,36 @@ open class VauchiMobile:
     //
     // - Warning:
     //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-    public init(noPointer: NoPointer) {
-        self.pointer = nil
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noPointer _: NoPointer) {
+        pointer = nil
     }
 
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
         return try! rustCall { uniffi_vauchi_mobile_fn_clone_vauchimobile(self.pointer, $0) }
     }
+
     /**
      * Create a new VauchiMobile instance (legacy constructor).
      *
      * WARNING: This constructor stores the encryption key in a plaintext file.
      * Use `new_with_secure_key` instead for production.
      */
-public convenience init(dataDir: String, relayUrl: String)throws  {
-    let pointer =
-        try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_constructor_vauchimobile_new(
-        FfiConverterString.lower(dataDir),
-        FfiConverterString.lower(relayUrl),$0
-    )
-}
-    self.init(unsafeFromRawPointer: pointer)
-}
+    public convenience init(dataDir: String, relayUrl: String) throws {
+        let pointer =
+            try rustCallWithError(FfiConverterTypeMobileError.lift) {
+                uniffi_vauchi_mobile_fn_constructor_vauchimobile_new(
+                    FfiConverterString.lower(dataDir),
+                    FfiConverterString.lower(relayUrl), $0
+                )
+            }
+        self.init(unsafeFromRawPointer: pointer)
+    }
 
     deinit {
         guard let pointer = pointer else {
@@ -1783,7 +2280,6 @@ public convenience init(dataDir: String, relayUrl: String)throws  {
         try! rustCall { uniffi_vauchi_mobile_fn_free_vauchimobile(pointer, $0) }
     }
 
-    
     /**
      * Create a new VauchiMobile instance with a platform-provided secure key.
      *
@@ -1792,74 +2288,83 @@ public convenience init(dataDir: String, relayUrl: String)throws  {
      * 2. Store it in platform-specific secure storage (Keychain/KeyStore)
      * 3. Pass the key bytes to this constructor
      */
-public static func newWithSecureKey(dataDir: String, relayUrl: String, storageKeyBytes: Data)throws  -> VauchiMobile {
-    return try  FfiConverterTypeVauchiMobile.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_constructor_vauchimobile_new_with_secure_key(
-        FfiConverterString.lower(dataDir),
-        FfiConverterString.lower(relayUrl),
-        FfiConverterData.lower(storageKeyBytes),$0
-    )
-})
-}
-    
+    public static func newWithSecureKey(dataDir: String, relayUrl: String, storageKeyBytes: Data) throws -> VauchiMobile {
+        return try FfiConverterTypeVauchiMobile.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_constructor_vauchimobile_new_with_secure_key(
+                FfiConverterString.lower(dataDir),
+                FfiConverterString.lower(relayUrl),
+                FfiConverterData.lower(storageKeyBytes), $0
+            )
+        })
+    }
 
-    
     /**
      * Add a contact to a label.
      */
-open func addContactToLabel(labelId: String, contactId: String)throws  {try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_add_contact_to_label(self.uniffiClonePointer(),
-        FfiConverterString.lower(labelId),
-        FfiConverterString.lower(contactId),$0
-    )
-}
-}
-    
+    open func addContactToLabel(labelId: String, contactId: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_add_contact_to_label(self.uniffiClonePointer(),
+                                                                             FfiConverterString.lower(labelId),
+                                                                             FfiConverterString.lower(contactId), $0)
+        }
+    }
+
+    /**
+     * Adds a decoy contact for duress mode.
+     *
+     * The card_json should be a JSON-serialized ContactCard.
+     * Returns the generated ID.
+     */
+    open func addDecoyContact(name: String, cardJson: String) throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_add_decoy_contact(self.uniffiClonePointer(),
+                                                                          FfiConverterString.lower(name),
+                                                                          FfiConverterString.lower(cardJson), $0)
+        })
+    }
+
     /**
      * Add field to own card.
      */
-open func addField(fieldType: MobileFieldType, label: String, value: String)throws  {try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_add_field(self.uniffiClonePointer(),
-        FfiConverterTypeMobileFieldType.lower(fieldType),
-        FfiConverterString.lower(label),
-        FfiConverterString.lower(value),$0
-    )
-}
-}
-    
+    open func addField(fieldType: MobileFieldType, label: String, value: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_add_field(self.uniffiClonePointer(),
+                                                                  FfiConverterTypeMobileFieldType.lower(fieldType),
+                                                                  FfiConverterString.lower(label),
+                                                                  FfiConverterString.lower(value), $0)
+        }
+    }
+
     /**
      * Add a voucher to the current recovery claim.
      *
      * Returns the updated progress.
      */
-open func addRecoveryVoucher(voucherB64: String)throws  -> MobileRecoveryProgress {
-    return try  FfiConverterTypeMobileRecoveryProgress.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_add_recovery_voucher(self.uniffiClonePointer(),
-        FfiConverterString.lower(voucherB64),$0
-    )
-})
-}
-    
+    open func addRecoveryVoucher(voucherB64: String) throws -> MobileRecoveryProgress {
+        return try FfiConverterTypeMobileRecoveryProgress.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_add_recovery_voucher(self.uniffiClonePointer(),
+                                                                             FfiConverterString.lower(voucherB64), $0)
+        })
+    }
+
     /**
      * Get the count of seen aha moments.
      */
-open func ahaMomentsSeenCount() -> UInt32 {
-    return try!  FfiConverterUInt32.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_aha_moments_seen_count(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func ahaMomentsSeenCount() -> UInt32 {
+        return try! FfiConverterUInt32.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_aha_moments_seen_count(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Get the total count of aha moments.
      */
-open func ahaMomentsTotalCount() -> UInt32 {
-    return try!  FfiConverterUInt32.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_aha_moments_total_count(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func ahaMomentsTotalCount() -> UInt32 {
+        return try! FfiConverterUInt32.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_aha_moments_total_count(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Apply available content updates.
      *
@@ -1868,67 +2373,78 @@ open func ahaMomentsTotalCount() -> UInt32 {
      *
      * Note: Returns Disabled if the `content-updates` feature is not enabled.
      */
-open func applyContentUpdates() -> MobileApplyResult {
-    return try!  FfiConverterTypeMobileApplyResult.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_apply_content_updates(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func applyContentUpdates() -> MobileApplyResult {
+        return try! FfiConverterTypeMobileApplyResult.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_apply_content_updates(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Authenticates with a password.
+     *
+     * Returns the authentication mode:
+     * - `Normal` if the real password matches
+     * - `Duress` if the duress PIN matches
+     * - Returns an error if neither matches
+     */
+    open func authenticate(password: String) throws -> MobileAuthMode {
+        return try FfiConverterTypeMobileAuthMode.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_authenticate(self.uniffiClonePointer(),
+                                                                     FfiConverterString.lower(password), $0)
+        })
+    }
+
     /**
      * Auto-remove demo contact after first real exchange.
      * Call this after a successful contact exchange.
      */
-open func autoRemoveDemoContact()throws  -> Bool {
-    return try  FfiConverterBool.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_auto_remove_demo_contact(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func autoRemoveDemoContact() throws -> Bool {
+        return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_auto_remove_demo_contact(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Calculate the backoff time for a given retry attempt.
      *
      * Returns seconds until next retry: 2^attempt, max 3600 (1 hour).
      */
-open func calculateRetryBackoff(attempt: UInt32) -> UInt64 {
-    return try!  FfiConverterUInt64.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_calculate_retry_backoff(self.uniffiClonePointer(),
-        FfiConverterUInt32.lower(attempt),$0
-    )
-})
-}
-    
+    open func calculateRetryBackoff(attempt: UInt32) -> UInt64 {
+        return try! FfiConverterUInt64.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_calculate_retry_backoff(self.uniffiClonePointer(),
+                                                                                FfiConverterUInt32.lower(attempt), $0)
+        })
+    }
+
     /**
      * Cancel a scheduled account deletion.
      */
-open func cancelAccountDeletion()throws  {try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_cancel_account_deletion(self.uniffiClonePointer(),$0
-    )
-}
-}
-    
+    open func cancelAccountDeletion() throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_cancel_account_deletion(self.uniffiClonePointer(), $0)
+        }
+    }
+
     /**
      * Cancel a scheduled shred during the grace period.
      */
-open func cancelShred(token: MobileShredToken)throws  {try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_cancel_shred(self.uniffiClonePointer(),
-        FfiConverterTypeMobileShredToken.lower(token),$0
-    )
-}
-}
-    
+    open func cancelShred(token: MobileShredToken) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_cancel_shred(self.uniffiClonePointer(),
+                                                                     FfiConverterTypeMobileShredToken.lower(token), $0)
+        }
+    }
+
     /**
      * Check whether consent is currently granted for a type.
      */
-open func checkConsent(consentType: MobileConsentType)throws  -> Bool {
-    return try  FfiConverterBool.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_check_consent(self.uniffiClonePointer(),
-        FfiConverterTypeMobileConsentType.lower(consentType),$0
-    )
-})
-}
-    
+    open func checkConsent(consentType: MobileConsentType) throws -> Bool {
+        return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_check_consent(self.uniffiClonePointer(),
+                                                                      FfiConverterTypeMobileConsentType.lower(consentType), $0)
+        })
+    }
+
     /**
      * Check for available content updates.
      *
@@ -1937,91 +2453,113 @@ open func checkConsent(consentType: MobileConsentType)throws  -> Bool {
      *
      * Note: Returns Disabled if the `content-updates` feature is not enabled.
      */
-open func checkContentUpdates() -> MobileUpdateStatus {
-    return try!  FfiConverterTypeMobileUpdateStatus.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_check_content_updates(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func checkContentUpdates() -> MobileUpdateStatus {
+        return try! FfiConverterTypeMobileUpdateStatus.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_check_content_updates(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Clear all pending updates for a contact.
      *
      * Returns the number of cleared updates.
      */
-open func clearPendingUpdatesForContact(contactId: String)throws  -> UInt32 {
-    return try  FfiConverterUInt32.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_clear_pending_updates_for_contact(self.uniffiClonePointer(),
-        FfiConverterString.lower(contactId),$0
-    )
-})
-}
-    
+    open func clearPendingUpdatesForContact(contactId: String) throws -> UInt32 {
+        return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_clear_pending_updates_for_contact(self.uniffiClonePointer(),
+                                                                                          FfiConverterString.lower(contactId), $0)
+        })
+    }
+
+    /**
+     * Configures duress alert settings.
+     *
+     * Sets which contacts receive alerts, the alert message, and
+     * whether to include device location.
+     */
+    open func configureDuressAlerts(contactIds: [String], message: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_configure_duress_alerts(self.uniffiClonePointer(),
+                                                                                FfiConverterSequenceString.lower(contactIds),
+                                                                                FfiConverterString.lower(message), $0)
+        }
+    }
+
+    /**
+     * Configures the emergency broadcast system.
+     *
+     * Sets which contacts receive emergency alerts, the alert message,
+     * and whether to include device location.
+     */
+    open func configureEmergencyBroadcast(contactIds: [String], message: String, includeLocation: Bool) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_configure_emergency_broadcast(self.uniffiClonePointer(),
+                                                                                      FfiConverterSequenceString.lower(contactIds),
+                                                                                      FfiConverterString.lower(message),
+                                                                                      FfiConverterBool.lower(includeLocation), $0)
+        }
+    }
+
     /**
      * Get contact count.
      */
-open func contactCount()throws  -> UInt32 {
-    return try  FfiConverterUInt32.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_contact_count(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func contactCount() throws -> UInt32 {
+        return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_contact_count(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Count failed deliveries.
      */
-open func countFailedDeliveries()throws  -> UInt32 {
-    return try  FfiConverterUInt32.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_count_failed_deliveries(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func countFailedDeliveries() throws -> UInt32 {
+        return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_count_failed_deliveries(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Create a new identity.
      */
-open func createIdentity(displayName: String)throws  {try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_create_identity(self.uniffiClonePointer(),
-        FfiConverterString.lower(displayName),$0
-    )
-}
-}
-    
+    open func createIdentity(displayName: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_create_identity(self.uniffiClonePointer(),
+                                                                        FfiConverterString.lower(displayName), $0)
+        }
+    }
+
     /**
      * Create a new visibility label.
      */
-open func createLabel(name: String)throws  -> MobileVisibilityLabel {
-    return try  FfiConverterTypeMobileVisibilityLabel.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_create_label(self.uniffiClonePointer(),
-        FfiConverterString.lower(name),$0
-    )
-})
-}
-    
+    open func createLabel(name: String) throws -> MobileVisibilityLabel {
+        return try FfiConverterTypeMobileVisibilityLabel.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_create_label(self.uniffiClonePointer(),
+                                                                     FfiConverterString.lower(name), $0)
+        })
+    }
+
     /**
      * Create a QR exchange session with proximity verification.
      *
      * Both parties display and scan QR codes. Uses fresh ephemeral keys
      * for full forward secrecy.
      */
-open func createQrExchange(proximity: MobileProximityHandler)throws  -> MobileExchangeSession {
-    return try  FfiConverterTypeMobileExchangeSession.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_create_qr_exchange(self.uniffiClonePointer(),
-        FfiConverterCallbackInterfaceMobileProximityHandler.lower(proximity),$0
-    )
-})
-}
-    
+    open func createQrExchange(proximity: MobileProximityHandler) throws -> MobileExchangeSession {
+        return try FfiConverterTypeMobileExchangeSession.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_create_qr_exchange(self.uniffiClonePointer(),
+                                                                           FfiConverterCallbackInterfaceMobileProximityHandler.lower(proximity), $0)
+        })
+    }
+
     /**
      * Create a QR exchange session with manual confirmation (no audio hardware).
      */
-open func createQrExchangeManual()throws  -> MobileExchangeSession {
-    return try  FfiConverterTypeMobileExchangeSession.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_create_qr_exchange_manual(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func createQrExchangeManual() throws -> MobileExchangeSession {
+        return try FfiConverterTypeMobileExchangeSession.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_create_qr_exchange_manual(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Create a recovery claim for a lost identity.
      *
@@ -2029,70 +2567,94 @@ open func createQrExchangeManual()throws  -> MobileExchangeSession {
      * This starts the recovery process by creating a claim that contacts
      * can vouch for.
      */
-open func createRecoveryClaim(oldPkHex: String)throws  -> MobileRecoveryClaim {
-    return try  FfiConverterTypeMobileRecoveryClaim.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_create_recovery_claim(self.uniffiClonePointer(),
-        FfiConverterString.lower(oldPkHex),$0
-    )
-})
-}
-    
+    open func createRecoveryClaim(oldPkHex: String) throws -> MobileRecoveryClaim {
+        return try FfiConverterTypeMobileRecoveryClaim.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_create_recovery_claim(self.uniffiClonePointer(),
+                                                                              FfiConverterString.lower(oldPkHex), $0)
+        })
+    }
+
     /**
      * Create a voucher for someone's recovery claim.
      *
      * This vouches that you trust the person claiming to own the old identity
      * is the same person as the new identity.
      */
-open func createRecoveryVoucher(claimB64: String)throws  -> MobileRecoveryVoucher {
-    return try  FfiConverterTypeMobileRecoveryVoucher.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_create_recovery_voucher(self.uniffiClonePointer(),
-        FfiConverterString.lower(claimB64),$0
-    )
-})
-}
-    
+    open func createRecoveryVoucher(claimB64: String) throws -> MobileRecoveryVoucher {
+        return try FfiConverterTypeMobileRecoveryVoucher.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_create_recovery_voucher(self.uniffiClonePointer(),
+                                                                                FfiConverterString.lower(claimB64), $0)
+        })
+    }
+
+    /**
+     * Deletes a decoy contact by ID.
+     */
+    open func deleteDecoyContact(id: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_delete_decoy_contact(self.uniffiClonePointer(),
+                                                                             FfiConverterString.lower(id), $0)
+        }
+    }
+
     /**
      * Delete a label.
      */
-open func deleteLabel(labelId: String)throws  {try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_delete_label(self.uniffiClonePointer(),
-        FfiConverterString.lower(labelId),$0
-    )
-}
-}
-    
+    open func deleteLabel(labelId: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_delete_label(self.uniffiClonePointer(),
+                                                                     FfiConverterString.lower(labelId), $0)
+        }
+    }
+
     /**
      * Delete a retry entry (after successful delivery or max attempts).
      */
-open func deleteRetry(messageId: String)throws  -> Bool {
-    return try  FfiConverterBool.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_delete_retry(self.uniffiClonePointer(),
-        FfiConverterString.lower(messageId),$0
-    )
-})
-}
-    
+    open func deleteRetry(messageId: String) throws -> Bool {
+        return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_delete_retry(self.uniffiClonePointer(),
+                                                                     FfiConverterString.lower(messageId), $0)
+        })
+    }
+
     /**
      * Get the device count.
      *
      * Returns the number of devices linked to this identity.
      */
-open func deviceCount()throws  -> UInt32 {
-    return try  FfiConverterUInt32.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_device_count(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func deviceCount() throws -> UInt32 {
+        return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_device_count(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Disables duress mode and clears duress hash/salt.
+     */
+    open func disableDuress() throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_disable_duress(self.uniffiClonePointer(), $0)
+        }
+    }
+
+    /**
+     * Disables the emergency broadcast by deleting the configuration.
+     */
+    open func disableEmergencyBroadcast() throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_disable_emergency_broadcast(self.uniffiClonePointer(), $0)
+        }
+    }
+
     /**
      * Dismiss the demo contact.
      */
-open func dismissDemoContact()throws  {try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_dismiss_demo_contact(self.uniffiClonePointer(),$0
-    )
-}
-}
-    
+    open func dismissDemoContact() throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_dismiss_demo_contact(self.uniffiClonePointer(), $0)
+        }
+    }
+
     /**
      * Execute account deletion (only after grace period).
      *
@@ -2100,44 +2662,40 @@ open func dismissDemoContact()throws  {try rustCallWithError(FfiConverterTypeMob
      * Returns the number of revocation messages generated (caller should
      * arrange relay delivery).
      */
-open func executeAccountDeletion()throws  -> UInt32 {
-    return try  FfiConverterUInt32.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_execute_account_deletion(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func executeAccountDeletion() throws -> UInt32 {
+        return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_execute_account_deletion(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Export encrypted backup.
      */
-open func exportBackup(password: String)throws  -> String {
-    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_export_backup(self.uniffiClonePointer(),
-        FfiConverterString.lower(password),$0
-    )
-})
-}
-    
+    open func exportBackup(password: String) throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_export_backup(self.uniffiClonePointer(),
+                                                                      FfiConverterString.lower(password), $0)
+        })
+    }
+
     /**
      * Export all user data for GDPR compliance.
      */
-open func exportGdprData()throws  -> MobileGdprExport {
-    return try  FfiConverterTypeMobileGdprExport.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_export_gdpr_data(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func exportGdprData() throws -> MobileGdprExport {
+        return try FfiConverterTypeMobileGdprExport.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_export_gdpr_data(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Export the current storage key bytes for migration to secure storage.
      */
-open func exportStorageKey() -> Data {
-    return try!  FfiConverterData.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_export_storage_key(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func exportStorageKey() -> Data {
+        return try! FfiConverterData.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_export_storage_key(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Finalize a completed exchange session.
      *
@@ -2147,373 +2705,374 @@ open func exportStorageKey() -> Data {
      * The session must be in the Complete state (i.e., the state machine has been
      * driven through all steps).
      */
-open func finalizeExchange(session: MobileExchangeSession)throws  -> MobileExchangeResult {
-    return try  FfiConverterTypeMobileExchangeResult.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_finalize_exchange(self.uniffiClonePointer(),
-        FfiConverterTypeMobileExchangeSession.lower(session),$0
-    )
-})
-}
-    
+    open func finalizeExchange(session: MobileExchangeSession) throws -> MobileExchangeResult {
+        return try FfiConverterTypeMobileExchangeResult.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_finalize_exchange(self.uniffiClonePointer(),
+                                                                          FfiConverterTypeMobileExchangeSession.lower(session), $0)
+        })
+    }
+
     /**
      * Generate a device link QR code.
      *
      * Display this QR code on the existing device for a new device to scan.
      * The QR expires after 10 minutes.
      */
-open func generateDeviceLinkQr()throws  -> MobileDeviceLinkData {
-    return try  FfiConverterTypeMobileDeviceLinkData.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_generate_device_link_qr(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func generateDeviceLinkQr() throws -> MobileDeviceLinkData {
+        return try FfiConverterTypeMobileDeviceLinkData.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_generate_device_link_qr(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Get all delivery records.
      */
-open func getAllDeliveryRecords()throws  -> [MobileDeliveryRecord] {
-    return try  FfiConverterSequenceTypeMobileDeliveryRecord.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_get_all_delivery_records(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func getAllDeliveryRecords() throws -> [MobileDeliveryRecord] {
+        return try FfiConverterSequenceTypeMobileDeliveryRecord.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_get_all_delivery_records(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Get all consent records.
      */
-open func getConsentRecords()throws  -> [MobileConsentRecord] {
-    return try  FfiConverterSequenceTypeMobileConsentRecord.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_get_consent_records(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func getConsentRecords() throws -> [MobileConsentRecord] {
+        return try FfiConverterSequenceTypeMobileConsentRecord.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_get_consent_records(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Get single contact by ID.
      */
-open func getContact(id: String)throws  -> MobileContact? {
-    return try  FfiConverterOptionTypeMobileContact.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_get_contact(self.uniffiClonePointer(),
-        FfiConverterString.lower(id),$0
-    )
-})
-}
-    
+    open func getContact(id: String) throws -> MobileContact? {
+        return try FfiConverterOptionTypeMobileContact.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_get_contact(self.uniffiClonePointer(),
+                                                                    FfiConverterString.lower(id), $0)
+        })
+    }
+
     /**
      * Get current deletion state.
      */
-open func getDeletionState()throws  -> MobileDeletionInfo {
-    return try  FfiConverterTypeMobileDeletionInfo.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_get_deletion_state(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func getDeletionState() throws -> MobileDeletionInfo {
+        return try FfiConverterTypeMobileDeletionInfo.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_get_deletion_state(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Get delivery count by status.
      */
-open func getDeliveryCountByStatus(status: MobileDeliveryStatus)throws  -> UInt32 {
-    return try  FfiConverterUInt32.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_get_delivery_count_by_status(self.uniffiClonePointer(),
-        FfiConverterTypeMobileDeliveryStatus.lower(status),$0
-    )
-})
-}
-    
+    open func getDeliveryCountByStatus(status: MobileDeliveryStatus) throws -> UInt32 {
+        return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_get_delivery_count_by_status(self.uniffiClonePointer(),
+                                                                                     FfiConverterTypeMobileDeliveryStatus.lower(status), $0)
+        })
+    }
+
     /**
      * Get delivery record for a message.
      */
-open func getDeliveryRecord(messageId: String)throws  -> MobileDeliveryRecord? {
-    return try  FfiConverterOptionTypeMobileDeliveryRecord.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_get_delivery_record(self.uniffiClonePointer(),
-        FfiConverterString.lower(messageId),$0
-    )
-})
-}
-    
+    open func getDeliveryRecord(messageId: String) throws -> MobileDeliveryRecord? {
+        return try FfiConverterOptionTypeMobileDeliveryRecord.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_get_delivery_record(self.uniffiClonePointer(),
+                                                                            FfiConverterString.lower(messageId), $0)
+        })
+    }
+
     /**
      * Get all delivery records for a recipient.
      */
-open func getDeliveryRecordsForContact(recipientId: String)throws  -> [MobileDeliveryRecord] {
-    return try  FfiConverterSequenceTypeMobileDeliveryRecord.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_get_delivery_records_for_contact(self.uniffiClonePointer(),
-        FfiConverterString.lower(recipientId),$0
-    )
-})
-}
-    
+    open func getDeliveryRecordsForContact(recipientId: String) throws -> [MobileDeliveryRecord] {
+        return try FfiConverterSequenceTypeMobileDeliveryRecord.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_get_delivery_records_for_contact(self.uniffiClonePointer(),
+                                                                                         FfiConverterString.lower(recipientId), $0)
+        })
+    }
+
     /**
      * Get delivery summary for a message (X of Y devices delivered).
      */
-open func getDeliverySummary(messageId: String)throws  -> MobileDeliverySummary {
-    return try  FfiConverterTypeMobileDeliverySummary.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_get_delivery_summary(self.uniffiClonePointer(),
-        FfiConverterString.lower(messageId),$0
-    )
-})
-}
-    
+    open func getDeliverySummary(messageId: String) throws -> MobileDeliverySummary {
+        return try FfiConverterTypeMobileDeliverySummary.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_get_delivery_summary(self.uniffiClonePointer(),
+                                                                             FfiConverterString.lower(messageId), $0)
+        })
+    }
+
     /**
      * Get the current demo contact if active.
      */
-open func getDemoContact()throws  -> MobileDemoContact? {
-    return try  FfiConverterOptionTypeMobileDemoContact.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_get_demo_contact(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func getDemoContact() throws -> MobileDemoContact? {
+        return try FfiConverterOptionTypeMobileDemoContact.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_get_demo_contact(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Get the demo contact state.
      */
-open func getDemoContactState() -> MobileDemoContactState {
-    return try!  FfiConverterTypeMobileDemoContactState.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_get_demo_contact_state(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func getDemoContactState() -> MobileDemoContactState {
+        return try! FfiConverterTypeMobileDemoContactState.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_get_demo_contact_state(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Get all device delivery records for a message.
      */
-open func getDeviceDeliveries(messageId: String)throws  -> [MobileDeviceDeliveryRecord] {
-    return try  FfiConverterSequenceTypeMobileDeviceDeliveryRecord.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_get_device_deliveries(self.uniffiClonePointer(),
-        FfiConverterString.lower(messageId),$0
-    )
-})
-}
-    
+    open func getDeviceDeliveries(messageId: String) throws -> [MobileDeviceDeliveryRecord] {
+        return try FfiConverterSequenceTypeMobileDeviceDeliveryRecord.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_get_device_deliveries(self.uniffiClonePointer(),
+                                                                              FfiConverterString.lower(messageId), $0)
+        })
+    }
+
     /**
      * Get list of linked devices.
      *
      * Returns information about all devices linked to this identity.
      * The first device (index 0) is the primary device.
      */
-open func getDevices()throws  -> [MobileDeviceInfo] {
-    return try  FfiConverterSequenceTypeMobileDeviceInfo.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_get_devices(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func getDevices() throws -> [MobileDeviceInfo] {
+        return try FfiConverterSequenceTypeMobileDeviceInfo.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_get_devices(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Get display name.
      */
-open func getDisplayName()throws  -> String {
-    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_get_display_name(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func getDisplayName() throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_get_display_name(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Get all retry entries that are due for retry.
      */
-open func getDueRetries()throws  -> [MobileRetryEntry] {
-    return try  FfiConverterSequenceTypeMobileRetryEntry.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_get_due_retries(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func getDueRetries() throws -> [MobileRetryEntry] {
+        return try FfiConverterSequenceTypeMobileRetryEntry.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_get_due_retries(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Gets the current duress alert settings.
+     *
+     * Returns `None` if no settings have been configured.
+     */
+    open func getDuressSettings() throws -> MobileDuressSettings? {
+        return try FfiConverterOptionTypeMobileDuressSettings.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_get_duress_settings(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Gets the current emergency broadcast configuration.
+     *
+     * Returns `None` if no configuration has been set.
+     */
+    open func getEmergencyConfig() throws -> MobileEmergencyConfig? {
+        return try FfiConverterOptionTypeMobileEmergencyConfig.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_get_emergency_config(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Get the validation count for a field (quick check without full status).
      */
-open func getFieldValidationCount(contactId: String, fieldId: String)throws  -> UInt32 {
-    return try  FfiConverterUInt32.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_get_field_validation_count(self.uniffiClonePointer(),
-        FfiConverterString.lower(contactId),
-        FfiConverterString.lower(fieldId),$0
-    )
-})
-}
-    
+    open func getFieldValidationCount(contactId: String, fieldId: String) throws -> UInt32 {
+        return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_get_field_validation_count(self.uniffiClonePointer(),
+                                                                                   FfiConverterString.lower(contactId),
+                                                                                   FfiConverterString.lower(fieldId), $0)
+        })
+    }
+
     /**
      * Get validation status for a contact's field.
      *
      * Returns aggregated validation information including count, trust level,
      * and whether you have validated this field.
      */
-open func getFieldValidationStatus(contactId: String, fieldId: String, fieldValue: String)throws  -> MobileValidationStatus {
-    return try  FfiConverterTypeMobileValidationStatus.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_get_field_validation_status(self.uniffiClonePointer(),
-        FfiConverterString.lower(contactId),
-        FfiConverterString.lower(fieldId),
-        FfiConverterString.lower(fieldValue),$0
-    )
-})
-}
-    
+    open func getFieldValidationStatus(contactId: String, fieldId: String, fieldValue: String) throws -> MobileValidationStatus {
+        return try FfiConverterTypeMobileValidationStatus.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_get_field_validation_status(self.uniffiClonePointer(),
+                                                                                    FfiConverterString.lower(contactId),
+                                                                                    FfiConverterString.lower(fieldId),
+                                                                                    FfiConverterString.lower(fieldValue), $0)
+        })
+    }
+
     /**
      * Get a label by ID with full details.
      */
-open func getLabel(labelId: String)throws  -> MobileVisibilityLabelDetail {
-    return try  FfiConverterTypeMobileVisibilityLabelDetail.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_get_label(self.uniffiClonePointer(),
-        FfiConverterString.lower(labelId),$0
-    )
-})
-}
-    
+    open func getLabel(labelId: String) throws -> MobileVisibilityLabelDetail {
+        return try FfiConverterTypeMobileVisibilityLabelDetail.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_get_label(self.uniffiClonePointer(),
+                                                                  FfiConverterString.lower(labelId), $0)
+        })
+    }
+
     /**
      * Get all labels that contain a contact.
      */
-open func getLabelsForContact(contactId: String)throws  -> [MobileVisibilityLabel] {
-    return try  FfiConverterSequenceTypeMobileVisibilityLabel.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_get_labels_for_contact(self.uniffiClonePointer(),
-        FfiConverterString.lower(contactId),$0
-    )
-})
-}
-    
+    open func getLabelsForContact(contactId: String) throws -> [MobileVisibilityLabel] {
+        return try FfiConverterSequenceTypeMobileVisibilityLabel.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_get_labels_for_contact(self.uniffiClonePointer(),
+                                                                               FfiConverterString.lower(contactId), $0)
+        })
+    }
+
     /**
      * Get remaining capacity in the offline queue.
      */
-open func getOfflineQueueCapacity()throws  -> UInt32 {
-    return try  FfiConverterUInt32.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_get_offline_queue_capacity(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func getOfflineQueueCapacity() throws -> UInt32 {
+        return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_get_offline_queue_capacity(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Get own contact card.
      */
-open func getOwnCard()throws  -> MobileContactCard {
-    return try  FfiConverterTypeMobileContactCard.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_get_own_card(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func getOwnCard() throws -> MobileContactCard {
+        return try FfiConverterTypeMobileContactCard.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_get_own_card(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Get formatted fingerprint of own identity public key.
+     *
+     * Returns the fingerprint as 16 groups of 4 uppercase hex characters,
+     * suitable for display and manual comparison with contacts.
+     */
+    open func getOwnFingerprint() throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_get_own_fingerprint(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Get all pending (non-terminal) deliveries.
      */
-open func getPendingDeliveries()throws  -> [MobileDeliveryRecord] {
-    return try  FfiConverterSequenceTypeMobileDeliveryRecord.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_get_pending_deliveries(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func getPendingDeliveries() throws -> [MobileDeliveryRecord] {
+        return try FfiConverterSequenceTypeMobileDeliveryRecord.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_get_pending_deliveries(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Get all pending device deliveries.
      */
-open func getPendingDeviceDeliveries()throws  -> [MobileDeviceDeliveryRecord] {
-    return try  FfiConverterSequenceTypeMobileDeviceDeliveryRecord.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_get_pending_device_deliveries(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func getPendingDeviceDeliveries() throws -> [MobileDeviceDeliveryRecord] {
+        return try FfiConverterSequenceTypeMobileDeviceDeliveryRecord.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_get_pending_device_deliveries(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Get profile URL for a social field.
      */
-open func getProfileUrl(networkId: String, username: String) -> String? {
-    return try!  FfiConverterOptionString.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_get_profile_url(self.uniffiClonePointer(),
-        FfiConverterString.lower(networkId),
-        FfiConverterString.lower(username),$0
-    )
-})
-}
-    
+    open func getProfileUrl(networkId: String, username: String) -> String? {
+        return try! FfiConverterOptionString.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_get_profile_url(self.uniffiClonePointer(),
+                                                                        FfiConverterString.lower(networkId),
+                                                                        FfiConverterString.lower(username), $0)
+        })
+    }
+
     /**
      * Get public ID.
      */
-open func getPublicId()throws  -> String {
-    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_get_public_id(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func getPublicId() throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_get_public_id(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Get the completed recovery proof as base64.
      *
      * Returns None if recovery is not complete.
      */
-open func getRecoveryProof()throws  -> String? {
-    return try  FfiConverterOptionString.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_get_recovery_proof(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func getRecoveryProof() throws -> String? {
+        return try FfiConverterOptionString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_get_recovery_proof(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Get the current recovery progress.
      *
      * Returns None if no recovery is in progress.
      */
-open func getRecoveryStatus()throws  -> MobileRecoveryProgress? {
-    return try  FfiConverterOptionTypeMobileRecoveryProgress.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_get_recovery_status(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func getRecoveryStatus() throws -> MobileRecoveryProgress? {
+        return try FfiConverterOptionTypeMobileRecoveryProgress.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_get_recovery_status(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Get all retry entries for a contact.
      */
-open func getRetriesForContact(contactId: String)throws  -> [MobileRetryEntry] {
-    return try  FfiConverterSequenceTypeMobileRetryEntry.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_get_retries_for_contact(self.uniffiClonePointer(),
-        FfiConverterString.lower(contactId),$0
-    )
-})
-}
-    
+    open func getRetriesForContact(contactId: String) throws -> [MobileRetryEntry] {
+        return try FfiConverterSequenceTypeMobileRetryEntry.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_get_retries_for_contact(self.uniffiClonePointer(),
+                                                                                FfiConverterString.lower(contactId), $0)
+        })
+    }
+
     /**
      * Get the total count of retry entries.
      */
-open func getRetryCount()throws  -> UInt32 {
-    return try  FfiConverterUInt32.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_get_retry_count(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func getRetryCount() throws -> UInt32 {
+        return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_get_retry_count(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Get suggested default labels.
      */
-open func getSuggestedLabels() -> [String] {
-    return try!  FfiConverterSequenceString.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_get_suggested_labels(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func getSuggestedLabels() -> [String] {
+        return try! FfiConverterSequenceString.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_get_suggested_labels(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Get sync status.
      */
-open func getSyncStatus() -> MobileSyncStatus {
-    return try!  FfiConverterTypeMobileSyncStatus.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_get_sync_status(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func getSyncStatus() -> MobileSyncStatus {
+        return try! FfiConverterTypeMobileSyncStatus.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_get_sync_status(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Get total count of all pending updates across all contacts.
      */
-open func getTotalPendingCount()throws  -> UInt32 {
-    return try  FfiConverterUInt32.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_get_total_pending_count(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func getTotalPendingCount() throws -> UInt32 {
+        return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_get_total_pending_count(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Grant consent for a specific type.
      */
-open func grantConsent(consentType: MobileConsentType)throws  {try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_grant_consent(self.uniffiClonePointer(),
-        FfiConverterTypeMobileConsentType.lower(consentType),$0
-    )
-}
-}
-    
+    open func grantConsent(consentType: MobileConsentType) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_grant_consent(self.uniffiClonePointer(),
+                                                                      FfiConverterTypeMobileConsentType.lower(consentType), $0)
+        }
+    }
+
     /**
      * Execute irreversible crypto-shredding (Hard Shred).
      *
@@ -2523,214 +3082,248 @@ open func grantConsent(consentType: MobileConsentType)throws  {try rustCallWithE
      * **WARNING**: This operation is irreversible. All account data will be
      * permanently destroyed.
      */
-open func hardShred(token: MobileShredToken)throws  -> MobileShredReport {
-    return try  FfiConverterTypeMobileShredReport.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_hard_shred(self.uniffiClonePointer(),
-        FfiConverterTypeMobileShredToken.lower(token),$0
-    )
-})
-}
-    
+    open func hardShred(token: MobileShredToken) throws -> MobileShredReport {
+        return try FfiConverterTypeMobileShredReport.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_hard_shred(self.uniffiClonePointer(),
+                                                                   FfiConverterTypeMobileShredToken.lower(token), $0)
+        })
+    }
+
     /**
      * Check if identity exists.
      */
-open func hasIdentity() -> Bool {
-    return try!  FfiConverterBool.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_has_identity(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func hasIdentity() -> Bool {
+        return try! FfiConverterBool.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_has_identity(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Check if an aha moment has been seen.
      */
-open func hasSeenAhaMoment(momentType: MobileAhaMomentType) -> Bool {
-    return try!  FfiConverterBool.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_has_seen_aha_moment(self.uniffiClonePointer(),
-        FfiConverterTypeMobileAhaMomentType.lower(momentType),$0
-    )
-})
-}
-    
+    open func hasSeenAhaMoment(momentType: MobileAhaMomentType) -> Bool {
+        return try! FfiConverterBool.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_has_seen_aha_moment(self.uniffiClonePointer(),
+                                                                            FfiConverterTypeMobileAhaMomentType.lower(momentType), $0)
+        })
+    }
+
     /**
      * Check if you have validated a specific field.
      */
-open func hasValidatedField(contactId: String, fieldId: String)throws  -> Bool {
-    return try  FfiConverterBool.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_has_validated_field(self.uniffiClonePointer(),
-        FfiConverterString.lower(contactId),
-        FfiConverterString.lower(fieldId),$0
-    )
-})
-}
-    
+    open func hasValidatedField(contactId: String, fieldId: String) throws -> Bool {
+        return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_has_validated_field(self.uniffiClonePointer(),
+                                                                            FfiConverterString.lower(contactId),
+                                                                            FfiConverterString.lower(fieldId), $0)
+        })
+    }
+
+    /**
+     * Hides a contact from the main contact list.
+     *
+     * Hidden contacts provide plausible deniability - they only appear
+     * via secret access (gesture, PIN, or special settings navigation).
+     * Routes through the Vauchi API to ensure `ContactHidden` events are dispatched.
+     */
+    open func hideContact(contactId: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_hide_contact(self.uniffiClonePointer(),
+                                                                     FfiConverterString.lower(contactId), $0)
+        }
+    }
+
     /**
      * Hide field from contact.
      */
-open func hideFieldFromContact(contactId: String, fieldLabel: String)throws  {try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_hide_field_from_contact(self.uniffiClonePointer(),
-        FfiConverterString.lower(contactId),
-        FfiConverterString.lower(fieldLabel),$0
-    )
-}
-}
-    
+    open func hideFieldFromContact(contactId: String, fieldLabel: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_hide_field_from_contact(self.uniffiClonePointer(),
+                                                                                FfiConverterString.lower(contactId),
+                                                                                FfiConverterString.lower(fieldLabel), $0)
+        }
+    }
+
     /**
      * Import backup.
      */
-open func importBackup(backupData: String, password: String)throws  {try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_import_backup(self.uniffiClonePointer(),
-        FfiConverterString.lower(backupData),
-        FfiConverterString.lower(password),$0
-    )
-}
-}
-    
+    open func importBackup(backupData: String, password: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_import_backup(self.uniffiClonePointer(),
+                                                                      FfiConverterString.lower(backupData),
+                                                                      FfiConverterString.lower(password), $0)
+        }
+    }
+
     /**
      * Initialize the demo contact if user has no real contacts.
      * Call this after onboarding completes.
      */
-open func initDemoContactIfNeeded()throws  -> MobileDemoContact? {
-    return try  FfiConverterOptionTypeMobileDemoContact.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_init_demo_contact_if_needed(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func initDemoContactIfNeeded() throws -> MobileDemoContact? {
+        return try FfiConverterOptionTypeMobileDemoContact.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_init_demo_contact_if_needed(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Check if certificate pinning is enabled.
      */
-open func isCertificatePinningEnabled() -> Bool {
-    return try!  FfiConverterBool.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_is_certificate_pinning_enabled(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func isCertificatePinningEnabled() -> Bool {
+        return try! FfiConverterBool.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_is_certificate_pinning_enabled(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Check if remote content updates are supported.
      *
      * Returns true if the content-updates feature is enabled at compile time.
      */
-open func isContentUpdatesSupported() -> Bool {
-    return try!  FfiConverterBool.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_is_content_updates_supported(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func isContentUpdatesSupported() -> Bool {
+        return try! FfiConverterBool.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_is_content_updates_supported(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Check if a demo update is available.
      */
-open func isDemoUpdateAvailable() -> Bool {
-    return try!  FfiConverterBool.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_is_demo_update_available(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func isDemoUpdateAvailable() -> Bool {
+        return try! FfiConverterBool.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_is_demo_update_available(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Returns whether duress mode is enabled.
+     */
+    open func isDuressEnabled() throws -> Bool {
+        return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_is_duress_enabled(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Check if field is visible to contact.
      */
-open func isFieldVisibleToContact(contactId: String, fieldLabel: String)throws  -> Bool {
-    return try  FfiConverterBool.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_is_field_visible_to_contact(self.uniffiClonePointer(),
-        FfiConverterString.lower(contactId),
-        FfiConverterString.lower(fieldLabel),$0
-    )
-})
-}
-    
+    open func isFieldVisibleToContact(contactId: String, fieldLabel: String) throws -> Bool {
+        return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_is_field_visible_to_contact(self.uniffiClonePointer(),
+                                                                                    FfiConverterString.lower(contactId),
+                                                                                    FfiConverterString.lower(fieldLabel), $0)
+        })
+    }
+
     /**
      * Check if the offline queue is full.
      *
      * Default max size is 1000 updates.
      */
-open func isOfflineQueueFull()throws  -> Bool {
-    return try  FfiConverterBool.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_is_offline_queue_full(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func isOfflineQueueFull() throws -> Bool {
+        return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_is_offline_queue_full(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Returns whether an app password has been configured.
+     */
+    open func isPasswordEnabled() throws -> Bool {
+        return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_is_password_enabled(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Check if this device is the primary device (index 0).
      */
-open func isPrimaryDevice()throws  -> Bool {
-    return try  FfiConverterBool.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_is_primary_device(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func isPrimaryDevice() throws -> Bool {
+        return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_is_primary_device(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * List all contacts.
      */
-open func listContacts()throws  -> [MobileContact] {
-    return try  FfiConverterSequenceTypeMobileContact.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_list_contacts(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func listContacts() throws -> [MobileContact] {
+        return try FfiConverterSequenceTypeMobileContact.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_list_contacts(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * List contacts with pagination.
      */
-open func listContactsPaginated(offset: UInt32, limit: UInt32)throws  -> [MobileContact] {
-    return try  FfiConverterSequenceTypeMobileContact.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_list_contacts_paginated(self.uniffiClonePointer(),
-        FfiConverterUInt32.lower(offset),
-        FfiConverterUInt32.lower(limit),$0
-    )
-})
-}
-    
+    open func listContactsPaginated(offset: UInt32, limit: UInt32) throws -> [MobileContact] {
+        return try FfiConverterSequenceTypeMobileContact.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_list_contacts_paginated(self.uniffiClonePointer(),
+                                                                                FfiConverterUInt32.lower(offset),
+                                                                                FfiConverterUInt32.lower(limit), $0)
+        })
+    }
+
+    /**
+     * Lists all decoy contacts.
+     */
+    open func listDecoyContacts() throws -> [MobileDecoyContact] {
+        return try FfiConverterSequenceTypeMobileDecoyContact.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_list_decoy_contacts(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Lists all hidden contacts.
+     * Routes through the Vauchi API for consistency with hide/unhide operations.
+     */
+    open func listHiddenContacts() throws -> [MobileContact] {
+        return try FfiConverterSequenceTypeMobileContact.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_list_hidden_contacts(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * List all visibility labels.
      */
-open func listLabels()throws  -> [MobileVisibilityLabel] {
-    return try  FfiConverterSequenceTypeMobileVisibilityLabel.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_list_labels(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func listLabels() throws -> [MobileVisibilityLabel] {
+        return try FfiConverterSequenceTypeMobileVisibilityLabel.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_list_labels(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * List all validations you have made.
      *
      * Returns a list of all fields you have validated, sorted by
      * validation timestamp (most recent first).
      */
-open func listMyValidations()throws  -> [MobileFieldValidation] {
-    return try  FfiConverterSequenceTypeMobileFieldValidation.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_list_my_validations(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func listMyValidations() throws -> [MobileFieldValidation] {
+        return try FfiConverterSequenceTypeMobileFieldValidation.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_list_my_validations(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * List available social networks.
      */
-open func listSocialNetworks() -> [MobileSocialNetwork] {
-    return try!  FfiConverterSequenceTypeMobileSocialNetwork.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_list_social_networks(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func listSocialNetworks() -> [MobileSocialNetwork] {
+        return try! FfiConverterSequenceTypeMobileSocialNetwork.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_list_social_networks(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Manually retry a failed delivery.
      *
      * Returns true if the retry entry was found and rescheduled.
      */
-open func manualRetry(messageId: String)throws  -> Bool {
-    return try  FfiConverterBool.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_manual_retry(self.uniffiClonePointer(),
-        FfiConverterString.lower(messageId),$0
-    )
-})
-}
-    
+    open func manualRetry(messageId: String) throws -> Bool {
+        return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_manual_retry(self.uniffiClonePointer(),
+                                                                     FfiConverterString.lower(messageId), $0)
+        })
+    }
+
     /**
      * Execute immediate crypto-shredding without grace period (Panic Shred).
      *
@@ -2739,13 +3332,12 @@ open func manualRetry(messageId: String)throws  -> Bool {
      *
      * **WARNING**: This operation is irreversible and immediate. No grace period.
      */
-open func panicShred()throws  -> MobileShredReport {
-    return try  FfiConverterTypeMobileShredReport.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_panic_shred(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func panicShred() throws -> MobileShredReport {
+        return try FfiConverterTypeMobileShredReport.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_panic_shred(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Parse a device link QR code.
      *
@@ -2753,229 +3345,229 @@ open func panicShred()throws  -> MobileShredReport {
      * on an existing device. Returns information about the identity
      * to link with.
      */
-open func parseDeviceLinkQr(qrData: String)throws  -> MobileDeviceLinkInfo {
-    return try  FfiConverterTypeMobileDeviceLinkInfo.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_parse_device_link_qr(self.uniffiClonePointer(),
-        FfiConverterString.lower(qrData),$0
-    )
-})
-}
-    
+    open func parseDeviceLinkQr(qrData: String) throws -> MobileDeviceLinkInfo {
+        return try FfiConverterTypeMobileDeviceLinkInfo.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_parse_device_link_qr(self.uniffiClonePointer(),
+                                                                             FfiConverterString.lower(qrData), $0)
+        })
+    }
+
     /**
      * Parse a recovery claim from base64.
      *
      * Used to inspect a claim before vouching for it.
      */
-open func parseRecoveryClaim(claimB64: String)throws  -> MobileRecoveryClaim {
-    return try  FfiConverterTypeMobileRecoveryClaim.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_parse_recovery_claim(self.uniffiClonePointer(),
-        FfiConverterString.lower(claimB64),$0
-    )
-})
-}
-    
+    open func parseRecoveryClaim(claimB64: String) throws -> MobileRecoveryClaim {
+        return try FfiConverterTypeMobileRecoveryClaim.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_parse_recovery_claim(self.uniffiClonePointer(),
+                                                                             FfiConverterString.lower(claimB64), $0)
+        })
+    }
+
     /**
      * Get pending update count.
      */
-open func pendingUpdateCount()throws  -> UInt32 {
-    return try  FfiConverterUInt32.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_pending_update_count(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func pendingUpdateCount() throws -> UInt32 {
+        return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_pending_update_count(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Reload social networks from content cache.
      *
      * Call this after applying content updates to refresh the
      * list of social networks available in the app.
      */
-open func reloadSocialNetworks() -> [MobileSocialNetwork] {
-    return try!  FfiConverterSequenceTypeMobileSocialNetwork.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_reload_social_networks(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func reloadSocialNetworks() -> [MobileSocialNetwork] {
+        return try! FfiConverterSequenceTypeMobileSocialNetwork.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_reload_social_networks(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Remove contact.
      */
-open func removeContact(id: String)throws  -> Bool {
-    return try  FfiConverterBool.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_remove_contact(self.uniffiClonePointer(),
-        FfiConverterString.lower(id),$0
-    )
-})
-}
-    
+    open func removeContact(id: String) throws -> Bool {
+        return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_remove_contact(self.uniffiClonePointer(),
+                                                                       FfiConverterString.lower(id), $0)
+        })
+    }
+
     /**
      * Remove a per-contact override for field visibility.
      */
-open func removeContactFieldOverride(contactId: String, fieldLabel: String)throws  {try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_remove_contact_field_override(self.uniffiClonePointer(),
-        FfiConverterString.lower(contactId),
-        FfiConverterString.lower(fieldLabel),$0
-    )
-}
-}
-    
+    open func removeContactFieldOverride(contactId: String, fieldLabel: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_remove_contact_field_override(self.uniffiClonePointer(),
+                                                                                      FfiConverterString.lower(contactId),
+                                                                                      FfiConverterString.lower(fieldLabel), $0)
+        }
+    }
+
     /**
      * Remove a contact from a label.
      */
-open func removeContactFromLabel(labelId: String, contactId: String)throws  {try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_remove_contact_from_label(self.uniffiClonePointer(),
-        FfiConverterString.lower(labelId),
-        FfiConverterString.lower(contactId),$0
-    )
-}
-}
-    
+    open func removeContactFromLabel(labelId: String, contactId: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_remove_contact_from_label(self.uniffiClonePointer(),
+                                                                                  FfiConverterString.lower(labelId),
+                                                                                  FfiConverterString.lower(contactId), $0)
+        }
+    }
+
     /**
      * Remove field from card.
      */
-open func removeField(label: String)throws  -> Bool {
-    return try  FfiConverterBool.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_remove_field(self.uniffiClonePointer(),
-        FfiConverterString.lower(label),$0
-    )
-})
-}
-    
+    open func removeField(label: String) throws -> Bool {
+        return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_remove_field(self.uniffiClonePointer(),
+                                                                     FfiConverterString.lower(label), $0)
+        })
+    }
+
     /**
      * Rename a label.
      */
-open func renameLabel(labelId: String, newName: String)throws  {try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_rename_label(self.uniffiClonePointer(),
-        FfiConverterString.lower(labelId),
-        FfiConverterString.lower(newName),$0
-    )
-}
-}
-    
+    open func renameLabel(labelId: String, newName: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_rename_label(self.uniffiClonePointer(),
+                                                                     FfiConverterString.lower(labelId),
+                                                                     FfiConverterString.lower(newName), $0)
+        }
+    }
+
     /**
      * Reset all aha moments (for testing/debugging).
      */
-open func resetAhaMoments()throws  {try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_reset_aha_moments(self.uniffiClonePointer(),$0
-    )
-}
-}
-    
+    open func resetAhaMoments() throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_reset_aha_moments(self.uniffiClonePointer(), $0)
+        }
+    }
+
     /**
      * Restore the demo contact from Settings.
      */
-open func restoreDemoContact()throws  -> MobileDemoContact? {
-    return try  FfiConverterOptionTypeMobileDemoContact.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_restore_demo_contact(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func restoreDemoContact() throws -> MobileDemoContact? {
+        return try FfiConverterOptionTypeMobileDemoContact.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_restore_demo_contact(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Revoke consent for a specific type.
      */
-open func revokeConsent(consentType: MobileConsentType)throws  {try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_revoke_consent(self.uniffiClonePointer(),
-        FfiConverterTypeMobileConsentType.lower(consentType),$0
-    )
-}
-}
-    
+    open func revokeConsent(consentType: MobileConsentType) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_revoke_consent(self.uniffiClonePointer(),
+                                                                       FfiConverterTypeMobileConsentType.lower(consentType), $0)
+        }
+    }
+
     /**
      * Revoke your validation of a contact's field.
      *
      * Returns true if a validation was revoked, false if you hadn't validated.
      */
-open func revokeFieldValidation(contactId: String, fieldId: String)throws  -> Bool {
-    return try  FfiConverterBool.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_revoke_field_validation(self.uniffiClonePointer(),
-        FfiConverterString.lower(contactId),
-        FfiConverterString.lower(fieldId),$0
-    )
-})
-}
-    
+    open func revokeFieldValidation(contactId: String, fieldId: String) throws -> Bool {
+        return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_revoke_field_validation(self.uniffiClonePointer(),
+                                                                                FfiConverterString.lower(contactId),
+                                                                                FfiConverterString.lower(fieldId), $0)
+        })
+    }
+
     /**
      * Schedule account deletion with 7-day grace period.
      */
-open func scheduleAccountDeletion()throws  -> MobileDeletionInfo {
-    return try  FfiConverterTypeMobileDeletionInfo.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_schedule_account_deletion(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func scheduleAccountDeletion() throws -> MobileDeletionInfo {
+        return try FfiConverterTypeMobileDeletionInfo.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_schedule_account_deletion(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Search contacts using SQL-level search.
      */
-open func searchContacts(query: String)throws  -> [MobileContact] {
-    return try  FfiConverterSequenceTypeMobileContact.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_search_contacts(self.uniffiClonePointer(),
-        FfiConverterString.lower(query),$0
-    )
-})
-}
-    
+    open func searchContacts(query: String) throws -> [MobileContact] {
+        return try FfiConverterSequenceTypeMobileContact.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_search_contacts(self.uniffiClonePointer(),
+                                                                        FfiConverterString.lower(query), $0)
+        })
+    }
+
     /**
      * Search social networks.
      */
-open func searchSocialNetworks(query: String) -> [MobileSocialNetwork] {
-    return try!  FfiConverterSequenceTypeMobileSocialNetwork.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_search_social_networks(self.uniffiClonePointer(),
-        FfiConverterString.lower(query),$0
-    )
-})
-}
-    
+    open func searchSocialNetworks(query: String) -> [MobileSocialNetwork] {
+        return try! FfiConverterSequenceTypeMobileSocialNetwork.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_search_social_networks(self.uniffiClonePointer(),
+                                                                               FfiConverterString.lower(query), $0)
+        })
+    }
+
+    /**
+     * Sends an emergency broadcast to all trusted contacts.
+     *
+     * Returns the number of alerts sent and total configured.
+     */
+    open func sendEmergencyBroadcast() throws -> MobileBroadcastResult {
+        return try FfiConverterTypeMobileBroadcastResult.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_send_emergency_broadcast(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Set a per-contact override for field visibility.
      *
      * Per-contact overrides take precedence over label-based visibility.
      */
-open func setContactFieldOverride(contactId: String, fieldLabel: String, isVisible: Bool)throws  {try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_set_contact_field_override(self.uniffiClonePointer(),
-        FfiConverterString.lower(contactId),
-        FfiConverterString.lower(fieldLabel),
-        FfiConverterBool.lower(isVisible),$0
-    )
-}
-}
-    
+    open func setContactFieldOverride(contactId: String, fieldLabel: String, isVisible: Bool) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_set_contact_field_override(self.uniffiClonePointer(),
+                                                                                   FfiConverterString.lower(contactId),
+                                                                                   FfiConverterString.lower(fieldLabel),
+                                                                                   FfiConverterBool.lower(isVisible), $0)
+        }
+    }
+
     /**
      * Set display name.
      */
-open func setDisplayName(name: String)throws  {try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_set_display_name(self.uniffiClonePointer(),
-        FfiConverterString.lower(name),$0
-    )
-}
-}
-    
+    open func setDisplayName(name: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_set_display_name(self.uniffiClonePointer(),
+                                                                         FfiConverterString.lower(name), $0)
+        }
+    }
+
     /**
      * Set whether a field is visible to contacts in a label.
      */
-open func setLabelFieldVisibility(labelId: String, fieldLabel: String, isVisible: Bool)throws  {try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_set_label_field_visibility(self.uniffiClonePointer(),
-        FfiConverterString.lower(labelId),
-        FfiConverterString.lower(fieldLabel),
-        FfiConverterBool.lower(isVisible),$0
-    )
-}
-}
-    
+    open func setLabelFieldVisibility(labelId: String, fieldLabel: String, isVisible: Bool) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_set_label_field_visibility(self.uniffiClonePointer(),
+                                                                                   FfiConverterString.lower(labelId),
+                                                                                   FfiConverterString.lower(fieldLabel),
+                                                                                   FfiConverterBool.lower(isVisible), $0)
+        }
+    }
+
     /**
      * Set the pinned certificate for relay TLS connections.
      *
      * The certificate should be in PEM format. Once set, only connections
      * to relay servers presenting this exact certificate will be allowed.
      */
-open func setPinnedCertificate(certPem: String) {try! rustCall() {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_set_pinned_certificate(self.uniffiClonePointer(),
-        FfiConverterString.lower(certPem),$0
-    )
-}
-}
-    
+    open func setPinnedCertificate(certPem: String) {
+        try! rustCall {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_set_pinned_certificate(self.uniffiClonePointer(),
+                                                                               FfiConverterString.lower(certPem), $0)
+        }
+    }
+
     /**
      * Set the platform keychain for crypto-shredding operations.
      *
@@ -2983,37 +3575,60 @@ open func setPinnedCertificate(certPem: String) {try! rustCall() {
      * access to the platform's native secure storage (iOS Keychain,
      * Android KeyStore) for SMK management.
      */
-open func setPlatformKeychain(keychain: MobilePlatformKeychain) {try! rustCall() {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_set_platform_keychain(self.uniffiClonePointer(),
-        FfiConverterCallbackInterfaceMobilePlatformKeychain.lower(keychain),$0
-    )
-}
-}
-    
+    open func setPlatformKeychain(keychain: MobilePlatformKeychain) {
+        try! rustCall {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_set_platform_keychain(self.uniffiClonePointer(),
+                                                                              FfiConverterCallbackInterfaceMobilePlatformKeychain.lower(keychain), $0)
+        }
+    }
+
+    /**
+     * Sets up an app password (PIN).
+     *
+     * Requires an identity to be created first.
+     */
+    open func setupAppPassword(password: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_setup_app_password(self.uniffiClonePointer(),
+                                                                           FfiConverterString.lower(password), $0)
+        }
+    }
+
+    /**
+     * Sets up a duress PIN.
+     *
+     * Requires an app password to be configured first.
+     */
+    open func setupDuressPassword(duressPassword: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_setup_duress_password(self.uniffiClonePointer(),
+                                                                              FfiConverterString.lower(duressPassword), $0)
+        }
+    }
+
     /**
      * Show field to contact.
      */
-open func showFieldToContact(contactId: String, fieldLabel: String)throws  {try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_show_field_to_contact(self.uniffiClonePointer(),
-        FfiConverterString.lower(contactId),
-        FfiConverterString.lower(fieldLabel),$0
-    )
-}
-}
-    
+    open func showFieldToContact(contactId: String, fieldLabel: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_show_field_to_contact(self.uniffiClonePointer(),
+                                                                              FfiConverterString.lower(contactId),
+                                                                              FfiConverterString.lower(fieldLabel), $0)
+        }
+    }
+
     /**
      * Get current shred status.
      *
      * Returns whether no shred is in progress, one is scheduled (with remaining
      * time), or has been executed.
      */
-open func shredStatus()throws  -> MobileShredStatus {
-    return try  FfiConverterTypeMobileShredStatus.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_shred_status(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func shredStatus() throws -> MobileShredStatus {
+        return try FfiConverterTypeMobileShredStatus.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_shred_status(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Schedule crypto-shredding with 7-day grace period (Soft Shred).
      *
@@ -3022,78 +3637,132 @@ open func shredStatus()throws  -> MobileShredStatus {
      *
      * Requires `set_platform_keychain()` to be called first.
      */
-open func softShred()throws  -> MobileShredToken {
-    return try  FfiConverterTypeMobileShredToken.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_soft_shred(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func softShred() throws -> MobileShredToken {
+        return try FfiConverterTypeMobileShredToken.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_soft_shred(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Start a device join as the new device (responder).
+     *
+     * Parses the QR data scanned from the existing device and returns a
+     * `MobileDeviceLinkResponder` that can create requests and process responses.
+     */
+    open func startDeviceJoin(qrData: String, deviceName: String) throws -> MobileDeviceLinkResponder {
+        return try FfiConverterTypeMobileDeviceLinkResponder.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_start_device_join(self.uniffiClonePointer(),
+                                                                          FfiConverterString.lower(qrData),
+                                                                          FfiConverterString.lower(deviceName), $0)
+        })
+    }
+
+    /**
+     * Start a device link as the existing device (initiator).
+     *
+     * Returns a `MobileDeviceLinkInitiator` that holds the QR data and can
+     * process incoming link requests from new devices.
+     */
+    open func startDeviceLink() throws -> MobileDeviceLinkInitiator {
+        return try FfiConverterTypeMobileDeviceLinkInitiator.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_start_device_link(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Sync with relay server.
      */
-open func sync()throws  -> MobileSyncResult {
-    return try  FfiConverterTypeMobileSyncResult.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_sync(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func sync() throws -> MobileSyncResult {
+        return try FfiConverterTypeMobileSyncResult.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_sync(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Async version of sync using native async WebSocket.
+     *
+     * Use this from mobile UI threads to prevent freezing.
+     * Storage is opened in scoped blocks and dropped before `.await` to keep
+     * the future `Send` (required by UniFFI async exports).
+     */
+    open func syncAsync() async throws -> MobileSyncResult {
+        return
+            try await uniffiRustCallAsync(
+                rustFutureFunc: {
+                    uniffi_vauchi_mobile_fn_method_vauchimobile_sync_async(
+                        self.uniffiClonePointer()
+                    )
+                },
+                pollFunc: ffi_vauchi_mobile_rust_future_poll_rust_buffer,
+                completeFunc: ffi_vauchi_mobile_rust_future_complete_rust_buffer,
+                freeFunc: ffi_vauchi_mobile_rust_future_free_rust_buffer,
+                liftFunc: FfiConverterTypeMobileSyncResult.lift,
+                errorHandler: FfiConverterTypeMobileError.lift
+            )
+    }
+
     /**
      * Trigger a demo update and get the new content.
      */
-open func triggerDemoUpdate()throws  -> MobileDemoContact? {
-    return try  FfiConverterOptionTypeMobileDemoContact.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_trigger_demo_update(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func triggerDemoUpdate() throws -> MobileDemoContact? {
+        return try FfiConverterOptionTypeMobileDemoContact.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_trigger_demo_update(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Mark a contact as trusted for recovery.
      *
      * Blocked contacts cannot be trusted for recovery.
      */
-open func trustContactForRecovery(id: String)throws  {try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_trust_contact_for_recovery(self.uniffiClonePointer(),
-        FfiConverterString.lower(id),$0
-    )
-}
-}
-    
+    open func trustContactForRecovery(id: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_trust_contact_for_recovery(self.uniffiClonePointer(),
+                                                                                   FfiConverterString.lower(id), $0)
+        }
+    }
+
     /**
      * Get the number of contacts trusted for recovery.
      */
-open func trustedContactCount()throws  -> UInt32 {
-    return try  FfiConverterUInt32.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_trusted_contact_count(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func trustedContactCount() throws -> UInt32 {
+        return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_trusted_contact_count(self.uniffiClonePointer(), $0)
+        })
+    }
+
     /**
      * Try to trigger an aha moment. Returns the moment if not yet seen, None otherwise.
      */
-open func tryTriggerAhaMoment(momentType: MobileAhaMomentType)throws  -> MobileAhaMoment? {
-    return try  FfiConverterOptionTypeMobileAhaMoment.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_try_trigger_aha_moment(self.uniffiClonePointer(),
-        FfiConverterTypeMobileAhaMomentType.lower(momentType),$0
-    )
-})
-}
-    
+    open func tryTriggerAhaMoment(momentType: MobileAhaMomentType) throws -> MobileAhaMoment? {
+        return try FfiConverterOptionTypeMobileAhaMoment.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_try_trigger_aha_moment(self.uniffiClonePointer(),
+                                                                               FfiConverterTypeMobileAhaMomentType.lower(momentType), $0)
+        })
+    }
+
     /**
      * Try to trigger an aha moment with context (e.g., contact name).
      */
-open func tryTriggerAhaMomentWithContext(momentType: MobileAhaMomentType, context: String)throws  -> MobileAhaMoment? {
-    return try  FfiConverterOptionTypeMobileAhaMoment.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_try_trigger_aha_moment_with_context(self.uniffiClonePointer(),
-        FfiConverterTypeMobileAhaMomentType.lower(momentType),
-        FfiConverterString.lower(context),$0
-    )
-})
-}
-    
+    open func tryTriggerAhaMomentWithContext(momentType: MobileAhaMomentType, context: String) throws -> MobileAhaMoment? {
+        return try FfiConverterOptionTypeMobileAhaMoment.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_try_trigger_aha_moment_with_context(self.uniffiClonePointer(),
+                                                                                            FfiConverterTypeMobileAhaMomentType.lower(momentType),
+                                                                                            FfiConverterString.lower(context), $0)
+        })
+    }
+
+    /**
+     * Unhides a contact, making it visible in the main contact list again.
+     * Routes through the Vauchi API to ensure `ContactUnhidden` events are dispatched.
+     */
+    open func unhideContact(contactId: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_unhide_contact(self.uniffiClonePointer(),
+                                                                       FfiConverterString.lower(contactId), $0)
+        }
+    }
+
     /**
      * Unlink a device from this identity.
      *
@@ -3104,35 +3773,34 @@ open func tryTriggerAhaMomentWithContext(momentType: MobileAhaMomentType, contex
      * Note: Cannot unlink the current device (use account deletion instead).
      * The device_index is the position in the devices list (0-based).
      */
-open func unlinkDevice(deviceIndex: UInt32)throws  -> Bool {
-    return try  FfiConverterBool.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_unlink_device(self.uniffiClonePointer(),
-        FfiConverterUInt32.lower(deviceIndex),$0
-    )
-})
-}
-    
+    open func unlinkDevice(deviceIndex: UInt32) throws -> Bool {
+        return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_unlink_device(self.uniffiClonePointer(),
+                                                                      FfiConverterUInt32.lower(deviceIndex), $0)
+        })
+    }
+
     /**
      * Remove recovery trust from a contact.
      */
-open func untrustContactForRecovery(id: String)throws  {try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_untrust_contact_for_recovery(self.uniffiClonePointer(),
-        FfiConverterString.lower(id),$0
-    )
-}
-}
-    
+    open func untrustContactForRecovery(id: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_untrust_contact_for_recovery(self.uniffiClonePointer(),
+                                                                                     FfiConverterString.lower(id), $0)
+        }
+    }
+
     /**
      * Update field value.
      */
-open func updateField(label: String, newValue: String)throws  {try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_update_field(self.uniffiClonePointer(),
-        FfiConverterString.lower(label),
-        FfiConverterString.lower(newValue),$0
-    )
-}
-}
-    
+    open func updateField(label: String, newValue: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_update_field(self.uniffiClonePointer(),
+                                                                     FfiConverterString.lower(label),
+                                                                     FfiConverterString.lower(newValue), $0)
+        }
+    }
+
     /**
      * Validate a contact's field.
      *
@@ -3140,60 +3808,54 @@ open func updateField(label: String, newValue: String)throws  {try rustCallWithE
      * that you believe this field value belongs to this contact.
      * Returns the created validation.
      */
-open func validateField(contactId: String, fieldId: String, fieldValue: String)throws  -> MobileFieldValidation {
-    return try  FfiConverterTypeMobileFieldValidation.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_validate_field(self.uniffiClonePointer(),
-        FfiConverterString.lower(contactId),
-        FfiConverterString.lower(fieldId),
-        FfiConverterString.lower(fieldValue),$0
-    )
-})
-}
-    
+    open func validateField(contactId: String, fieldId: String, fieldValue: String) throws -> MobileFieldValidation {
+        return try FfiConverterTypeMobileFieldValidation.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_validate_field(self.uniffiClonePointer(),
+                                                                       FfiConverterString.lower(contactId),
+                                                                       FfiConverterString.lower(fieldId),
+                                                                       FfiConverterString.lower(fieldValue), $0)
+        })
+    }
+
     /**
      * Verify contact fingerprint.
      */
-open func verifyContact(id: String)throws  {try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_verify_contact(self.uniffiClonePointer(),
-        FfiConverterString.lower(id),$0
-    )
-}
-}
-    
+    open func verifyContact(id: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_verify_contact(self.uniffiClonePointer(),
+                                                                       FfiConverterString.lower(id), $0)
+        }
+    }
+
     /**
      * Verify a recovery proof from a contact.
      *
      * This checks if the proof is valid and provides a recommendation
      * on whether to accept the recovered identity.
      */
-open func verifyRecoveryProof(proofB64: String)throws  -> MobileRecoveryVerification {
-    return try  FfiConverterTypeMobileRecoveryVerification.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_verify_recovery_proof(self.uniffiClonePointer(),
-        FfiConverterString.lower(proofB64),$0
-    )
-})
-}
-    
+    open func verifyRecoveryProof(proofB64: String) throws -> MobileRecoveryVerification {
+        return try FfiConverterTypeMobileRecoveryVerification.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_verify_recovery_proof(self.uniffiClonePointer(),
+                                                                              FfiConverterString.lower(proofB64), $0)
+        })
+    }
+
     /**
      * Verify that shredding was successful by checking for residual data.
      *
      * Returns verification results showing which items were confirmed destroyed.
      */
-open func verifyShred()throws  -> MobileShredVerification {
-    return try  FfiConverterTypeMobileShredVerification.lift(try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_method_vauchimobile_verify_shred(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
-
+    open func verifyShred() throws -> MobileShredVerification {
+        return try FfiConverterTypeMobileShredVerification.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_verify_shred(self.uniffiClonePointer(), $0)
+        })
+    }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeVauchiMobile: FfiConverter {
-
     typealias FfiType = UnsafeMutableRawPointer
     typealias SwiftType = VauchiMobile
 
@@ -3210,7 +3872,7 @@ public struct FfiConverterTypeVauchiMobile: FfiConverter {
         // The Rust code won't compile if a pointer won't fit in a UInt64.
         // We have to go via `UInt` because that's the thing that's the size of a pointer.
         let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
-        if (ptr == nil) {
+        if ptr == nil {
             throw UniffiInternalError.unexpectedNullPointer
         }
         return try lift(ptr!)
@@ -3223,23 +3885,19 @@ public struct FfiConverterTypeVauchiMobile: FfiConverter {
     }
 }
 
-
-
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeVauchiMobile_lift(_ pointer: UnsafeMutableRawPointer) throws -> VauchiMobile {
     return try FfiConverterTypeVauchiMobile.lift(pointer)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeVauchiMobile_lower(_ value: VauchiMobile) -> UnsafeMutableRawPointer {
     return FfiConverterTypeVauchiMobile.lower(value)
 }
-
 
 /**
  * An aha moment to display to the user.
@@ -3262,21 +3920,22 @@ public struct MobileAhaMoment {
      */
     public var hasAnimation: Bool
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(
-        /**
+        /* 
          * The type of milestone
-         */momentType: MobileAhaMomentType, 
-        /**
-         * Title to display
-         */title: String, 
-        /**
-         * Message to display
-         */message: String, 
-        /**
-         * Whether to show animation
-         */hasAnimation: Bool) {
+         */ momentType: MobileAhaMomentType,
+        /* 
+            * Title to display
+            */ title: String,
+        /* 
+            * Message to display
+            */ message: String,
+        /* 
+            * Whether to show animation
+            */ hasAnimation: Bool
+    ) {
         self.momentType = momentType
         self.title = title
         self.message = message
@@ -3284,10 +3943,8 @@ public struct MobileAhaMoment {
     }
 }
 
-
-
 extension MobileAhaMoment: Equatable, Hashable {
-    public static func ==(lhs: MobileAhaMoment, rhs: MobileAhaMoment) -> Bool {
+    public static func == (lhs: MobileAhaMoment, rhs: MobileAhaMoment) -> Bool {
         if lhs.momentType != rhs.momentType {
             return false
         }
@@ -3311,19 +3968,18 @@ extension MobileAhaMoment: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileAhaMoment: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileAhaMoment {
         return
             try MobileAhaMoment(
-                momentType: FfiConverterTypeMobileAhaMomentType.read(from: &buf), 
-                title: FfiConverterString.read(from: &buf), 
-                message: FfiConverterString.read(from: &buf), 
+                momentType: FfiConverterTypeMobileAhaMomentType.read(from: &buf),
+                title: FfiConverterString.read(from: &buf),
+                message: FfiConverterString.read(from: &buf),
                 hasAnimation: FfiConverterBool.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobileAhaMoment, into buf: inout [UInt8]) {
@@ -3334,21 +3990,19 @@ public struct FfiConverterTypeMobileAhaMoment: FfiConverterRustBuffer {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileAhaMoment_lift(_ buf: RustBuffer) throws -> MobileAhaMoment {
     return try FfiConverterTypeMobileAhaMoment.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileAhaMoment_lower(_ value: MobileAhaMoment) -> RustBuffer {
     return FfiConverterTypeMobileAhaMoment.lower(value)
 }
-
 
 /**
  * A failed content update.
@@ -3363,24 +4017,23 @@ public struct MobileApplyFailure {
      */
     public var error: String
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(
-        /**
+        /* 
          * The content type that failed
-         */contentType: MobileContentType, 
-        /**
-         * The error message
-         */error: String) {
+         */ contentType: MobileContentType,
+        /* 
+            * The error message
+            */ error: String
+    ) {
         self.contentType = contentType
         self.error = error
     }
 }
 
-
-
 extension MobileApplyFailure: Equatable, Hashable {
-    public static func ==(lhs: MobileApplyFailure, rhs: MobileApplyFailure) -> Bool {
+    public static func == (lhs: MobileApplyFailure, rhs: MobileApplyFailure) -> Bool {
         if lhs.contentType != rhs.contentType {
             return false
         }
@@ -3396,17 +4049,16 @@ extension MobileApplyFailure: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileApplyFailure: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileApplyFailure {
         return
             try MobileApplyFailure(
-                contentType: FfiConverterTypeMobileContentType.read(from: &buf), 
+                contentType: FfiConverterTypeMobileContentType.read(from: &buf),
                 error: FfiConverterString.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobileApplyFailure, into buf: inout [UInt8]) {
@@ -3415,21 +4067,96 @@ public struct FfiConverterTypeMobileApplyFailure: FfiConverterRustBuffer {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileApplyFailure_lift(_ buf: RustBuffer) throws -> MobileApplyFailure {
     return try FfiConverterTypeMobileApplyFailure.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileApplyFailure_lower(_ value: MobileApplyFailure) -> RustBuffer {
     return FfiConverterTypeMobileApplyFailure.lower(value)
 }
 
+/**
+ * Emergency broadcast result for mobile platforms.
+ */
+public struct MobileBroadcastResult {
+    /**
+     * Number of alerts successfully queued for delivery.
+     */
+    public var sent: UInt32
+    /**
+     * Total number of trusted contacts in the config.
+     */
+    public var total: UInt32
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(
+        /* 
+         * Number of alerts successfully queued for delivery.
+         */ sent: UInt32,
+        /* 
+            * Total number of trusted contacts in the config.
+            */ total: UInt32
+    ) {
+        self.sent = sent
+        self.total = total
+    }
+}
+
+extension MobileBroadcastResult: Equatable, Hashable {
+    public static func == (lhs: MobileBroadcastResult, rhs: MobileBroadcastResult) -> Bool {
+        if lhs.sent != rhs.sent {
+            return false
+        }
+        if lhs.total != rhs.total {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(sent)
+        hasher.combine(total)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileBroadcastResult: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileBroadcastResult {
+        return
+            try MobileBroadcastResult(
+                sent: FfiConverterUInt32.read(from: &buf),
+                total: FfiConverterUInt32.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileBroadcastResult, into buf: inout [UInt8]) {
+        FfiConverterUInt32.write(value.sent, into: &buf)
+        FfiConverterUInt32.write(value.total, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileBroadcastResult_lift(_ buf: RustBuffer) throws -> MobileBroadcastResult {
+    return try FfiConverterTypeMobileBroadcastResult.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileBroadcastResult_lower(_ value: MobileBroadcastResult) -> RustBuffer {
+    return FfiConverterTypeMobileBroadcastResult.lower(value)
+}
 
 /**
  * A recorded consent decision.
@@ -3456,24 +4183,25 @@ public struct MobileConsentRecord {
      */
     public var policyVersion: String?
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(
-        /**
+        /* 
          * Unique record ID.
-         */id: String, 
-        /**
-         * Type of consent.
-         */consentType: MobileConsentType, 
-        /**
-         * Whether consent was granted.
-         */granted: Bool, 
-        /**
-         * Unix timestamp of the decision.
-         */timestamp: UInt64, 
-        /**
-         * Privacy policy version at time of consent.
-         */policyVersion: String?) {
+         */ id: String,
+        /* 
+            * Type of consent.
+            */ consentType: MobileConsentType,
+        /* 
+            * Whether consent was granted.
+            */ granted: Bool,
+        /* 
+            * Unix timestamp of the decision.
+            */ timestamp: UInt64,
+        /* 
+            * Privacy policy version at time of consent.
+            */ policyVersion: String?
+    ) {
         self.id = id
         self.consentType = consentType
         self.granted = granted
@@ -3482,10 +4210,8 @@ public struct MobileConsentRecord {
     }
 }
 
-
-
 extension MobileConsentRecord: Equatable, Hashable {
-    public static func ==(lhs: MobileConsentRecord, rhs: MobileConsentRecord) -> Bool {
+    public static func == (lhs: MobileConsentRecord, rhs: MobileConsentRecord) -> Bool {
         if lhs.id != rhs.id {
             return false
         }
@@ -3513,20 +4239,19 @@ extension MobileConsentRecord: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileConsentRecord: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileConsentRecord {
         return
             try MobileConsentRecord(
-                id: FfiConverterString.read(from: &buf), 
-                consentType: FfiConverterTypeMobileConsentType.read(from: &buf), 
-                granted: FfiConverterBool.read(from: &buf), 
-                timestamp: FfiConverterUInt64.read(from: &buf), 
+                id: FfiConverterString.read(from: &buf),
+                consentType: FfiConverterTypeMobileConsentType.read(from: &buf),
+                granted: FfiConverterBool.read(from: &buf),
+                timestamp: FfiConverterUInt64.read(from: &buf),
                 policyVersion: FfiConverterOptionString.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobileConsentRecord, into buf: inout [UInt8]) {
@@ -3538,21 +4263,19 @@ public struct FfiConverterTypeMobileConsentRecord: FfiConverterRustBuffer {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileConsentRecord_lift(_ buf: RustBuffer) throws -> MobileConsentRecord {
     return try FfiConverterTypeMobileConsentRecord.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileConsentRecord_lower(_ value: MobileConsentRecord) -> RustBuffer {
     return FfiConverterTypeMobileConsentRecord.lower(value)
 }
-
 
 /**
  * Mobile-friendly contact.
@@ -3560,37 +4283,45 @@ public func FfiConverterTypeMobileConsentRecord_lower(_ value: MobileConsentReco
 public struct MobileContact {
     public var id: String
     public var displayName: String
+    public var fingerprint: String
     public var isVerified: Bool
     public var isRecoveryTrusted: Bool
+    public var isHidden: Bool
     public var card: MobileContactCard
     public var addedAt: UInt64
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
-    public init(id: String, displayName: String, isVerified: Bool, isRecoveryTrusted: Bool, card: MobileContactCard, addedAt: UInt64) {
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(id: String, displayName: String, fingerprint: String, isVerified: Bool, isRecoveryTrusted: Bool, isHidden: Bool, card: MobileContactCard, addedAt: UInt64) {
         self.id = id
         self.displayName = displayName
+        self.fingerprint = fingerprint
         self.isVerified = isVerified
         self.isRecoveryTrusted = isRecoveryTrusted
+        self.isHidden = isHidden
         self.card = card
         self.addedAt = addedAt
     }
 }
 
-
-
 extension MobileContact: Equatable, Hashable {
-    public static func ==(lhs: MobileContact, rhs: MobileContact) -> Bool {
+    public static func == (lhs: MobileContact, rhs: MobileContact) -> Bool {
         if lhs.id != rhs.id {
             return false
         }
         if lhs.displayName != rhs.displayName {
             return false
         }
+        if lhs.fingerprint != rhs.fingerprint {
+            return false
+        }
         if lhs.isVerified != rhs.isVerified {
             return false
         }
         if lhs.isRecoveryTrusted != rhs.isRecoveryTrusted {
+            return false
+        }
+        if lhs.isHidden != rhs.isHidden {
             return false
         }
         if lhs.card != rhs.card {
@@ -3605,55 +4336,58 @@ extension MobileContact: Equatable, Hashable {
     public func hash(into hasher: inout Hasher) {
         hasher.combine(id)
         hasher.combine(displayName)
+        hasher.combine(fingerprint)
         hasher.combine(isVerified)
         hasher.combine(isRecoveryTrusted)
+        hasher.combine(isHidden)
         hasher.combine(card)
         hasher.combine(addedAt)
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileContact: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileContact {
         return
             try MobileContact(
-                id: FfiConverterString.read(from: &buf), 
-                displayName: FfiConverterString.read(from: &buf), 
-                isVerified: FfiConverterBool.read(from: &buf), 
-                isRecoveryTrusted: FfiConverterBool.read(from: &buf), 
-                card: FfiConverterTypeMobileContactCard.read(from: &buf), 
+                id: FfiConverterString.read(from: &buf),
+                displayName: FfiConverterString.read(from: &buf),
+                fingerprint: FfiConverterString.read(from: &buf),
+                isVerified: FfiConverterBool.read(from: &buf),
+                isRecoveryTrusted: FfiConverterBool.read(from: &buf),
+                isHidden: FfiConverterBool.read(from: &buf),
+                card: FfiConverterTypeMobileContactCard.read(from: &buf),
                 addedAt: FfiConverterUInt64.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobileContact, into buf: inout [UInt8]) {
         FfiConverterString.write(value.id, into: &buf)
         FfiConverterString.write(value.displayName, into: &buf)
+        FfiConverterString.write(value.fingerprint, into: &buf)
         FfiConverterBool.write(value.isVerified, into: &buf)
         FfiConverterBool.write(value.isRecoveryTrusted, into: &buf)
+        FfiConverterBool.write(value.isHidden, into: &buf)
         FfiConverterTypeMobileContactCard.write(value.card, into: &buf)
         FfiConverterUInt64.write(value.addedAt, into: &buf)
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileContact_lift(_ buf: RustBuffer) throws -> MobileContact {
     return try FfiConverterTypeMobileContact.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileContact_lower(_ value: MobileContact) -> RustBuffer {
     return FfiConverterTypeMobileContact.lower(value)
 }
-
 
 /**
  * Mobile-friendly contact card.
@@ -3662,18 +4396,16 @@ public struct MobileContactCard {
     public var displayName: String
     public var fields: [MobileContactField]
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(displayName: String, fields: [MobileContactField]) {
         self.displayName = displayName
         self.fields = fields
     }
 }
 
-
-
 extension MobileContactCard: Equatable, Hashable {
-    public static func ==(lhs: MobileContactCard, rhs: MobileContactCard) -> Bool {
+    public static func == (lhs: MobileContactCard, rhs: MobileContactCard) -> Bool {
         if lhs.displayName != rhs.displayName {
             return false
         }
@@ -3689,17 +4421,16 @@ extension MobileContactCard: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileContactCard: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileContactCard {
         return
             try MobileContactCard(
-                displayName: FfiConverterString.read(from: &buf), 
+                displayName: FfiConverterString.read(from: &buf),
                 fields: FfiConverterSequenceTypeMobileContactField.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobileContactCard, into buf: inout [UInt8]) {
@@ -3708,21 +4439,19 @@ public struct FfiConverterTypeMobileContactCard: FfiConverterRustBuffer {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileContactCard_lift(_ buf: RustBuffer) throws -> MobileContactCard {
     return try FfiConverterTypeMobileContactCard.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileContactCard_lower(_ value: MobileContactCard) -> RustBuffer {
     return FfiConverterTypeMobileContactCard.lower(value)
 }
-
 
 /**
  * Mobile-friendly contact field.
@@ -3733,8 +4462,8 @@ public struct MobileContactField {
     public var label: String
     public var value: String
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(id: String, fieldType: MobileFieldType, label: String, value: String) {
         self.id = id
         self.fieldType = fieldType
@@ -3743,10 +4472,8 @@ public struct MobileContactField {
     }
 }
 
-
-
 extension MobileContactField: Equatable, Hashable {
-    public static func ==(lhs: MobileContactField, rhs: MobileContactField) -> Bool {
+    public static func == (lhs: MobileContactField, rhs: MobileContactField) -> Bool {
         if lhs.id != rhs.id {
             return false
         }
@@ -3770,19 +4497,18 @@ extension MobileContactField: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileContactField: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileContactField {
         return
             try MobileContactField(
-                id: FfiConverterString.read(from: &buf), 
-                fieldType: FfiConverterTypeMobileFieldType.read(from: &buf), 
-                label: FfiConverterString.read(from: &buf), 
+                id: FfiConverterString.read(from: &buf),
+                fieldType: FfiConverterTypeMobileFieldType.read(from: &buf),
+                label: FfiConverterString.read(from: &buf),
                 value: FfiConverterString.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobileContactField, into buf: inout [UInt8]) {
@@ -3793,21 +4519,19 @@ public struct FfiConverterTypeMobileContactField: FfiConverterRustBuffer {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileContactField_lift(_ buf: RustBuffer) throws -> MobileContactField {
     return try FfiConverterTypeMobileContactField.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileContactField_lower(_ value: MobileContactField) -> RustBuffer {
     return FfiConverterTypeMobileContactField.lower(value)
 }
-
 
 /**
  * Configuration for content updates.
@@ -3826,28 +4550,27 @@ public struct MobileContentConfig {
      */
     public var proxyUrl: String?
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(
-        /**
+        /* 
          * Whether remote updates are enabled
-         */remoteUpdatesEnabled: Bool, 
-        /**
-         * Content server URL
-         */contentUrl: String, 
-        /**
-         * Optional SOCKS5 proxy URL (e.g., for Tor)
-         */proxyUrl: String?) {
+         */ remoteUpdatesEnabled: Bool,
+        /* 
+            * Content server URL
+            */ contentUrl: String,
+        /* 
+            * Optional SOCKS5 proxy URL (e.g., for Tor)
+            */ proxyUrl: String?
+    ) {
         self.remoteUpdatesEnabled = remoteUpdatesEnabled
         self.contentUrl = contentUrl
         self.proxyUrl = proxyUrl
     }
 }
 
-
-
 extension MobileContentConfig: Equatable, Hashable {
-    public static func ==(lhs: MobileContentConfig, rhs: MobileContentConfig) -> Bool {
+    public static func == (lhs: MobileContentConfig, rhs: MobileContentConfig) -> Bool {
         if lhs.remoteUpdatesEnabled != rhs.remoteUpdatesEnabled {
             return false
         }
@@ -3867,18 +4590,17 @@ extension MobileContentConfig: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileContentConfig: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileContentConfig {
         return
             try MobileContentConfig(
-                remoteUpdatesEnabled: FfiConverterBool.read(from: &buf), 
-                contentUrl: FfiConverterString.read(from: &buf), 
+                remoteUpdatesEnabled: FfiConverterBool.read(from: &buf),
+                contentUrl: FfiConverterString.read(from: &buf),
                 proxyUrl: FfiConverterOptionString.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobileContentConfig, into buf: inout [UInt8]) {
@@ -3888,21 +4610,96 @@ public struct FfiConverterTypeMobileContentConfig: FfiConverterRustBuffer {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileContentConfig_lift(_ buf: RustBuffer) throws -> MobileContentConfig {
     return try FfiConverterTypeMobileContentConfig.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileContentConfig_lower(_ value: MobileContentConfig) -> RustBuffer {
     return FfiConverterTypeMobileContentConfig.lower(value)
 }
 
+/**
+ * A decoy contact for mobile platforms.
+ */
+public struct MobileDecoyContact {
+    /**
+     * Unique identifier for the decoy contact.
+     */
+    public var id: String
+    /**
+     * Display name shown in the contact list.
+     */
+    public var displayName: String
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(
+        /* 
+         * Unique identifier for the decoy contact.
+         */ id: String,
+        /* 
+            * Display name shown in the contact list.
+            */ displayName: String
+    ) {
+        self.id = id
+        self.displayName = displayName
+    }
+}
+
+extension MobileDecoyContact: Equatable, Hashable {
+    public static func == (lhs: MobileDecoyContact, rhs: MobileDecoyContact) -> Bool {
+        if lhs.id != rhs.id {
+            return false
+        }
+        if lhs.displayName != rhs.displayName {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+        hasher.combine(displayName)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileDecoyContact: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileDecoyContact {
+        return
+            try MobileDecoyContact(
+                id: FfiConverterString.read(from: &buf),
+                displayName: FfiConverterString.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileDecoyContact, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.id, into: &buf)
+        FfiConverterString.write(value.displayName, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileDecoyContact_lift(_ buf: RustBuffer) throws -> MobileDecoyContact {
+    return try FfiConverterTypeMobileDecoyContact.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileDecoyContact_lower(_ value: MobileDecoyContact) -> RustBuffer {
+    return FfiConverterTypeMobileDecoyContact.lower(value)
+}
 
 /**
  * Deletion info with timing details.
@@ -3925,21 +4722,22 @@ public struct MobileDeletionInfo {
      */
     public var daysRemaining: UInt32
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(
-        /**
+        /* 
          * Current deletion state.
-         */state: MobileDeletionState, 
-        /**
-         * When deletion was scheduled (0 if not scheduled).
-         */scheduledAt: UInt64, 
-        /**
-         * When deletion can be executed (0 if not scheduled).
-         */executeAt: UInt64, 
-        /**
-         * Days remaining in grace period (0 if not scheduled).
-         */daysRemaining: UInt32) {
+         */ state: MobileDeletionState,
+        /* 
+            * When deletion was scheduled (0 if not scheduled).
+            */ scheduledAt: UInt64,
+        /* 
+            * When deletion can be executed (0 if not scheduled).
+            */ executeAt: UInt64,
+        /* 
+            * Days remaining in grace period (0 if not scheduled).
+            */ daysRemaining: UInt32
+    ) {
         self.state = state
         self.scheduledAt = scheduledAt
         self.executeAt = executeAt
@@ -3947,10 +4745,8 @@ public struct MobileDeletionInfo {
     }
 }
 
-
-
 extension MobileDeletionInfo: Equatable, Hashable {
-    public static func ==(lhs: MobileDeletionInfo, rhs: MobileDeletionInfo) -> Bool {
+    public static func == (lhs: MobileDeletionInfo, rhs: MobileDeletionInfo) -> Bool {
         if lhs.state != rhs.state {
             return false
         }
@@ -3974,19 +4770,18 @@ extension MobileDeletionInfo: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileDeletionInfo: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileDeletionInfo {
         return
             try MobileDeletionInfo(
-                state: FfiConverterTypeMobileDeletionState.read(from: &buf), 
-                scheduledAt: FfiConverterUInt64.read(from: &buf), 
-                executeAt: FfiConverterUInt64.read(from: &buf), 
+                state: FfiConverterTypeMobileDeletionState.read(from: &buf),
+                scheduledAt: FfiConverterUInt64.read(from: &buf),
+                executeAt: FfiConverterUInt64.read(from: &buf),
                 daysRemaining: FfiConverterUInt32.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobileDeletionInfo, into buf: inout [UInt8]) {
@@ -3997,21 +4792,19 @@ public struct FfiConverterTypeMobileDeletionInfo: FfiConverterRustBuffer {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileDeletionInfo_lift(_ buf: RustBuffer) throws -> MobileDeletionInfo {
     return try FfiConverterTypeMobileDeletionInfo.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileDeletionInfo_lower(_ value: MobileDeletionInfo) -> RustBuffer {
     return FfiConverterTypeMobileDeletionInfo.lower(value)
 }
-
 
 /**
  * A record tracking delivery status of an outbound message.
@@ -4046,30 +4839,31 @@ public struct MobileDeliveryRecord {
      */
     public var expiresAt: UInt64?
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(
-        /**
+        /* 
          * Unique message ID.
-         */messageId: String, 
-        /**
-         * Recipient's contact ID.
-         */recipientId: String, 
-        /**
-         * Current delivery status.
-         */status: MobileDeliveryStatus, 
-        /**
-         * Error reason if failed.
-         */errorReason: String?, 
-        /**
-         * When the message was created (Unix timestamp).
-         */createdAt: UInt64, 
-        /**
-         * When the status was last updated (Unix timestamp).
-         */updatedAt: UInt64, 
-        /**
-         * When the message expires (Unix timestamp, optional).
-         */expiresAt: UInt64?) {
+         */ messageId: String,
+        /* 
+            * Recipient's contact ID.
+            */ recipientId: String,
+        /* 
+            * Current delivery status.
+            */ status: MobileDeliveryStatus,
+        /* 
+            * Error reason if failed.
+            */ errorReason: String?,
+        /* 
+            * When the message was created (Unix timestamp).
+            */ createdAt: UInt64,
+        /* 
+            * When the status was last updated (Unix timestamp).
+            */ updatedAt: UInt64,
+        /* 
+            * When the message expires (Unix timestamp, optional).
+            */ expiresAt: UInt64?
+    ) {
         self.messageId = messageId
         self.recipientId = recipientId
         self.status = status
@@ -4080,10 +4874,8 @@ public struct MobileDeliveryRecord {
     }
 }
 
-
-
 extension MobileDeliveryRecord: Equatable, Hashable {
-    public static func ==(lhs: MobileDeliveryRecord, rhs: MobileDeliveryRecord) -> Bool {
+    public static func == (lhs: MobileDeliveryRecord, rhs: MobileDeliveryRecord) -> Bool {
         if lhs.messageId != rhs.messageId {
             return false
         }
@@ -4119,22 +4911,21 @@ extension MobileDeliveryRecord: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileDeliveryRecord: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileDeliveryRecord {
         return
             try MobileDeliveryRecord(
-                messageId: FfiConverterString.read(from: &buf), 
-                recipientId: FfiConverterString.read(from: &buf), 
-                status: FfiConverterTypeMobileDeliveryStatus.read(from: &buf), 
-                errorReason: FfiConverterOptionString.read(from: &buf), 
-                createdAt: FfiConverterUInt64.read(from: &buf), 
-                updatedAt: FfiConverterUInt64.read(from: &buf), 
+                messageId: FfiConverterString.read(from: &buf),
+                recipientId: FfiConverterString.read(from: &buf),
+                status: FfiConverterTypeMobileDeliveryStatus.read(from: &buf),
+                errorReason: FfiConverterOptionString.read(from: &buf),
+                createdAt: FfiConverterUInt64.read(from: &buf),
+                updatedAt: FfiConverterUInt64.read(from: &buf),
                 expiresAt: FfiConverterOptionUInt64.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobileDeliveryRecord, into buf: inout [UInt8]) {
@@ -4148,21 +4939,19 @@ public struct FfiConverterTypeMobileDeliveryRecord: FfiConverterRustBuffer {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileDeliveryRecord_lift(_ buf: RustBuffer) throws -> MobileDeliveryRecord {
     return try FfiConverterTypeMobileDeliveryRecord.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileDeliveryRecord_lower(_ value: MobileDeliveryRecord) -> RustBuffer {
     return FfiConverterTypeMobileDeliveryRecord.lower(value)
 }
-
 
 /**
  * Summary of delivery status across all devices.
@@ -4197,30 +4986,31 @@ public struct MobileDeliverySummary {
      */
     public var progressPercent: UInt32
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(
-        /**
+        /* 
          * Message ID.
-         */messageId: String, 
-        /**
-         * Total number of target devices.
-         */totalDevices: UInt32, 
-        /**
-         * Number of devices that received the message.
-         */deliveredDevices: UInt32, 
-        /**
-         * Number of devices still pending.
-         */pendingDevices: UInt32, 
-        /**
-         * Number of devices where delivery failed.
-         */failedDevices: UInt32, 
-        /**
-         * Whether all devices have received the message.
-         */isFullyDelivered: Bool, 
-        /**
-         * Progress as percentage (0-100).
-         */progressPercent: UInt32) {
+         */ messageId: String,
+        /* 
+            * Total number of target devices.
+            */ totalDevices: UInt32,
+        /* 
+            * Number of devices that received the message.
+            */ deliveredDevices: UInt32,
+        /* 
+            * Number of devices still pending.
+            */ pendingDevices: UInt32,
+        /* 
+            * Number of devices where delivery failed.
+            */ failedDevices: UInt32,
+        /* 
+            * Whether all devices have received the message.
+            */ isFullyDelivered: Bool,
+        /* 
+            * Progress as percentage (0-100).
+            */ progressPercent: UInt32
+    ) {
         self.messageId = messageId
         self.totalDevices = totalDevices
         self.deliveredDevices = deliveredDevices
@@ -4231,10 +5021,8 @@ public struct MobileDeliverySummary {
     }
 }
 
-
-
 extension MobileDeliverySummary: Equatable, Hashable {
-    public static func ==(lhs: MobileDeliverySummary, rhs: MobileDeliverySummary) -> Bool {
+    public static func == (lhs: MobileDeliverySummary, rhs: MobileDeliverySummary) -> Bool {
         if lhs.messageId != rhs.messageId {
             return false
         }
@@ -4270,22 +5058,21 @@ extension MobileDeliverySummary: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileDeliverySummary: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileDeliverySummary {
         return
             try MobileDeliverySummary(
-                messageId: FfiConverterString.read(from: &buf), 
-                totalDevices: FfiConverterUInt32.read(from: &buf), 
-                deliveredDevices: FfiConverterUInt32.read(from: &buf), 
-                pendingDevices: FfiConverterUInt32.read(from: &buf), 
-                failedDevices: FfiConverterUInt32.read(from: &buf), 
-                isFullyDelivered: FfiConverterBool.read(from: &buf), 
+                messageId: FfiConverterString.read(from: &buf),
+                totalDevices: FfiConverterUInt32.read(from: &buf),
+                deliveredDevices: FfiConverterUInt32.read(from: &buf),
+                pendingDevices: FfiConverterUInt32.read(from: &buf),
+                failedDevices: FfiConverterUInt32.read(from: &buf),
+                isFullyDelivered: FfiConverterBool.read(from: &buf),
                 progressPercent: FfiConverterUInt32.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobileDeliverySummary, into buf: inout [UInt8]) {
@@ -4299,21 +5086,19 @@ public struct FfiConverterTypeMobileDeliverySummary: FfiConverterRustBuffer {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileDeliverySummary_lift(_ buf: RustBuffer) throws -> MobileDeliverySummary {
     return try FfiConverterTypeMobileDeliverySummary.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileDeliverySummary_lower(_ value: MobileDeliverySummary) -> RustBuffer {
     return FfiConverterTypeMobileDeliverySummary.lower(value)
 }
-
 
 /**
  * Demo contact card representation for display.
@@ -4344,27 +5129,28 @@ public struct MobileDemoContact {
      */
     public var tipCategory: String
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(
-        /**
+        /* 
          * Contact ID
-         */id: String, 
-        /**
-         * Display name
-         */displayName: String, 
-        /**
-         * Flag indicating this is a demo
-         */isDemo: Bool, 
-        /**
-         * Current tip title
-         */tipTitle: String, 
-        /**
-         * Current tip content
-         */tipContent: String, 
-        /**
-         * Tip category
-         */tipCategory: String) {
+         */ id: String,
+        /* 
+            * Display name
+            */ displayName: String,
+        /* 
+            * Flag indicating this is a demo
+            */ isDemo: Bool,
+        /* 
+            * Current tip title
+            */ tipTitle: String,
+        /* 
+            * Current tip content
+            */ tipContent: String,
+        /* 
+            * Tip category
+            */ tipCategory: String
+    ) {
         self.id = id
         self.displayName = displayName
         self.isDemo = isDemo
@@ -4374,10 +5160,8 @@ public struct MobileDemoContact {
     }
 }
 
-
-
 extension MobileDemoContact: Equatable, Hashable {
-    public static func ==(lhs: MobileDemoContact, rhs: MobileDemoContact) -> Bool {
+    public static func == (lhs: MobileDemoContact, rhs: MobileDemoContact) -> Bool {
         if lhs.id != rhs.id {
             return false
         }
@@ -4409,21 +5193,20 @@ extension MobileDemoContact: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileDemoContact: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileDemoContact {
         return
             try MobileDemoContact(
-                id: FfiConverterString.read(from: &buf), 
-                displayName: FfiConverterString.read(from: &buf), 
-                isDemo: FfiConverterBool.read(from: &buf), 
-                tipTitle: FfiConverterString.read(from: &buf), 
-                tipContent: FfiConverterString.read(from: &buf), 
+                id: FfiConverterString.read(from: &buf),
+                displayName: FfiConverterString.read(from: &buf),
+                isDemo: FfiConverterBool.read(from: &buf),
+                tipTitle: FfiConverterString.read(from: &buf),
+                tipContent: FfiConverterString.read(from: &buf),
                 tipCategory: FfiConverterString.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobileDemoContact, into buf: inout [UInt8]) {
@@ -4436,21 +5219,19 @@ public struct FfiConverterTypeMobileDemoContact: FfiConverterRustBuffer {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileDemoContact_lift(_ buf: RustBuffer) throws -> MobileDemoContact {
     return try FfiConverterTypeMobileDemoContact.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileDemoContact_lower(_ value: MobileDemoContact) -> RustBuffer {
     return FfiConverterTypeMobileDemoContact.lower(value)
 }
-
 
 /**
  * Demo contact state for persistence.
@@ -4473,21 +5254,22 @@ public struct MobileDemoContactState {
      */
     public var updateCount: UInt32
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(
-        /**
+        /* 
          * Whether the demo contact is active
-         */isActive: Bool, 
-        /**
-         * Whether it was manually dismissed
-         */wasDismissed: Bool, 
-        /**
-         * Whether it was auto-removed after first real exchange
-         */autoRemoved: Bool, 
-        /**
-         * Number of updates sent
-         */updateCount: UInt32) {
+         */ isActive: Bool,
+        /* 
+            * Whether it was manually dismissed
+            */ wasDismissed: Bool,
+        /* 
+            * Whether it was auto-removed after first real exchange
+            */ autoRemoved: Bool,
+        /* 
+            * Number of updates sent
+            */ updateCount: UInt32
+    ) {
         self.isActive = isActive
         self.wasDismissed = wasDismissed
         self.autoRemoved = autoRemoved
@@ -4495,10 +5277,8 @@ public struct MobileDemoContactState {
     }
 }
 
-
-
 extension MobileDemoContactState: Equatable, Hashable {
-    public static func ==(lhs: MobileDemoContactState, rhs: MobileDemoContactState) -> Bool {
+    public static func == (lhs: MobileDemoContactState, rhs: MobileDemoContactState) -> Bool {
         if lhs.isActive != rhs.isActive {
             return false
         }
@@ -4522,19 +5302,18 @@ extension MobileDemoContactState: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileDemoContactState: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileDemoContactState {
         return
             try MobileDemoContactState(
-                isActive: FfiConverterBool.read(from: &buf), 
-                wasDismissed: FfiConverterBool.read(from: &buf), 
-                autoRemoved: FfiConverterBool.read(from: &buf), 
+                isActive: FfiConverterBool.read(from: &buf),
+                wasDismissed: FfiConverterBool.read(from: &buf),
+                autoRemoved: FfiConverterBool.read(from: &buf),
                 updateCount: FfiConverterUInt32.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobileDemoContactState, into buf: inout [UInt8]) {
@@ -4545,21 +5324,19 @@ public struct FfiConverterTypeMobileDemoContactState: FfiConverterRustBuffer {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileDemoContactState_lift(_ buf: RustBuffer) throws -> MobileDemoContactState {
     return try FfiConverterTypeMobileDemoContactState.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileDemoContactState_lower(_ value: MobileDemoContactState) -> RustBuffer {
     return FfiConverterTypeMobileDemoContactState.lower(value)
 }
-
 
 /**
  * Per-device delivery tracking record.
@@ -4586,24 +5363,25 @@ public struct MobileDeviceDeliveryRecord {
      */
     public var updatedAt: UInt64
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(
-        /**
+        /* 
          * Message ID being tracked.
-         */messageId: String, 
-        /**
-         * Recipient's contact ID.
-         */recipientId: String, 
-        /**
-         * Target device ID.
-         */deviceId: String, 
-        /**
-         * Delivery status for this device.
-         */status: MobileDeviceDeliveryStatus, 
-        /**
-         * When the status was last updated (Unix timestamp).
-         */updatedAt: UInt64) {
+         */ messageId: String,
+        /* 
+            * Recipient's contact ID.
+            */ recipientId: String,
+        /* 
+            * Target device ID.
+            */ deviceId: String,
+        /* 
+            * Delivery status for this device.
+            */ status: MobileDeviceDeliveryStatus,
+        /* 
+            * When the status was last updated (Unix timestamp).
+            */ updatedAt: UInt64
+    ) {
         self.messageId = messageId
         self.recipientId = recipientId
         self.deviceId = deviceId
@@ -4612,10 +5390,8 @@ public struct MobileDeviceDeliveryRecord {
     }
 }
 
-
-
 extension MobileDeviceDeliveryRecord: Equatable, Hashable {
-    public static func ==(lhs: MobileDeviceDeliveryRecord, rhs: MobileDeviceDeliveryRecord) -> Bool {
+    public static func == (lhs: MobileDeviceDeliveryRecord, rhs: MobileDeviceDeliveryRecord) -> Bool {
         if lhs.messageId != rhs.messageId {
             return false
         }
@@ -4643,20 +5419,19 @@ extension MobileDeviceDeliveryRecord: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileDeviceDeliveryRecord: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileDeviceDeliveryRecord {
         return
             try MobileDeviceDeliveryRecord(
-                messageId: FfiConverterString.read(from: &buf), 
-                recipientId: FfiConverterString.read(from: &buf), 
-                deviceId: FfiConverterString.read(from: &buf), 
-                status: FfiConverterTypeMobileDeviceDeliveryStatus.read(from: &buf), 
+                messageId: FfiConverterString.read(from: &buf),
+                recipientId: FfiConverterString.read(from: &buf),
+                deviceId: FfiConverterString.read(from: &buf),
+                status: FfiConverterTypeMobileDeviceDeliveryStatus.read(from: &buf),
                 updatedAt: FfiConverterUInt64.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobileDeviceDeliveryRecord, into buf: inout [UInt8]) {
@@ -4668,21 +5443,19 @@ public struct FfiConverterTypeMobileDeviceDeliveryRecord: FfiConverterRustBuffer
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileDeviceDeliveryRecord_lift(_ buf: RustBuffer) throws -> MobileDeviceDeliveryRecord {
     return try FfiConverterTypeMobileDeviceDeliveryRecord.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileDeviceDeliveryRecord_lower(_ value: MobileDeviceDeliveryRecord) -> RustBuffer {
     return FfiConverterTypeMobileDeviceDeliveryRecord.lower(value)
 }
-
 
 /**
  * Device info for display.
@@ -4713,27 +5486,28 @@ public struct MobileDeviceInfo {
      */
     public var createdAt: UInt64
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(
-        /**
+        /* 
          * Device index (0 = primary device).
-         */deviceIndex: UInt32, 
-        /**
-         * Device name.
-         */deviceName: String, 
-        /**
-         * Whether this is the current device.
-         */isCurrent: Bool, 
-        /**
-         * Whether the device is active (not revoked).
-         */isActive: Bool, 
-        /**
-         * Public key prefix (hex, first 16 chars).
-         */publicKeyPrefix: String, 
-        /**
-         * Unix timestamp when the device was created.
-         */createdAt: UInt64) {
+         */ deviceIndex: UInt32,
+        /* 
+            * Device name.
+            */ deviceName: String,
+        /* 
+            * Whether this is the current device.
+            */ isCurrent: Bool,
+        /* 
+            * Whether the device is active (not revoked).
+            */ isActive: Bool,
+        /* 
+            * Public key prefix (hex, first 16 chars).
+            */ publicKeyPrefix: String,
+        /* 
+            * Unix timestamp when the device was created.
+            */ createdAt: UInt64
+    ) {
         self.deviceIndex = deviceIndex
         self.deviceName = deviceName
         self.isCurrent = isCurrent
@@ -4743,10 +5517,8 @@ public struct MobileDeviceInfo {
     }
 }
 
-
-
 extension MobileDeviceInfo: Equatable, Hashable {
-    public static func ==(lhs: MobileDeviceInfo, rhs: MobileDeviceInfo) -> Bool {
+    public static func == (lhs: MobileDeviceInfo, rhs: MobileDeviceInfo) -> Bool {
         if lhs.deviceIndex != rhs.deviceIndex {
             return false
         }
@@ -4778,21 +5550,20 @@ extension MobileDeviceInfo: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileDeviceInfo: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileDeviceInfo {
         return
             try MobileDeviceInfo(
-                deviceIndex: FfiConverterUInt32.read(from: &buf), 
-                deviceName: FfiConverterString.read(from: &buf), 
-                isCurrent: FfiConverterBool.read(from: &buf), 
-                isActive: FfiConverterBool.read(from: &buf), 
-                publicKeyPrefix: FfiConverterString.read(from: &buf), 
+                deviceIndex: FfiConverterUInt32.read(from: &buf),
+                deviceName: FfiConverterString.read(from: &buf),
+                isCurrent: FfiConverterBool.read(from: &buf),
+                isActive: FfiConverterBool.read(from: &buf),
+                publicKeyPrefix: FfiConverterString.read(from: &buf),
                 createdAt: FfiConverterUInt64.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobileDeviceInfo, into buf: inout [UInt8]) {
@@ -4805,21 +5576,215 @@ public struct FfiConverterTypeMobileDeviceInfo: FfiConverterRustBuffer {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileDeviceInfo_lift(_ buf: RustBuffer) throws -> MobileDeviceInfo {
     return try FfiConverterTypeMobileDeviceInfo.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileDeviceInfo_lower(_ value: MobileDeviceInfo) -> RustBuffer {
     return FfiConverterTypeMobileDeviceInfo.lower(value)
 }
 
+/**
+ * Result of joining a device link (for new device).
+ */
+public struct MobileDeviceJoinResult {
+    /**
+     * Whether joining was successful.
+     */
+    public var success: Bool
+    /**
+     * Display name of the identity.
+     */
+    public var displayName: String
+    /**
+     * Assigned device index.
+     */
+    public var deviceIndex: UInt32
+    /**
+     * Error message if failed.
+     */
+    public var errorMessage: String?
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(
+        /* 
+         * Whether joining was successful.
+         */ success: Bool,
+        /* 
+            * Display name of the identity.
+            */ displayName: String,
+        /* 
+            * Assigned device index.
+            */ deviceIndex: UInt32,
+        /* 
+            * Error message if failed.
+            */ errorMessage: String?
+    ) {
+        self.success = success
+        self.displayName = displayName
+        self.deviceIndex = deviceIndex
+        self.errorMessage = errorMessage
+    }
+}
+
+extension MobileDeviceJoinResult: Equatable, Hashable {
+    public static func == (lhs: MobileDeviceJoinResult, rhs: MobileDeviceJoinResult) -> Bool {
+        if lhs.success != rhs.success {
+            return false
+        }
+        if lhs.displayName != rhs.displayName {
+            return false
+        }
+        if lhs.deviceIndex != rhs.deviceIndex {
+            return false
+        }
+        if lhs.errorMessage != rhs.errorMessage {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(success)
+        hasher.combine(displayName)
+        hasher.combine(deviceIndex)
+        hasher.combine(errorMessage)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileDeviceJoinResult: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileDeviceJoinResult {
+        return
+            try MobileDeviceJoinResult(
+                success: FfiConverterBool.read(from: &buf),
+                displayName: FfiConverterString.read(from: &buf),
+                deviceIndex: FfiConverterUInt32.read(from: &buf),
+                errorMessage: FfiConverterOptionString.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileDeviceJoinResult, into buf: inout [UInt8]) {
+        FfiConverterBool.write(value.success, into: &buf)
+        FfiConverterString.write(value.displayName, into: &buf)
+        FfiConverterUInt32.write(value.deviceIndex, into: &buf)
+        FfiConverterOptionString.write(value.errorMessage, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileDeviceJoinResult_lift(_ buf: RustBuffer) throws -> MobileDeviceJoinResult {
+    return try FfiConverterTypeMobileDeviceJoinResult.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileDeviceJoinResult_lower(_ value: MobileDeviceJoinResult) -> RustBuffer {
+    return FfiConverterTypeMobileDeviceJoinResult.lower(value)
+}
+
+/**
+ * Confirmation details for device link (shown before approving).
+ */
+public struct MobileDeviceLinkConfirmation {
+    /**
+     * The new device's proposed name.
+     */
+    public var deviceName: String
+    /**
+     * 6-digit confirmation code (formatted as `XXX-XXX`).
+     */
+    public var confirmationCode: String
+    /**
+     * Identity fingerprint (e.g. `AB12-CD34-EF56-7890`).
+     */
+    public var identityFingerprint: String
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(
+        /* 
+         * The new device's proposed name.
+         */ deviceName: String,
+        /* 
+            * 6-digit confirmation code (formatted as `XXX-XXX`).
+            */ confirmationCode: String,
+        /* 
+            * Identity fingerprint (e.g. `AB12-CD34-EF56-7890`).
+            */ identityFingerprint: String
+    ) {
+        self.deviceName = deviceName
+        self.confirmationCode = confirmationCode
+        self.identityFingerprint = identityFingerprint
+    }
+}
+
+extension MobileDeviceLinkConfirmation: Equatable, Hashable {
+    public static func == (lhs: MobileDeviceLinkConfirmation, rhs: MobileDeviceLinkConfirmation) -> Bool {
+        if lhs.deviceName != rhs.deviceName {
+            return false
+        }
+        if lhs.confirmationCode != rhs.confirmationCode {
+            return false
+        }
+        if lhs.identityFingerprint != rhs.identityFingerprint {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(deviceName)
+        hasher.combine(confirmationCode)
+        hasher.combine(identityFingerprint)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileDeviceLinkConfirmation: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileDeviceLinkConfirmation {
+        return
+            try MobileDeviceLinkConfirmation(
+                deviceName: FfiConverterString.read(from: &buf),
+                confirmationCode: FfiConverterString.read(from: &buf),
+                identityFingerprint: FfiConverterString.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileDeviceLinkConfirmation, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.deviceName, into: &buf)
+        FfiConverterString.write(value.confirmationCode, into: &buf)
+        FfiConverterString.write(value.identityFingerprint, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileDeviceLinkConfirmation_lift(_ buf: RustBuffer) throws -> MobileDeviceLinkConfirmation {
+    return try FfiConverterTypeMobileDeviceLinkConfirmation.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileDeviceLinkConfirmation_lower(_ value: MobileDeviceLinkConfirmation) -> RustBuffer {
+    return FfiConverterTypeMobileDeviceLinkConfirmation.lower(value)
+}
 
 /**
  * Device link QR data for display on existing device.
@@ -4842,21 +5807,22 @@ public struct MobileDeviceLinkData {
      */
     public var expiresAt: UInt64
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(
-        /**
+        /* 
          * QR code content (base64-encoded link data).
-         */qrData: String, 
-        /**
-         * Identity public key (hex).
-         */identityPublicKey: String, 
-        /**
-         * Unix timestamp when QR was generated.
-         */timestamp: UInt64, 
-        /**
-         * Unix timestamp when QR expires.
-         */expiresAt: UInt64) {
+         */ qrData: String,
+        /* 
+            * Identity public key (hex).
+            */ identityPublicKey: String,
+        /* 
+            * Unix timestamp when QR was generated.
+            */ timestamp: UInt64,
+        /* 
+            * Unix timestamp when QR expires.
+            */ expiresAt: UInt64
+    ) {
         self.qrData = qrData
         self.identityPublicKey = identityPublicKey
         self.timestamp = timestamp
@@ -4864,10 +5830,8 @@ public struct MobileDeviceLinkData {
     }
 }
 
-
-
 extension MobileDeviceLinkData: Equatable, Hashable {
-    public static func ==(lhs: MobileDeviceLinkData, rhs: MobileDeviceLinkData) -> Bool {
+    public static func == (lhs: MobileDeviceLinkData, rhs: MobileDeviceLinkData) -> Bool {
         if lhs.qrData != rhs.qrData {
             return false
         }
@@ -4891,19 +5855,18 @@ extension MobileDeviceLinkData: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileDeviceLinkData: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileDeviceLinkData {
         return
             try MobileDeviceLinkData(
-                qrData: FfiConverterString.read(from: &buf), 
-                identityPublicKey: FfiConverterString.read(from: &buf), 
-                timestamp: FfiConverterUInt64.read(from: &buf), 
+                qrData: FfiConverterString.read(from: &buf),
+                identityPublicKey: FfiConverterString.read(from: &buf),
+                timestamp: FfiConverterUInt64.read(from: &buf),
                 expiresAt: FfiConverterUInt64.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobileDeviceLinkData, into buf: inout [UInt8]) {
@@ -4914,21 +5877,19 @@ public struct FfiConverterTypeMobileDeviceLinkData: FfiConverterRustBuffer {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileDeviceLinkData_lift(_ buf: RustBuffer) throws -> MobileDeviceLinkData {
     return try FfiConverterTypeMobileDeviceLinkData.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileDeviceLinkData_lower(_ value: MobileDeviceLinkData) -> RustBuffer {
     return FfiConverterTypeMobileDeviceLinkData.lower(value)
 }
-
 
 /**
  * Device link info parsed from QR code.
@@ -4947,28 +5908,27 @@ public struct MobileDeviceLinkInfo {
      */
     public var isExpired: Bool
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(
-        /**
+        /* 
          * Identity public key (hex).
-         */identityPublicKey: String, 
-        /**
-         * Unix timestamp when QR was generated.
-         */timestamp: UInt64, 
-        /**
-         * Whether the QR code has expired.
-         */isExpired: Bool) {
+         */ identityPublicKey: String,
+        /* 
+            * Unix timestamp when QR was generated.
+            */ timestamp: UInt64,
+        /* 
+            * Whether the QR code has expired.
+            */ isExpired: Bool
+    ) {
         self.identityPublicKey = identityPublicKey
         self.timestamp = timestamp
         self.isExpired = isExpired
     }
 }
 
-
-
 extension MobileDeviceLinkInfo: Equatable, Hashable {
-    public static func ==(lhs: MobileDeviceLinkInfo, rhs: MobileDeviceLinkInfo) -> Bool {
+    public static func == (lhs: MobileDeviceLinkInfo, rhs: MobileDeviceLinkInfo) -> Bool {
         if lhs.identityPublicKey != rhs.identityPublicKey {
             return false
         }
@@ -4988,18 +5948,17 @@ extension MobileDeviceLinkInfo: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileDeviceLinkInfo: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileDeviceLinkInfo {
         return
             try MobileDeviceLinkInfo(
-                identityPublicKey: FfiConverterString.read(from: &buf), 
-                timestamp: FfiConverterUInt64.read(from: &buf), 
+                identityPublicKey: FfiConverterString.read(from: &buf),
+                timestamp: FfiConverterUInt64.read(from: &buf),
                 isExpired: FfiConverterBool.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobileDeviceLinkInfo, into buf: inout [UInt8]) {
@@ -5009,21 +5968,19 @@ public struct FfiConverterTypeMobileDeviceLinkInfo: FfiConverterRustBuffer {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileDeviceLinkInfo_lift(_ buf: RustBuffer) throws -> MobileDeviceLinkInfo {
     return try FfiConverterTypeMobileDeviceLinkInfo.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileDeviceLinkInfo_lower(_ value: MobileDeviceLinkInfo) -> RustBuffer {
     return FfiConverterTypeMobileDeviceLinkInfo.lower(value)
 }
-
 
 /**
  * Result of completing device link (for existing device).
@@ -5045,33 +6002,40 @@ public struct MobileDeviceLinkResult {
      * Error message if failed.
      */
     public var errorMessage: String?
+    /**
+     * Encrypted response bytes for the new device (base64-encoded).
+     */
+    public var encryptedResponse: Data?
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(
-        /**
+        /* 
          * Whether linking was successful.
-         */success: Bool, 
-        /**
-         * New device's name.
-         */deviceName: String, 
-        /**
-         * New device's index.
-         */deviceIndex: UInt32, 
-        /**
-         * Error message if failed.
-         */errorMessage: String?) {
+         */ success: Bool,
+        /* 
+            * New device's name.
+            */ deviceName: String,
+        /* 
+            * New device's index.
+            */ deviceIndex: UInt32,
+        /* 
+            * Error message if failed.
+            */ errorMessage: String?,
+        /* 
+            * Encrypted response bytes for the new device (base64-encoded).
+            */ encryptedResponse: Data?
+    ) {
         self.success = success
         self.deviceName = deviceName
         self.deviceIndex = deviceIndex
         self.errorMessage = errorMessage
+        self.encryptedResponse = encryptedResponse
     }
 }
 
-
-
 extension MobileDeviceLinkResult: Equatable, Hashable {
-    public static func ==(lhs: MobileDeviceLinkResult, rhs: MobileDeviceLinkResult) -> Bool {
+    public static func == (lhs: MobileDeviceLinkResult, rhs: MobileDeviceLinkResult) -> Bool {
         if lhs.success != rhs.success {
             return false
         }
@@ -5084,6 +6048,9 @@ extension MobileDeviceLinkResult: Equatable, Hashable {
         if lhs.errorMessage != rhs.errorMessage {
             return false
         }
+        if lhs.encryptedResponse != rhs.encryptedResponse {
+            return false
+        }
         return true
     }
 
@@ -5092,22 +6059,23 @@ extension MobileDeviceLinkResult: Equatable, Hashable {
         hasher.combine(deviceName)
         hasher.combine(deviceIndex)
         hasher.combine(errorMessage)
+        hasher.combine(encryptedResponse)
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileDeviceLinkResult: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileDeviceLinkResult {
         return
             try MobileDeviceLinkResult(
-                success: FfiConverterBool.read(from: &buf), 
-                deviceName: FfiConverterString.read(from: &buf), 
-                deviceIndex: FfiConverterUInt32.read(from: &buf), 
-                errorMessage: FfiConverterOptionString.read(from: &buf)
-        )
+                success: FfiConverterBool.read(from: &buf),
+                deviceName: FfiConverterString.read(from: &buf),
+                deviceIndex: FfiConverterUInt32.read(from: &buf),
+                errorMessage: FfiConverterOptionString.read(from: &buf),
+                encryptedResponse: FfiConverterOptionData.read(from: &buf)
+            )
     }
 
     public static func write(_ value: MobileDeviceLinkResult, into buf: inout [UInt8]) {
@@ -5115,24 +6083,205 @@ public struct FfiConverterTypeMobileDeviceLinkResult: FfiConverterRustBuffer {
         FfiConverterString.write(value.deviceName, into: &buf)
         FfiConverterUInt32.write(value.deviceIndex, into: &buf)
         FfiConverterOptionString.write(value.errorMessage, into: &buf)
+        FfiConverterOptionData.write(value.encryptedResponse, into: &buf)
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileDeviceLinkResult_lift(_ buf: RustBuffer) throws -> MobileDeviceLinkResult {
     return try FfiConverterTypeMobileDeviceLinkResult.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileDeviceLinkResult_lower(_ value: MobileDeviceLinkResult) -> RustBuffer {
     return FfiConverterTypeMobileDeviceLinkResult.lower(value)
 }
 
+/**
+ * Duress alert settings for mobile platforms.
+ */
+public struct MobileDuressSettings {
+    /**
+     * Contact IDs of trusted contacts who receive duress alerts.
+     */
+    public var alertContactIds: [String]
+    /**
+     * Custom alert message included in the alert payload.
+     */
+    public var alertMessage: String
+    /**
+     * Whether to include device location in the alert.
+     */
+    public var includeLocation: Bool
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(
+        /* 
+         * Contact IDs of trusted contacts who receive duress alerts.
+         */ alertContactIds: [String],
+        /* 
+            * Custom alert message included in the alert payload.
+            */ alertMessage: String,
+        /* 
+            * Whether to include device location in the alert.
+            */ includeLocation: Bool
+    ) {
+        self.alertContactIds = alertContactIds
+        self.alertMessage = alertMessage
+        self.includeLocation = includeLocation
+    }
+}
+
+extension MobileDuressSettings: Equatable, Hashable {
+    public static func == (lhs: MobileDuressSettings, rhs: MobileDuressSettings) -> Bool {
+        if lhs.alertContactIds != rhs.alertContactIds {
+            return false
+        }
+        if lhs.alertMessage != rhs.alertMessage {
+            return false
+        }
+        if lhs.includeLocation != rhs.includeLocation {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(alertContactIds)
+        hasher.combine(alertMessage)
+        hasher.combine(includeLocation)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileDuressSettings: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileDuressSettings {
+        return
+            try MobileDuressSettings(
+                alertContactIds: FfiConverterSequenceString.read(from: &buf),
+                alertMessage: FfiConverterString.read(from: &buf),
+                includeLocation: FfiConverterBool.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileDuressSettings, into buf: inout [UInt8]) {
+        FfiConverterSequenceString.write(value.alertContactIds, into: &buf)
+        FfiConverterString.write(value.alertMessage, into: &buf)
+        FfiConverterBool.write(value.includeLocation, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileDuressSettings_lift(_ buf: RustBuffer) throws -> MobileDuressSettings {
+    return try FfiConverterTypeMobileDuressSettings.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileDuressSettings_lower(_ value: MobileDuressSettings) -> RustBuffer {
+    return FfiConverterTypeMobileDuressSettings.lower(value)
+}
+
+/**
+ * Emergency broadcast configuration for mobile platforms.
+ */
+public struct MobileEmergencyConfig {
+    /**
+     * Contact IDs of trusted contacts who receive emergency alerts.
+     */
+    public var trustedContactIds: [String]
+    /**
+     * Custom alert message included in the alert payload.
+     */
+    public var message: String
+    /**
+     * Whether to include device location in the alert.
+     */
+    public var includeLocation: Bool
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(
+        /* 
+         * Contact IDs of trusted contacts who receive emergency alerts.
+         */ trustedContactIds: [String],
+        /* 
+            * Custom alert message included in the alert payload.
+            */ message: String,
+        /* 
+            * Whether to include device location in the alert.
+            */ includeLocation: Bool
+    ) {
+        self.trustedContactIds = trustedContactIds
+        self.message = message
+        self.includeLocation = includeLocation
+    }
+}
+
+extension MobileEmergencyConfig: Equatable, Hashable {
+    public static func == (lhs: MobileEmergencyConfig, rhs: MobileEmergencyConfig) -> Bool {
+        if lhs.trustedContactIds != rhs.trustedContactIds {
+            return false
+        }
+        if lhs.message != rhs.message {
+            return false
+        }
+        if lhs.includeLocation != rhs.includeLocation {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(trustedContactIds)
+        hasher.combine(message)
+        hasher.combine(includeLocation)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileEmergencyConfig: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileEmergencyConfig {
+        return
+            try MobileEmergencyConfig(
+                trustedContactIds: FfiConverterSequenceString.read(from: &buf),
+                message: FfiConverterString.read(from: &buf),
+                includeLocation: FfiConverterBool.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileEmergencyConfig, into buf: inout [UInt8]) {
+        FfiConverterSequenceString.write(value.trustedContactIds, into: &buf)
+        FfiConverterString.write(value.message, into: &buf)
+        FfiConverterBool.write(value.includeLocation, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileEmergencyConfig_lift(_ buf: RustBuffer) throws -> MobileEmergencyConfig {
+    return try FfiConverterTypeMobileEmergencyConfig.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileEmergencyConfig_lower(_ value: MobileEmergencyConfig) -> RustBuffer {
+    return FfiConverterTypeMobileEmergencyConfig.lower(value)
+}
 
 /**
  * Exchange result.
@@ -5143,8 +6292,8 @@ public struct MobileExchangeResult {
     public var success: Bool
     public var errorMessage: String?
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(contactId: String, contactName: String, success: Bool, errorMessage: String?) {
         self.contactId = contactId
         self.contactName = contactName
@@ -5153,10 +6302,8 @@ public struct MobileExchangeResult {
     }
 }
 
-
-
 extension MobileExchangeResult: Equatable, Hashable {
-    public static func ==(lhs: MobileExchangeResult, rhs: MobileExchangeResult) -> Bool {
+    public static func == (lhs: MobileExchangeResult, rhs: MobileExchangeResult) -> Bool {
         if lhs.contactId != rhs.contactId {
             return false
         }
@@ -5180,19 +6327,18 @@ extension MobileExchangeResult: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileExchangeResult: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileExchangeResult {
         return
             try MobileExchangeResult(
-                contactId: FfiConverterString.read(from: &buf), 
-                contactName: FfiConverterString.read(from: &buf), 
-                success: FfiConverterBool.read(from: &buf), 
+                contactId: FfiConverterString.read(from: &buf),
+                contactName: FfiConverterString.read(from: &buf),
+                success: FfiConverterBool.read(from: &buf),
                 errorMessage: FfiConverterOptionString.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobileExchangeResult, into buf: inout [UInt8]) {
@@ -5203,21 +6349,19 @@ public struct FfiConverterTypeMobileExchangeResult: FfiConverterRustBuffer {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileExchangeResult_lift(_ buf: RustBuffer) throws -> MobileExchangeResult {
     return try FfiConverterTypeMobileExchangeResult.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileExchangeResult_lower(_ value: MobileExchangeResult) -> RustBuffer {
     return FfiConverterTypeMobileExchangeResult.lower(value)
 }
-
 
 /**
  * A frequently asked question with answer.
@@ -5244,24 +6388,25 @@ public struct MobileFaqItem {
      */
     public var related: [String]
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(
-        /**
+        /* 
          * Unique identifier.
-         */id: String, 
-        /**
-         * Category this FAQ belongs to.
-         */category: MobileHelpCategory, 
-        /**
-         * The question.
-         */question: String, 
-        /**
-         * The answer (may contain markdown).
-         */answer: String, 
-        /**
-         * Related FAQ IDs.
-         */related: [String]) {
+         */ id: String,
+        /* 
+            * Category this FAQ belongs to.
+            */ category: MobileHelpCategory,
+        /* 
+            * The question.
+            */ question: String,
+        /* 
+            * The answer (may contain markdown).
+            */ answer: String,
+        /* 
+            * Related FAQ IDs.
+            */ related: [String]
+    ) {
         self.id = id
         self.category = category
         self.question = question
@@ -5270,10 +6415,8 @@ public struct MobileFaqItem {
     }
 }
 
-
-
 extension MobileFaqItem: Equatable, Hashable {
-    public static func ==(lhs: MobileFaqItem, rhs: MobileFaqItem) -> Bool {
+    public static func == (lhs: MobileFaqItem, rhs: MobileFaqItem) -> Bool {
         if lhs.id != rhs.id {
             return false
         }
@@ -5301,20 +6444,19 @@ extension MobileFaqItem: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileFaqItem: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileFaqItem {
         return
             try MobileFaqItem(
-                id: FfiConverterString.read(from: &buf), 
-                category: FfiConverterTypeMobileHelpCategory.read(from: &buf), 
-                question: FfiConverterString.read(from: &buf), 
-                answer: FfiConverterString.read(from: &buf), 
+                id: FfiConverterString.read(from: &buf),
+                category: FfiConverterTypeMobileHelpCategory.read(from: &buf),
+                question: FfiConverterString.read(from: &buf),
+                answer: FfiConverterString.read(from: &buf),
                 related: FfiConverterSequenceString.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobileFaqItem, into buf: inout [UInt8]) {
@@ -5326,21 +6468,19 @@ public struct FfiConverterTypeMobileFaqItem: FfiConverterRustBuffer {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileFaqItem_lift(_ buf: RustBuffer) throws -> MobileFaqItem {
     return try FfiConverterTypeMobileFaqItem.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileFaqItem_lower(_ value: MobileFaqItem) -> RustBuffer {
     return FfiConverterTypeMobileFaqItem.lower(value)
 }
-
 
 /**
  * A validation record for a contact's field.
@@ -5363,21 +6503,22 @@ public struct MobileFieldValidation {
      */
     public var validatedAt: UInt64
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(
-        /**
+        /* 
          * Contact ID that was validated.
-         */contactId: String, 
-        /**
-         * Field name that was validated (e.g., "twitter", "email").
-         */fieldName: String, 
-        /**
-         * Field value at time of validation.
-         */fieldValue: String, 
-        /**
-         * Timestamp when validation was created.
-         */validatedAt: UInt64) {
+         */ contactId: String,
+        /* 
+            * Field name that was validated (e.g., "twitter", "email").
+            */ fieldName: String,
+        /* 
+            * Field value at time of validation.
+            */ fieldValue: String,
+        /* 
+            * Timestamp when validation was created.
+            */ validatedAt: UInt64
+    ) {
         self.contactId = contactId
         self.fieldName = fieldName
         self.fieldValue = fieldValue
@@ -5385,10 +6526,8 @@ public struct MobileFieldValidation {
     }
 }
 
-
-
 extension MobileFieldValidation: Equatable, Hashable {
-    public static func ==(lhs: MobileFieldValidation, rhs: MobileFieldValidation) -> Bool {
+    public static func == (lhs: MobileFieldValidation, rhs: MobileFieldValidation) -> Bool {
         if lhs.contactId != rhs.contactId {
             return false
         }
@@ -5412,19 +6551,18 @@ extension MobileFieldValidation: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileFieldValidation: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileFieldValidation {
         return
             try MobileFieldValidation(
-                contactId: FfiConverterString.read(from: &buf), 
-                fieldName: FfiConverterString.read(from: &buf), 
-                fieldValue: FfiConverterString.read(from: &buf), 
+                contactId: FfiConverterString.read(from: &buf),
+                fieldName: FfiConverterString.read(from: &buf),
+                fieldValue: FfiConverterString.read(from: &buf),
                 validatedAt: FfiConverterUInt64.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobileFieldValidation, into buf: inout [UInt8]) {
@@ -5435,21 +6573,19 @@ public struct FfiConverterTypeMobileFieldValidation: FfiConverterRustBuffer {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileFieldValidation_lift(_ buf: RustBuffer) throws -> MobileFieldValidation {
     return try FfiConverterTypeMobileFieldValidation.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileFieldValidation_lower(_ value: MobileFieldValidation) -> RustBuffer {
     return FfiConverterTypeMobileFieldValidation.lower(value)
 }
-
 
 /**
  * GDPR data export result.
@@ -5468,28 +6604,27 @@ public struct MobileGdprExport {
      */
     public var version: UInt32
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(
-        /**
+        /* 
          * Exported data as JSON string.
-         */jsonData: String, 
-        /**
-         * When the export was created (Unix timestamp).
-         */exportedAt: UInt64, 
-        /**
-         * Export format version.
-         */version: UInt32) {
+         */ jsonData: String,
+        /* 
+            * When the export was created (Unix timestamp).
+            */ exportedAt: UInt64,
+        /* 
+            * Export format version.
+            */ version: UInt32
+    ) {
         self.jsonData = jsonData
         self.exportedAt = exportedAt
         self.version = version
     }
 }
 
-
-
 extension MobileGdprExport: Equatable, Hashable {
-    public static func ==(lhs: MobileGdprExport, rhs: MobileGdprExport) -> Bool {
+    public static func == (lhs: MobileGdprExport, rhs: MobileGdprExport) -> Bool {
         if lhs.jsonData != rhs.jsonData {
             return false
         }
@@ -5509,18 +6644,17 @@ extension MobileGdprExport: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileGdprExport: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileGdprExport {
         return
             try MobileGdprExport(
-                jsonData: FfiConverterString.read(from: &buf), 
-                exportedAt: FfiConverterUInt64.read(from: &buf), 
+                jsonData: FfiConverterString.read(from: &buf),
+                exportedAt: FfiConverterUInt64.read(from: &buf),
                 version: FfiConverterUInt32.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobileGdprExport, into buf: inout [UInt8]) {
@@ -5530,21 +6664,19 @@ public struct FfiConverterTypeMobileGdprExport: FfiConverterRustBuffer {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileGdprExport_lift(_ buf: RustBuffer) throws -> MobileGdprExport {
     return try FfiConverterTypeMobileGdprExport.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileGdprExport_lower(_ value: MobileGdprExport) -> RustBuffer {
     return FfiConverterTypeMobileGdprExport.lower(value)
 }
-
 
 /**
  * Help category with display name.
@@ -5559,24 +6691,23 @@ public struct MobileHelpCategoryInfo {
      */
     public var displayName: String
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(
-        /**
+        /* 
          * Category identifier.
-         */category: MobileHelpCategory, 
-        /**
-         * Display name for the category.
-         */displayName: String) {
+         */ category: MobileHelpCategory,
+        /* 
+            * Display name for the category.
+            */ displayName: String
+    ) {
         self.category = category
         self.displayName = displayName
     }
 }
 
-
-
 extension MobileHelpCategoryInfo: Equatable, Hashable {
-    public static func ==(lhs: MobileHelpCategoryInfo, rhs: MobileHelpCategoryInfo) -> Bool {
+    public static func == (lhs: MobileHelpCategoryInfo, rhs: MobileHelpCategoryInfo) -> Bool {
         if lhs.category != rhs.category {
             return false
         }
@@ -5592,17 +6723,16 @@ extension MobileHelpCategoryInfo: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileHelpCategoryInfo: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileHelpCategoryInfo {
         return
             try MobileHelpCategoryInfo(
-                category: FfiConverterTypeMobileHelpCategory.read(from: &buf), 
+                category: FfiConverterTypeMobileHelpCategory.read(from: &buf),
                 displayName: FfiConverterString.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobileHelpCategoryInfo, into buf: inout [UInt8]) {
@@ -5611,21 +6741,19 @@ public struct FfiConverterTypeMobileHelpCategoryInfo: FfiConverterRustBuffer {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileHelpCategoryInfo_lift(_ buf: RustBuffer) throws -> MobileHelpCategoryInfo {
     return try FfiConverterTypeMobileHelpCategoryInfo.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileHelpCategoryInfo_lower(_ value: MobileHelpCategoryInfo) -> RustBuffer {
     return FfiConverterTypeMobileHelpCategoryInfo.lower(value)
 }
-
 
 /**
  * Information about a locale.
@@ -5648,21 +6776,22 @@ public struct MobileLocaleInfo {
      */
     public var isRtl: Bool
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(
-        /**
+        /* 
          * ISO 639-1 language code.
-         */code: String, 
-        /**
-         * Native name of the language.
-         */name: String, 
-        /**
-         * English name of the language.
-         */englishName: String, 
-        /**
-         * Whether the language is right-to-left.
-         */isRtl: Bool) {
+         */ code: String,
+        /* 
+            * Native name of the language.
+            */ name: String,
+        /* 
+            * English name of the language.
+            */ englishName: String,
+        /* 
+            * Whether the language is right-to-left.
+            */ isRtl: Bool
+    ) {
         self.code = code
         self.name = name
         self.englishName = englishName
@@ -5670,10 +6799,8 @@ public struct MobileLocaleInfo {
     }
 }
 
-
-
 extension MobileLocaleInfo: Equatable, Hashable {
-    public static func ==(lhs: MobileLocaleInfo, rhs: MobileLocaleInfo) -> Bool {
+    public static func == (lhs: MobileLocaleInfo, rhs: MobileLocaleInfo) -> Bool {
         if lhs.code != rhs.code {
             return false
         }
@@ -5697,19 +6824,18 @@ extension MobileLocaleInfo: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileLocaleInfo: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileLocaleInfo {
         return
             try MobileLocaleInfo(
-                code: FfiConverterString.read(from: &buf), 
-                name: FfiConverterString.read(from: &buf), 
-                englishName: FfiConverterString.read(from: &buf), 
+                code: FfiConverterString.read(from: &buf),
+                name: FfiConverterString.read(from: &buf),
+                englishName: FfiConverterString.read(from: &buf),
                 isRtl: FfiConverterBool.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobileLocaleInfo, into buf: inout [UInt8]) {
@@ -5720,21 +6846,19 @@ public struct FfiConverterTypeMobileLocaleInfo: FfiConverterRustBuffer {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileLocaleInfo_lift(_ buf: RustBuffer) throws -> MobileLocaleInfo {
     return try FfiConverterTypeMobileLocaleInfo.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileLocaleInfo_lower(_ value: MobileLocaleInfo) -> RustBuffer {
     return FfiConverterTypeMobileLocaleInfo.lower(value)
 }
-
 
 /**
  * Result of password strength check.
@@ -5757,21 +6881,22 @@ public struct MobilePasswordCheck {
      */
     public var isAcceptable: Bool
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(
-        /**
+        /* 
          * The strength level
-         */strength: MobilePasswordStrength, 
-        /**
-         * Human-readable description
-         */description: String, 
-        /**
-         * Feedback/suggestions for improvement (empty if strong enough)
-         */feedback: String, 
-        /**
-         * Whether the password is acceptable for backup
-         */isAcceptable: Bool) {
+         */ strength: MobilePasswordStrength,
+        /* 
+            * Human-readable description
+            */ description: String,
+        /* 
+            * Feedback/suggestions for improvement (empty if strong enough)
+            */ feedback: String,
+        /* 
+            * Whether the password is acceptable for backup
+            */ isAcceptable: Bool
+    ) {
         self.strength = strength
         self.description = description
         self.feedback = feedback
@@ -5779,10 +6904,8 @@ public struct MobilePasswordCheck {
     }
 }
 
-
-
 extension MobilePasswordCheck: Equatable, Hashable {
-    public static func ==(lhs: MobilePasswordCheck, rhs: MobilePasswordCheck) -> Bool {
+    public static func == (lhs: MobilePasswordCheck, rhs: MobilePasswordCheck) -> Bool {
         if lhs.strength != rhs.strength {
             return false
         }
@@ -5806,19 +6929,18 @@ extension MobilePasswordCheck: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobilePasswordCheck: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobilePasswordCheck {
         return
             try MobilePasswordCheck(
-                strength: FfiConverterTypeMobilePasswordStrength.read(from: &buf), 
-                description: FfiConverterString.read(from: &buf), 
-                feedback: FfiConverterString.read(from: &buf), 
+                strength: FfiConverterTypeMobilePasswordStrength.read(from: &buf),
+                description: FfiConverterString.read(from: &buf),
+                feedback: FfiConverterString.read(from: &buf),
                 isAcceptable: FfiConverterBool.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobilePasswordCheck, into buf: inout [UInt8]) {
@@ -5829,21 +6951,19 @@ public struct FfiConverterTypeMobilePasswordCheck: FfiConverterRustBuffer {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobilePasswordCheck_lift(_ buf: RustBuffer) throws -> MobilePasswordCheck {
     return try FfiConverterTypeMobilePasswordCheck.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobilePasswordCheck_lower(_ value: MobilePasswordCheck) -> RustBuffer {
     return FfiConverterTypeMobilePasswordCheck.lower(value)
 }
-
 
 /**
  * Result of proximity verification.
@@ -5858,24 +6978,23 @@ public struct MobileProximityResult {
      */
     public var error: String
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(
-        /**
+        /* 
          * Whether verification succeeded
-         */success: Bool, 
-        /**
-         * Error message if failed
-         */error: String) {
+         */ success: Bool,
+        /* 
+            * Error message if failed
+            */ error: String
+    ) {
         self.success = success
         self.error = error
     }
 }
 
-
-
 extension MobileProximityResult: Equatable, Hashable {
-    public static func ==(lhs: MobileProximityResult, rhs: MobileProximityResult) -> Bool {
+    public static func == (lhs: MobileProximityResult, rhs: MobileProximityResult) -> Bool {
         if lhs.success != rhs.success {
             return false
         }
@@ -5891,17 +7010,16 @@ extension MobileProximityResult: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileProximityResult: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileProximityResult {
         return
             try MobileProximityResult(
-                success: FfiConverterBool.read(from: &buf), 
+                success: FfiConverterBool.read(from: &buf),
                 error: FfiConverterString.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobileProximityResult, into buf: inout [UInt8]) {
@@ -5910,21 +7028,19 @@ public struct FfiConverterTypeMobileProximityResult: FfiConverterRustBuffer {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileProximityResult_lift(_ buf: RustBuffer) throws -> MobileProximityResult {
     return try FfiConverterTypeMobileProximityResult.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileProximityResult_lower(_ value: MobileProximityResult) -> RustBuffer {
     return FfiConverterTypeMobileProximityResult.lower(value)
 }
-
 
 /**
  * Recovery claim data for mobile.
@@ -5947,21 +7063,22 @@ public struct MobileRecoveryClaim {
      */
     public var isExpired: Bool
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(
-        /**
+        /* 
          * Old identity's public key (hex).
-         */oldPublicKey: String, 
-        /**
-         * New identity's public key (hex).
-         */newPublicKey: String, 
-        /**
-         * Base64-encoded claim data.
-         */claimData: String, 
-        /**
-         * Whether the claim has expired.
-         */isExpired: Bool) {
+         */ oldPublicKey: String,
+        /* 
+            * New identity's public key (hex).
+            */ newPublicKey: String,
+        /* 
+            * Base64-encoded claim data.
+            */ claimData: String,
+        /* 
+            * Whether the claim has expired.
+            */ isExpired: Bool
+    ) {
         self.oldPublicKey = oldPublicKey
         self.newPublicKey = newPublicKey
         self.claimData = claimData
@@ -5969,10 +7086,8 @@ public struct MobileRecoveryClaim {
     }
 }
 
-
-
 extension MobileRecoveryClaim: Equatable, Hashable {
-    public static func ==(lhs: MobileRecoveryClaim, rhs: MobileRecoveryClaim) -> Bool {
+    public static func == (lhs: MobileRecoveryClaim, rhs: MobileRecoveryClaim) -> Bool {
         if lhs.oldPublicKey != rhs.oldPublicKey {
             return false
         }
@@ -5996,19 +7111,18 @@ extension MobileRecoveryClaim: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileRecoveryClaim: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileRecoveryClaim {
         return
             try MobileRecoveryClaim(
-                oldPublicKey: FfiConverterString.read(from: &buf), 
-                newPublicKey: FfiConverterString.read(from: &buf), 
-                claimData: FfiConverterString.read(from: &buf), 
+                oldPublicKey: FfiConverterString.read(from: &buf),
+                newPublicKey: FfiConverterString.read(from: &buf),
+                claimData: FfiConverterString.read(from: &buf),
                 isExpired: FfiConverterBool.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobileRecoveryClaim, into buf: inout [UInt8]) {
@@ -6019,21 +7133,19 @@ public struct FfiConverterTypeMobileRecoveryClaim: FfiConverterRustBuffer {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileRecoveryClaim_lift(_ buf: RustBuffer) throws -> MobileRecoveryClaim {
     return try FfiConverterTypeMobileRecoveryClaim.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileRecoveryClaim_lower(_ value: MobileRecoveryClaim) -> RustBuffer {
     return FfiConverterTypeMobileRecoveryClaim.lower(value)
 }
-
 
 /**
  * Recovery progress status.
@@ -6060,24 +7172,25 @@ public struct MobileRecoveryProgress {
      */
     public var isComplete: Bool
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(
-        /**
+        /* 
          * Old identity's public key (hex).
-         */oldPublicKey: String, 
-        /**
-         * New identity's public key (hex).
-         */newPublicKey: String, 
-        /**
-         * Number of vouchers collected.
-         */vouchersCollected: UInt32, 
-        /**
-         * Number of vouchers needed (threshold).
-         */vouchersNeeded: UInt32, 
-        /**
-         * Whether recovery is complete.
-         */isComplete: Bool) {
+         */ oldPublicKey: String,
+        /* 
+            * New identity's public key (hex).
+            */ newPublicKey: String,
+        /* 
+            * Number of vouchers collected.
+            */ vouchersCollected: UInt32,
+        /* 
+            * Number of vouchers needed (threshold).
+            */ vouchersNeeded: UInt32,
+        /* 
+            * Whether recovery is complete.
+            */ isComplete: Bool
+    ) {
         self.oldPublicKey = oldPublicKey
         self.newPublicKey = newPublicKey
         self.vouchersCollected = vouchersCollected
@@ -6086,10 +7199,8 @@ public struct MobileRecoveryProgress {
     }
 }
 
-
-
 extension MobileRecoveryProgress: Equatable, Hashable {
-    public static func ==(lhs: MobileRecoveryProgress, rhs: MobileRecoveryProgress) -> Bool {
+    public static func == (lhs: MobileRecoveryProgress, rhs: MobileRecoveryProgress) -> Bool {
         if lhs.oldPublicKey != rhs.oldPublicKey {
             return false
         }
@@ -6117,20 +7228,19 @@ extension MobileRecoveryProgress: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileRecoveryProgress: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileRecoveryProgress {
         return
             try MobileRecoveryProgress(
-                oldPublicKey: FfiConverterString.read(from: &buf), 
-                newPublicKey: FfiConverterString.read(from: &buf), 
-                vouchersCollected: FfiConverterUInt32.read(from: &buf), 
-                vouchersNeeded: FfiConverterUInt32.read(from: &buf), 
+                oldPublicKey: FfiConverterString.read(from: &buf),
+                newPublicKey: FfiConverterString.read(from: &buf),
+                vouchersCollected: FfiConverterUInt32.read(from: &buf),
+                vouchersNeeded: FfiConverterUInt32.read(from: &buf),
                 isComplete: FfiConverterBool.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobileRecoveryProgress, into buf: inout [UInt8]) {
@@ -6142,21 +7252,19 @@ public struct FfiConverterTypeMobileRecoveryProgress: FfiConverterRustBuffer {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileRecoveryProgress_lift(_ buf: RustBuffer) throws -> MobileRecoveryProgress {
     return try FfiConverterTypeMobileRecoveryProgress.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileRecoveryProgress_lower(_ value: MobileRecoveryProgress) -> RustBuffer {
     return FfiConverterTypeMobileRecoveryProgress.lower(value)
 }
-
 
 /**
  * Recovery verification result.
@@ -6187,27 +7295,28 @@ public struct MobileRecoveryVerification {
      */
     public var recommendation: String
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(
-        /**
+        /* 
          * Old identity's public key (hex).
-         */oldPublicKey: String, 
-        /**
-         * New identity's public key (hex).
-         */newPublicKey: String, 
-        /**
-         * Number of vouchers in the proof.
-         */voucherCount: UInt32, 
-        /**
-         * Number of vouchers from known contacts.
-         */knownVouchers: UInt32, 
-        /**
-         * Confidence level: "high", "medium", or "low".
-         */confidence: String, 
-        /**
-         * Recommendation for the user.
-         */recommendation: String) {
+         */ oldPublicKey: String,
+        /* 
+            * New identity's public key (hex).
+            */ newPublicKey: String,
+        /* 
+            * Number of vouchers in the proof.
+            */ voucherCount: UInt32,
+        /* 
+            * Number of vouchers from known contacts.
+            */ knownVouchers: UInt32,
+        /* 
+            * Confidence level: "high", "medium", or "low".
+            */ confidence: String,
+        /* 
+            * Recommendation for the user.
+            */ recommendation: String
+    ) {
         self.oldPublicKey = oldPublicKey
         self.newPublicKey = newPublicKey
         self.voucherCount = voucherCount
@@ -6217,10 +7326,8 @@ public struct MobileRecoveryVerification {
     }
 }
 
-
-
 extension MobileRecoveryVerification: Equatable, Hashable {
-    public static func ==(lhs: MobileRecoveryVerification, rhs: MobileRecoveryVerification) -> Bool {
+    public static func == (lhs: MobileRecoveryVerification, rhs: MobileRecoveryVerification) -> Bool {
         if lhs.oldPublicKey != rhs.oldPublicKey {
             return false
         }
@@ -6252,21 +7359,20 @@ extension MobileRecoveryVerification: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileRecoveryVerification: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileRecoveryVerification {
         return
             try MobileRecoveryVerification(
-                oldPublicKey: FfiConverterString.read(from: &buf), 
-                newPublicKey: FfiConverterString.read(from: &buf), 
-                voucherCount: FfiConverterUInt32.read(from: &buf), 
-                knownVouchers: FfiConverterUInt32.read(from: &buf), 
-                confidence: FfiConverterString.read(from: &buf), 
+                oldPublicKey: FfiConverterString.read(from: &buf),
+                newPublicKey: FfiConverterString.read(from: &buf),
+                voucherCount: FfiConverterUInt32.read(from: &buf),
+                knownVouchers: FfiConverterUInt32.read(from: &buf),
+                confidence: FfiConverterString.read(from: &buf),
                 recommendation: FfiConverterString.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobileRecoveryVerification, into buf: inout [UInt8]) {
@@ -6279,21 +7385,19 @@ public struct FfiConverterTypeMobileRecoveryVerification: FfiConverterRustBuffer
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileRecoveryVerification_lift(_ buf: RustBuffer) throws -> MobileRecoveryVerification {
     return try FfiConverterTypeMobileRecoveryVerification.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileRecoveryVerification_lower(_ value: MobileRecoveryVerification) -> RustBuffer {
     return FfiConverterTypeMobileRecoveryVerification.lower(value)
 }
-
 
 /**
  * Recovery voucher data for mobile.
@@ -6308,24 +7412,23 @@ public struct MobileRecoveryVoucher {
      */
     public var voucherData: String
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(
-        /**
+        /* 
          * Voucher public key (hex) - identifies who vouched.
-         */voucherPublicKey: String, 
-        /**
-         * Base64-encoded voucher data.
-         */voucherData: String) {
+         */ voucherPublicKey: String,
+        /* 
+            * Base64-encoded voucher data.
+            */ voucherData: String
+    ) {
         self.voucherPublicKey = voucherPublicKey
         self.voucherData = voucherData
     }
 }
 
-
-
 extension MobileRecoveryVoucher: Equatable, Hashable {
-    public static func ==(lhs: MobileRecoveryVoucher, rhs: MobileRecoveryVoucher) -> Bool {
+    public static func == (lhs: MobileRecoveryVoucher, rhs: MobileRecoveryVoucher) -> Bool {
         if lhs.voucherPublicKey != rhs.voucherPublicKey {
             return false
         }
@@ -6341,17 +7444,16 @@ extension MobileRecoveryVoucher: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileRecoveryVoucher: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileRecoveryVoucher {
         return
             try MobileRecoveryVoucher(
-                voucherPublicKey: FfiConverterString.read(from: &buf), 
+                voucherPublicKey: FfiConverterString.read(from: &buf),
                 voucherData: FfiConverterString.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobileRecoveryVoucher, into buf: inout [UInt8]) {
@@ -6360,21 +7462,19 @@ public struct FfiConverterTypeMobileRecoveryVoucher: FfiConverterRustBuffer {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileRecoveryVoucher_lift(_ buf: RustBuffer) throws -> MobileRecoveryVoucher {
     return try FfiConverterTypeMobileRecoveryVoucher.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileRecoveryVoucher_lower(_ value: MobileRecoveryVoucher) -> RustBuffer {
     return FfiConverterTypeMobileRecoveryVoucher.lower(value)
 }
-
 
 /**
  * A retry queue entry for failed message deliveries.
@@ -6409,30 +7509,31 @@ public struct MobileRetryEntry {
      */
     public var isMaxExceeded: Bool
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(
-        /**
+        /* 
          * Unique message ID.
-         */messageId: String, 
-        /**
-         * Recipient's contact ID.
-         */recipientId: String, 
-        /**
-         * Current retry attempt (0 = first attempt).
-         */attempt: UInt32, 
-        /**
-         * Unix timestamp for next retry.
-         */nextRetry: UInt64, 
-        /**
-         * When the entry was created (Unix timestamp).
-         */createdAt: UInt64, 
-        /**
-         * Maximum number of retry attempts.
-         */maxAttempts: UInt32, 
-        /**
-         * Whether max attempts have been exceeded.
-         */isMaxExceeded: Bool) {
+         */ messageId: String,
+        /* 
+            * Recipient's contact ID.
+            */ recipientId: String,
+        /* 
+            * Current retry attempt (0 = first attempt).
+            */ attempt: UInt32,
+        /* 
+            * Unix timestamp for next retry.
+            */ nextRetry: UInt64,
+        /* 
+            * When the entry was created (Unix timestamp).
+            */ createdAt: UInt64,
+        /* 
+            * Maximum number of retry attempts.
+            */ maxAttempts: UInt32,
+        /* 
+            * Whether max attempts have been exceeded.
+            */ isMaxExceeded: Bool
+    ) {
         self.messageId = messageId
         self.recipientId = recipientId
         self.attempt = attempt
@@ -6443,10 +7544,8 @@ public struct MobileRetryEntry {
     }
 }
 
-
-
 extension MobileRetryEntry: Equatable, Hashable {
-    public static func ==(lhs: MobileRetryEntry, rhs: MobileRetryEntry) -> Bool {
+    public static func == (lhs: MobileRetryEntry, rhs: MobileRetryEntry) -> Bool {
         if lhs.messageId != rhs.messageId {
             return false
         }
@@ -6482,22 +7581,21 @@ extension MobileRetryEntry: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileRetryEntry: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileRetryEntry {
         return
             try MobileRetryEntry(
-                messageId: FfiConverterString.read(from: &buf), 
-                recipientId: FfiConverterString.read(from: &buf), 
-                attempt: FfiConverterUInt32.read(from: &buf), 
-                nextRetry: FfiConverterUInt64.read(from: &buf), 
-                createdAt: FfiConverterUInt64.read(from: &buf), 
-                maxAttempts: FfiConverterUInt32.read(from: &buf), 
+                messageId: FfiConverterString.read(from: &buf),
+                recipientId: FfiConverterString.read(from: &buf),
+                attempt: FfiConverterUInt32.read(from: &buf),
+                nextRetry: FfiConverterUInt64.read(from: &buf),
+                createdAt: FfiConverterUInt64.read(from: &buf),
+                maxAttempts: FfiConverterUInt32.read(from: &buf),
                 isMaxExceeded: FfiConverterBool.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobileRetryEntry, into buf: inout [UInt8]) {
@@ -6511,21 +7609,19 @@ public struct FfiConverterTypeMobileRetryEntry: FfiConverterRustBuffer {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileRetryEntry_lift(_ buf: RustBuffer) throws -> MobileRetryEntry {
     return try FfiConverterTypeMobileRetryEntry.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileRetryEntry_lower(_ value: MobileRetryEntry) -> RustBuffer {
     return FfiConverterTypeMobileRetryEntry.lower(value)
 }
-
 
 /**
  * Report of shred operations performed.
@@ -6568,36 +7664,37 @@ public struct MobileShredReport {
      */
     public var dataDirDeleted: Bool
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(
-        /**
+        /* 
          * Number of contacts notified of deletion.
-         */contactsNotified: UInt32, 
-        /**
-         * Whether the relay purge was sent successfully.
-         */relayPurgeSent: Bool, 
-        /**
-         * Number of linked devices notified.
-         */devicesNotified: UInt32, 
-        /**
-         * Whether SMK was destroyed from SecureStorage.
-         */smkDestroyed: Bool, 
-        /**
-         * Whether the identity backup file was securely deleted.
-         */identityFileDestroyed: Bool, 
-        /**
-         * Number of key files deleted.
-         */keyFilesDestroyed: UInt32, 
-        /**
-         * Whether the SQLite database was securely deleted.
-         */sqliteDestroyed: Bool, 
-        /**
-         * Whether the pre-signed messages file was deleted.
-         */preSignedDeleted: Bool, 
-        /**
-         * Whether the data directory was removed.
-         */dataDirDeleted: Bool) {
+         */ contactsNotified: UInt32,
+        /* 
+            * Whether the relay purge was sent successfully.
+            */ relayPurgeSent: Bool,
+        /* 
+            * Number of linked devices notified.
+            */ devicesNotified: UInt32,
+        /* 
+            * Whether SMK was destroyed from SecureStorage.
+            */ smkDestroyed: Bool,
+        /* 
+            * Whether the identity backup file was securely deleted.
+            */ identityFileDestroyed: Bool,
+        /* 
+            * Number of key files deleted.
+            */ keyFilesDestroyed: UInt32,
+        /* 
+            * Whether the SQLite database was securely deleted.
+            */ sqliteDestroyed: Bool,
+        /* 
+            * Whether the pre-signed messages file was deleted.
+            */ preSignedDeleted: Bool,
+        /* 
+            * Whether the data directory was removed.
+            */ dataDirDeleted: Bool
+    ) {
         self.contactsNotified = contactsNotified
         self.relayPurgeSent = relayPurgeSent
         self.devicesNotified = devicesNotified
@@ -6610,10 +7707,8 @@ public struct MobileShredReport {
     }
 }
 
-
-
 extension MobileShredReport: Equatable, Hashable {
-    public static func ==(lhs: MobileShredReport, rhs: MobileShredReport) -> Bool {
+    public static func == (lhs: MobileShredReport, rhs: MobileShredReport) -> Bool {
         if lhs.contactsNotified != rhs.contactsNotified {
             return false
         }
@@ -6657,24 +7752,23 @@ extension MobileShredReport: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileShredReport: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileShredReport {
         return
             try MobileShredReport(
-                contactsNotified: FfiConverterUInt32.read(from: &buf), 
-                relayPurgeSent: FfiConverterBool.read(from: &buf), 
-                devicesNotified: FfiConverterUInt32.read(from: &buf), 
-                smkDestroyed: FfiConverterBool.read(from: &buf), 
-                identityFileDestroyed: FfiConverterBool.read(from: &buf), 
-                keyFilesDestroyed: FfiConverterUInt32.read(from: &buf), 
-                sqliteDestroyed: FfiConverterBool.read(from: &buf), 
-                preSignedDeleted: FfiConverterBool.read(from: &buf), 
+                contactsNotified: FfiConverterUInt32.read(from: &buf),
+                relayPurgeSent: FfiConverterBool.read(from: &buf),
+                devicesNotified: FfiConverterUInt32.read(from: &buf),
+                smkDestroyed: FfiConverterBool.read(from: &buf),
+                identityFileDestroyed: FfiConverterBool.read(from: &buf),
+                keyFilesDestroyed: FfiConverterUInt32.read(from: &buf),
+                sqliteDestroyed: FfiConverterBool.read(from: &buf),
+                preSignedDeleted: FfiConverterBool.read(from: &buf),
                 dataDirDeleted: FfiConverterBool.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobileShredReport, into buf: inout [UInt8]) {
@@ -6690,21 +7784,19 @@ public struct FfiConverterTypeMobileShredReport: FfiConverterRustBuffer {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileShredReport_lift(_ buf: RustBuffer) throws -> MobileShredReport {
     return try FfiConverterTypeMobileShredReport.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileShredReport_lower(_ value: MobileShredReport) -> RustBuffer {
     return FfiConverterTypeMobileShredReport.lower(value)
 }
-
 
 /**
  * Token returned by soft_shred to authorize hard_shred.
@@ -6715,20 +7807,19 @@ public struct MobileShredToken {
      */
     public var createdAt: UInt64
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(
-        /**
+        /* 
          * When the token was created (unix seconds).
-         */createdAt: UInt64) {
+         */ createdAt: UInt64
+    ) {
         self.createdAt = createdAt
     }
 }
 
-
-
 extension MobileShredToken: Equatable, Hashable {
-    public static func ==(lhs: MobileShredToken, rhs: MobileShredToken) -> Bool {
+    public static func == (lhs: MobileShredToken, rhs: MobileShredToken) -> Bool {
         if lhs.createdAt != rhs.createdAt {
             return false
         }
@@ -6740,16 +7831,15 @@ extension MobileShredToken: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileShredToken: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileShredToken {
         return
             try MobileShredToken(
                 createdAt: FfiConverterUInt64.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobileShredToken, into buf: inout [UInt8]) {
@@ -6757,21 +7847,19 @@ public struct FfiConverterTypeMobileShredToken: FfiConverterRustBuffer {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileShredToken_lift(_ buf: RustBuffer) throws -> MobileShredToken {
     return try FfiConverterTypeMobileShredToken.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileShredToken_lower(_ value: MobileShredToken) -> RustBuffer {
     return FfiConverterTypeMobileShredToken.lower(value)
 }
-
 
 /**
  * Post-shred verification result.
@@ -6798,24 +7886,25 @@ public struct MobileShredVerification {
      */
     public var allClear: Bool
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(
-        /**
+        /* 
          * Whether SMK is absent from SecureStorage.
-         */smkAbsent: Bool, 
-        /**
-         * Whether the database file is absent.
-         */databaseAbsent: Bool, 
-        /**
-         * Whether the data directory is absent.
-         */dataDirAbsent: Bool, 
-        /**
-         * Whether the pre-signed messages file is absent.
-         */preSignedAbsent: Bool, 
-        /**
-         * Overall: all checks passed.
-         */allClear: Bool) {
+         */ smkAbsent: Bool,
+        /* 
+            * Whether the database file is absent.
+            */ databaseAbsent: Bool,
+        /* 
+            * Whether the data directory is absent.
+            */ dataDirAbsent: Bool,
+        /* 
+            * Whether the pre-signed messages file is absent.
+            */ preSignedAbsent: Bool,
+        /* 
+            * Overall: all checks passed.
+            */ allClear: Bool
+    ) {
         self.smkAbsent = smkAbsent
         self.databaseAbsent = databaseAbsent
         self.dataDirAbsent = dataDirAbsent
@@ -6824,10 +7913,8 @@ public struct MobileShredVerification {
     }
 }
 
-
-
 extension MobileShredVerification: Equatable, Hashable {
-    public static func ==(lhs: MobileShredVerification, rhs: MobileShredVerification) -> Bool {
+    public static func == (lhs: MobileShredVerification, rhs: MobileShredVerification) -> Bool {
         if lhs.smkAbsent != rhs.smkAbsent {
             return false
         }
@@ -6855,20 +7942,19 @@ extension MobileShredVerification: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileShredVerification: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileShredVerification {
         return
             try MobileShredVerification(
-                smkAbsent: FfiConverterBool.read(from: &buf), 
-                databaseAbsent: FfiConverterBool.read(from: &buf), 
-                dataDirAbsent: FfiConverterBool.read(from: &buf), 
-                preSignedAbsent: FfiConverterBool.read(from: &buf), 
+                smkAbsent: FfiConverterBool.read(from: &buf),
+                databaseAbsent: FfiConverterBool.read(from: &buf),
+                dataDirAbsent: FfiConverterBool.read(from: &buf),
+                preSignedAbsent: FfiConverterBool.read(from: &buf),
                 allClear: FfiConverterBool.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobileShredVerification, into buf: inout [UInt8]) {
@@ -6880,21 +7966,19 @@ public struct FfiConverterTypeMobileShredVerification: FfiConverterRustBuffer {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileShredVerification_lift(_ buf: RustBuffer) throws -> MobileShredVerification {
     return try FfiConverterTypeMobileShredVerification.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileShredVerification_lower(_ value: MobileShredVerification) -> RustBuffer {
     return FfiConverterTypeMobileShredVerification.lower(value)
 }
-
 
 /**
  * Social network info.
@@ -6904,8 +7988,8 @@ public struct MobileSocialNetwork {
     public var displayName: String
     public var urlTemplate: String
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(id: String, displayName: String, urlTemplate: String) {
         self.id = id
         self.displayName = displayName
@@ -6913,10 +7997,8 @@ public struct MobileSocialNetwork {
     }
 }
 
-
-
 extension MobileSocialNetwork: Equatable, Hashable {
-    public static func ==(lhs: MobileSocialNetwork, rhs: MobileSocialNetwork) -> Bool {
+    public static func == (lhs: MobileSocialNetwork, rhs: MobileSocialNetwork) -> Bool {
         if lhs.id != rhs.id {
             return false
         }
@@ -6936,18 +8018,17 @@ extension MobileSocialNetwork: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileSocialNetwork: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileSocialNetwork {
         return
             try MobileSocialNetwork(
-                id: FfiConverterString.read(from: &buf), 
-                displayName: FfiConverterString.read(from: &buf), 
+                id: FfiConverterString.read(from: &buf),
+                displayName: FfiConverterString.read(from: &buf),
                 urlTemplate: FfiConverterString.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobileSocialNetwork, into buf: inout [UInt8]) {
@@ -6957,21 +8038,19 @@ public struct FfiConverterTypeMobileSocialNetwork: FfiConverterRustBuffer {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileSocialNetwork_lift(_ buf: RustBuffer) throws -> MobileSocialNetwork {
     return try FfiConverterTypeMobileSocialNetwork.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileSocialNetwork_lower(_ value: MobileSocialNetwork) -> RustBuffer {
     return FfiConverterTypeMobileSocialNetwork.lower(value)
 }
-
 
 /**
  * Sync result with statistics.
@@ -6990,28 +8069,27 @@ public struct MobileSyncResult {
      */
     public var updatesSent: UInt32
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(
-        /**
+        /* 
          * Number of new contacts added from exchange messages.
-         */contactsAdded: UInt32, 
-        /**
-         * Number of contact cards updated.
-         */cardsUpdated: UInt32, 
-        /**
-         * Number of outbound updates sent.
-         */updatesSent: UInt32) {
+         */ contactsAdded: UInt32,
+        /* 
+            * Number of contact cards updated.
+            */ cardsUpdated: UInt32,
+        /* 
+            * Number of outbound updates sent.
+            */ updatesSent: UInt32
+    ) {
         self.contactsAdded = contactsAdded
         self.cardsUpdated = cardsUpdated
         self.updatesSent = updatesSent
     }
 }
 
-
-
 extension MobileSyncResult: Equatable, Hashable {
-    public static func ==(lhs: MobileSyncResult, rhs: MobileSyncResult) -> Bool {
+    public static func == (lhs: MobileSyncResult, rhs: MobileSyncResult) -> Bool {
         if lhs.contactsAdded != rhs.contactsAdded {
             return false
         }
@@ -7031,18 +8109,17 @@ extension MobileSyncResult: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileSyncResult: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileSyncResult {
         return
             try MobileSyncResult(
-                contactsAdded: FfiConverterUInt32.read(from: &buf), 
-                cardsUpdated: FfiConverterUInt32.read(from: &buf), 
+                contactsAdded: FfiConverterUInt32.read(from: &buf),
+                cardsUpdated: FfiConverterUInt32.read(from: &buf),
                 updatesSent: FfiConverterUInt32.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobileSyncResult, into buf: inout [UInt8]) {
@@ -7052,21 +8129,19 @@ public struct FfiConverterTypeMobileSyncResult: FfiConverterRustBuffer {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileSyncResult_lift(_ buf: RustBuffer) throws -> MobileSyncResult {
     return try FfiConverterTypeMobileSyncResult.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileSyncResult_lower(_ value: MobileSyncResult) -> RustBuffer {
     return FfiConverterTypeMobileSyncResult.lower(value)
 }
-
 
 /**
  * A complete theme definition.
@@ -7105,33 +8180,34 @@ public struct MobileTheme {
      */
     public var colors: MobileThemeColors
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(
-        /**
+        /* 
          * Theme identifier.
-         */id: String, 
-        /**
-         * Theme display name.
-         */name: String, 
-        /**
-         * Theme version.
-         */version: String, 
-        /**
-         * Theme author (optional).
-         */author: String?, 
-        /**
-         * Theme license (optional).
-         */license: String?, 
-        /**
-         * Theme source URL (optional).
-         */source: String?, 
-        /**
-         * Theme mode (light or dark).
-         */mode: MobileThemeMode, 
-        /**
-         * Theme colors.
-         */colors: MobileThemeColors) {
+         */ id: String,
+        /* 
+            * Theme display name.
+            */ name: String,
+        /* 
+            * Theme version.
+            */ version: String,
+        /* 
+            * Theme author (optional).
+            */ author: String?,
+        /* 
+            * Theme license (optional).
+            */ license: String?,
+        /* 
+            * Theme source URL (optional).
+            */ source: String?,
+        /* 
+            * Theme mode (light or dark).
+            */ mode: MobileThemeMode,
+        /* 
+            * Theme colors.
+            */ colors: MobileThemeColors
+    ) {
         self.id = id
         self.name = name
         self.version = version
@@ -7143,10 +8219,8 @@ public struct MobileTheme {
     }
 }
 
-
-
 extension MobileTheme: Equatable, Hashable {
-    public static func ==(lhs: MobileTheme, rhs: MobileTheme) -> Bool {
+    public static func == (lhs: MobileTheme, rhs: MobileTheme) -> Bool {
         if lhs.id != rhs.id {
             return false
         }
@@ -7186,23 +8260,22 @@ extension MobileTheme: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileTheme: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileTheme {
         return
             try MobileTheme(
-                id: FfiConverterString.read(from: &buf), 
-                name: FfiConverterString.read(from: &buf), 
-                version: FfiConverterString.read(from: &buf), 
-                author: FfiConverterOptionString.read(from: &buf), 
-                license: FfiConverterOptionString.read(from: &buf), 
-                source: FfiConverterOptionString.read(from: &buf), 
-                mode: FfiConverterTypeMobileThemeMode.read(from: &buf), 
+                id: FfiConverterString.read(from: &buf),
+                name: FfiConverterString.read(from: &buf),
+                version: FfiConverterString.read(from: &buf),
+                author: FfiConverterOptionString.read(from: &buf),
+                license: FfiConverterOptionString.read(from: &buf),
+                source: FfiConverterOptionString.read(from: &buf),
+                mode: FfiConverterTypeMobileThemeMode.read(from: &buf),
                 colors: FfiConverterTypeMobileThemeColors.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobileTheme, into buf: inout [UInt8]) {
@@ -7217,21 +8290,19 @@ public struct FfiConverterTypeMobileTheme: FfiConverterRustBuffer {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileTheme_lift(_ buf: RustBuffer) throws -> MobileTheme {
     return try FfiConverterTypeMobileTheme.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileTheme_lower(_ value: MobileTheme) -> RustBuffer {
     return FfiConverterTypeMobileTheme.lower(value)
 }
-
 
 /**
  * Theme colors for UI styling.
@@ -7282,42 +8353,43 @@ public struct MobileThemeColors {
      */
     public var border: String
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(
-        /**
+        /* 
          * Primary background color (hex).
-         */bgPrimary: String, 
-        /**
-         * Secondary background color (hex).
-         */bgSecondary: String, 
-        /**
-         * Tertiary background color (hex).
-         */bgTertiary: String, 
-        /**
-         * Primary text color (hex).
-         */textPrimary: String, 
-        /**
-         * Secondary text color (hex).
-         */textSecondary: String, 
-        /**
-         * Accent color (hex).
-         */accent: String, 
-        /**
-         * Dark accent color (hex).
-         */accentDark: String, 
-        /**
-         * Success color (hex).
-         */success: String, 
-        /**
-         * Error color (hex).
-         */error: String, 
-        /**
-         * Warning color (hex).
-         */warning: String, 
-        /**
-         * Border color (hex).
-         */border: String) {
+         */ bgPrimary: String,
+        /* 
+            * Secondary background color (hex).
+            */ bgSecondary: String,
+        /* 
+            * Tertiary background color (hex).
+            */ bgTertiary: String,
+        /* 
+            * Primary text color (hex).
+            */ textPrimary: String,
+        /* 
+            * Secondary text color (hex).
+            */ textSecondary: String,
+        /* 
+            * Accent color (hex).
+            */ accent: String,
+        /* 
+            * Dark accent color (hex).
+            */ accentDark: String,
+        /* 
+            * Success color (hex).
+            */ success: String,
+        /* 
+            * Error color (hex).
+            */ error: String,
+        /* 
+            * Warning color (hex).
+            */ warning: String,
+        /* 
+            * Border color (hex).
+            */ border: String
+    ) {
         self.bgPrimary = bgPrimary
         self.bgSecondary = bgSecondary
         self.bgTertiary = bgTertiary
@@ -7332,10 +8404,8 @@ public struct MobileThemeColors {
     }
 }
 
-
-
 extension MobileThemeColors: Equatable, Hashable {
-    public static func ==(lhs: MobileThemeColors, rhs: MobileThemeColors) -> Bool {
+    public static func == (lhs: MobileThemeColors, rhs: MobileThemeColors) -> Bool {
         if lhs.bgPrimary != rhs.bgPrimary {
             return false
         }
@@ -7387,26 +8457,25 @@ extension MobileThemeColors: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileThemeColors: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileThemeColors {
         return
             try MobileThemeColors(
-                bgPrimary: FfiConverterString.read(from: &buf), 
-                bgSecondary: FfiConverterString.read(from: &buf), 
-                bgTertiary: FfiConverterString.read(from: &buf), 
-                textPrimary: FfiConverterString.read(from: &buf), 
-                textSecondary: FfiConverterString.read(from: &buf), 
-                accent: FfiConverterString.read(from: &buf), 
-                accentDark: FfiConverterString.read(from: &buf), 
-                success: FfiConverterString.read(from: &buf), 
-                error: FfiConverterString.read(from: &buf), 
-                warning: FfiConverterString.read(from: &buf), 
+                bgPrimary: FfiConverterString.read(from: &buf),
+                bgSecondary: FfiConverterString.read(from: &buf),
+                bgTertiary: FfiConverterString.read(from: &buf),
+                textPrimary: FfiConverterString.read(from: &buf),
+                textSecondary: FfiConverterString.read(from: &buf),
+                accent: FfiConverterString.read(from: &buf),
+                accentDark: FfiConverterString.read(from: &buf),
+                success: FfiConverterString.read(from: &buf),
+                error: FfiConverterString.read(from: &buf),
+                warning: FfiConverterString.read(from: &buf),
                 border: FfiConverterString.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobileThemeColors, into buf: inout [UInt8]) {
@@ -7424,21 +8493,19 @@ public struct FfiConverterTypeMobileThemeColors: FfiConverterRustBuffer {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileThemeColors_lift(_ buf: RustBuffer) throws -> MobileThemeColors {
     return try FfiConverterTypeMobileThemeColors.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileThemeColors_lower(_ value: MobileThemeColors) -> RustBuffer {
     return FfiConverterTypeMobileThemeColors.lower(value)
 }
-
 
 /**
  * Validation status for a field.
@@ -7469,27 +8536,28 @@ public struct MobileValidationStatus {
      */
     public var displayText: String
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(
-        /**
+        /* 
          * Total number of validations.
-         */count: UInt32, 
-        /**
-         * Trust level based on count.
-         */trustLevel: MobileTrustLevel, 
-        /**
-         * Trust level label for display.
-         */trustLevelLabel: String, 
-        /**
-         * Color indicator for UI (grey, yellow, light_green, green).
-         */color: String, 
-        /**
-         * Whether the current user has validated this field.
-         */validatedByMe: Bool, 
-        /**
-         * Display text (e.g., "Verified by Bob and 2 others").
-         */displayText: String) {
+         */ count: UInt32,
+        /* 
+            * Trust level based on count.
+            */ trustLevel: MobileTrustLevel,
+        /* 
+            * Trust level label for display.
+            */ trustLevelLabel: String,
+        /* 
+            * Color indicator for UI (grey, yellow, light_green, green).
+            */ color: String,
+        /* 
+            * Whether the current user has validated this field.
+            */ validatedByMe: Bool,
+        /* 
+            * Display text (e.g., "Verified by Bob and 2 others").
+            */ displayText: String
+    ) {
         self.count = count
         self.trustLevel = trustLevel
         self.trustLevelLabel = trustLevelLabel
@@ -7499,10 +8567,8 @@ public struct MobileValidationStatus {
     }
 }
 
-
-
 extension MobileValidationStatus: Equatable, Hashable {
-    public static func ==(lhs: MobileValidationStatus, rhs: MobileValidationStatus) -> Bool {
+    public static func == (lhs: MobileValidationStatus, rhs: MobileValidationStatus) -> Bool {
         if lhs.count != rhs.count {
             return false
         }
@@ -7534,21 +8600,20 @@ extension MobileValidationStatus: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileValidationStatus: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileValidationStatus {
         return
             try MobileValidationStatus(
-                count: FfiConverterUInt32.read(from: &buf), 
-                trustLevel: FfiConverterTypeMobileTrustLevel.read(from: &buf), 
-                trustLevelLabel: FfiConverterString.read(from: &buf), 
-                color: FfiConverterString.read(from: &buf), 
-                validatedByMe: FfiConverterBool.read(from: &buf), 
+                count: FfiConverterUInt32.read(from: &buf),
+                trustLevel: FfiConverterTypeMobileTrustLevel.read(from: &buf),
+                trustLevelLabel: FfiConverterString.read(from: &buf),
+                color: FfiConverterString.read(from: &buf),
+                validatedByMe: FfiConverterBool.read(from: &buf),
                 displayText: FfiConverterString.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobileValidationStatus, into buf: inout [UInt8]) {
@@ -7561,21 +8626,19 @@ public struct FfiConverterTypeMobileValidationStatus: FfiConverterRustBuffer {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileValidationStatus_lift(_ buf: RustBuffer) throws -> MobileValidationStatus {
     return try FfiConverterTypeMobileValidationStatus.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileValidationStatus_lower(_ value: MobileValidationStatus) -> RustBuffer {
     return FfiConverterTypeMobileValidationStatus.lower(value)
 }
-
 
 /**
  * Visibility label for organizing contacts.
@@ -7606,27 +8669,28 @@ public struct MobileVisibilityLabel {
      */
     public var modifiedAt: UInt64
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(
-        /**
+        /* 
          * Unique label ID.
-         */id: String, 
-        /**
-         * Human-readable label name.
-         */name: String, 
-        /**
-         * Number of contacts in this label.
-         */contactCount: UInt32, 
-        /**
-         * Number of visible fields for this label.
-         */visibleFieldCount: UInt32, 
-        /**
-         * Timestamp when created.
-         */createdAt: UInt64, 
-        /**
-         * Timestamp when last modified.
-         */modifiedAt: UInt64) {
+         */ id: String,
+        /* 
+            * Human-readable label name.
+            */ name: String,
+        /* 
+            * Number of contacts in this label.
+            */ contactCount: UInt32,
+        /* 
+            * Number of visible fields for this label.
+            */ visibleFieldCount: UInt32,
+        /* 
+            * Timestamp when created.
+            */ createdAt: UInt64,
+        /* 
+            * Timestamp when last modified.
+            */ modifiedAt: UInt64
+    ) {
         self.id = id
         self.name = name
         self.contactCount = contactCount
@@ -7636,10 +8700,8 @@ public struct MobileVisibilityLabel {
     }
 }
 
-
-
 extension MobileVisibilityLabel: Equatable, Hashable {
-    public static func ==(lhs: MobileVisibilityLabel, rhs: MobileVisibilityLabel) -> Bool {
+    public static func == (lhs: MobileVisibilityLabel, rhs: MobileVisibilityLabel) -> Bool {
         if lhs.id != rhs.id {
             return false
         }
@@ -7671,21 +8733,20 @@ extension MobileVisibilityLabel: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileVisibilityLabel: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileVisibilityLabel {
         return
             try MobileVisibilityLabel(
-                id: FfiConverterString.read(from: &buf), 
-                name: FfiConverterString.read(from: &buf), 
-                contactCount: FfiConverterUInt32.read(from: &buf), 
-                visibleFieldCount: FfiConverterUInt32.read(from: &buf), 
-                createdAt: FfiConverterUInt64.read(from: &buf), 
+                id: FfiConverterString.read(from: &buf),
+                name: FfiConverterString.read(from: &buf),
+                contactCount: FfiConverterUInt32.read(from: &buf),
+                visibleFieldCount: FfiConverterUInt32.read(from: &buf),
+                createdAt: FfiConverterUInt64.read(from: &buf),
                 modifiedAt: FfiConverterUInt64.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobileVisibilityLabel, into buf: inout [UInt8]) {
@@ -7698,21 +8759,19 @@ public struct FfiConverterTypeMobileVisibilityLabel: FfiConverterRustBuffer {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileVisibilityLabel_lift(_ buf: RustBuffer) throws -> MobileVisibilityLabel {
     return try FfiConverterTypeMobileVisibilityLabel.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileVisibilityLabel_lower(_ value: MobileVisibilityLabel) -> RustBuffer {
     return FfiConverterTypeMobileVisibilityLabel.lower(value)
 }
-
 
 /**
  * Detailed label info including contacts and visible fields.
@@ -7734,18 +8793,19 @@ public struct MobileVisibilityLabelDetail {
     public var createdAt: UInt64
     public var modifiedAt: UInt64
 
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
     public init(
-        /**
+        /* 
          * Basic label info.
-         */id: String, name: String, 
-        /**
-         * Contact IDs in this label.
-         */contactIds: [String], 
-        /**
-         * Field IDs visible to contacts in this label.
-         */visibleFieldIds: [String], createdAt: UInt64, modifiedAt: UInt64) {
+         */ id: String, name: String,
+        /* 
+            * Contact IDs in this label.
+            */ contactIds: [String],
+        /* 
+            * Field IDs visible to contacts in this label.
+            */ visibleFieldIds: [String], createdAt: UInt64, modifiedAt: UInt64
+    ) {
         self.id = id
         self.name = name
         self.contactIds = contactIds
@@ -7755,10 +8815,8 @@ public struct MobileVisibilityLabelDetail {
     }
 }
 
-
-
 extension MobileVisibilityLabelDetail: Equatable, Hashable {
-    public static func ==(lhs: MobileVisibilityLabelDetail, rhs: MobileVisibilityLabelDetail) -> Bool {
+    public static func == (lhs: MobileVisibilityLabelDetail, rhs: MobileVisibilityLabelDetail) -> Bool {
         if lhs.id != rhs.id {
             return false
         }
@@ -7790,21 +8848,20 @@ extension MobileVisibilityLabelDetail: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileVisibilityLabelDetail: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileVisibilityLabelDetail {
         return
             try MobileVisibilityLabelDetail(
-                id: FfiConverterString.read(from: &buf), 
-                name: FfiConverterString.read(from: &buf), 
-                contactIds: FfiConverterSequenceString.read(from: &buf), 
-                visibleFieldIds: FfiConverterSequenceString.read(from: &buf), 
-                createdAt: FfiConverterUInt64.read(from: &buf), 
+                id: FfiConverterString.read(from: &buf),
+                name: FfiConverterString.read(from: &buf),
+                contactIds: FfiConverterSequenceString.read(from: &buf),
+                visibleFieldIds: FfiConverterSequenceString.read(from: &buf),
+                createdAt: FfiConverterUInt64.read(from: &buf),
                 modifiedAt: FfiConverterUInt64.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: MobileVisibilityLabelDetail, into buf: inout [UInt8]) {
@@ -7817,21 +8874,19 @@ public struct FfiConverterTypeMobileVisibilityLabelDetail: FfiConverterRustBuffe
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileVisibilityLabelDetail_lift(_ buf: RustBuffer) throws -> MobileVisibilityLabelDetail {
     return try FfiConverterTypeMobileVisibilityLabelDetail.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileVisibilityLabelDetail_lower(_ value: MobileVisibilityLabelDetail) -> RustBuffer {
     return FfiConverterTypeMobileVisibilityLabelDetail.lower(value)
 }
-
 
 /**
  * Error type for platform keychain callback interface.
@@ -7840,16 +8895,11 @@ public func FfiConverterTypeMobileVisibilityLabelDetail_lower(_ value: MobileVis
  * Mobile platforms return this from keychain operations.
  */
 public enum KeychainError {
-
-    
-    
-    case OperationFailed(msg: String
-    )
+    case OperationFailed(msg: String)
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeKeychainError: FfiConverterRustBuffer {
     typealias SwiftType = KeychainError
@@ -7857,33 +8907,22 @@ public struct FfiConverterTypeKeychainError: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> KeychainError {
         let variant: Int32 = try readInt(&buf)
         switch variant {
-
-        
-
-        
-        case 1: return .OperationFailed(
-            msg: try FfiConverterString.read(from: &buf)
+        case 1: return try .OperationFailed(
+                msg: FfiConverterString.read(from: &buf)
             )
 
-         default: throw UniffiInternalError.unexpectedEnumCase
+        default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
 
     public static func write(_ value: KeychainError, into buf: inout [UInt8]) {
         switch value {
-
-        
-
-        
-        
         case let .OperationFailed(msg):
             writeInt(&buf, Int32(1))
             FfiConverterString.write(msg, into: &buf)
-            
         }
     }
 }
-
 
 extension KeychainError: Equatable, Hashable {}
 
@@ -7895,12 +8934,11 @@ extension KeychainError: Foundation.LocalizedError {
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/**
+/* 
  * Type of aha moment milestone.
  */
 
 public enum MobileAhaMomentType {
-    
     /**
      * Shown when card creation completes
      */
@@ -7923,9 +8961,8 @@ public enum MobileAhaMomentType {
     case firstOutboundDelivered
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileAhaMomentType: FfiConverterRustBuffer {
     typealias SwiftType = MobileAhaMomentType
@@ -7933,77 +8970,63 @@ public struct FfiConverterTypeMobileAhaMomentType: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileAhaMomentType {
         let variant: Int32 = try readInt(&buf)
         switch variant {
-        
         case 1: return .cardCreationComplete
-        
+
         case 2: return .firstEdit
-        
+
         case 3: return .firstContactAdded
-        
+
         case 4: return .firstUpdateReceived
-        
+
         case 5: return .firstOutboundDelivered
-        
+
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
 
     public static func write(_ value: MobileAhaMomentType, into buf: inout [UInt8]) {
         switch value {
-        
-        
         case .cardCreationComplete:
             writeInt(&buf, Int32(1))
-        
-        
+
         case .firstEdit:
             writeInt(&buf, Int32(2))
-        
-        
+
         case .firstContactAdded:
             writeInt(&buf, Int32(3))
-        
-        
+
         case .firstUpdateReceived:
             writeInt(&buf, Int32(4))
-        
-        
+
         case .firstOutboundDelivered:
             writeInt(&buf, Int32(5))
-        
         }
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileAhaMomentType_lift(_ buf: RustBuffer) throws -> MobileAhaMomentType {
     return try FfiConverterTypeMobileAhaMomentType.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileAhaMomentType_lower(_ value: MobileAhaMomentType) -> RustBuffer {
     return FfiConverterTypeMobileAhaMomentType.lower(value)
 }
 
-
-
 extension MobileAhaMomentType: Equatable, Hashable {}
-
-
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/**
+/* 
  * Result of applying content updates.
  */
 
 public enum MobileApplyResult {
-    
     /**
      * No updates were available
      */
@@ -8012,12 +9035,12 @@ public enum MobileApplyResult {
      * Updates were applied (some may have failed)
      */
     case applied(
-        /**
+        /* 
          * Content types that were successfully updated
-         */applied: [MobileContentType], 
-        /**
-         * Content types that failed with error messages
-         */failed: [MobileApplyFailure]
+         */ applied: [MobileContentType],
+        /* 
+            * Content types that failed with error messages
+            */ failed: [MobileApplyFailure]
     )
     /**
      * Remote updates are disabled
@@ -8026,13 +9049,11 @@ public enum MobileApplyResult {
     /**
      * Apply failed completely
      */
-    case error(error: String
-    )
+    case error(error: String)
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileApplyResult: FfiConverterRustBuffer {
     typealias SwiftType = MobileApplyResult
@@ -8040,76 +9061,184 @@ public struct FfiConverterTypeMobileApplyResult: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileApplyResult {
         let variant: Int32 = try readInt(&buf)
         switch variant {
-        
         case 1: return .noUpdates
-        
-        case 2: return .applied(applied: try FfiConverterSequenceTypeMobileContentType.read(from: &buf), failed: try FfiConverterSequenceTypeMobileApplyFailure.read(from: &buf)
-        )
-        
+
+        case 2: return try .applied(applied: FfiConverterSequenceTypeMobileContentType.read(from: &buf), failed: FfiConverterSequenceTypeMobileApplyFailure.read(from: &buf))
+
         case 3: return .disabled
-        
-        case 4: return .error(error: try FfiConverterString.read(from: &buf)
-        )
-        
+
+        case 4: return try .error(error: FfiConverterString.read(from: &buf))
+
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
 
     public static func write(_ value: MobileApplyResult, into buf: inout [UInt8]) {
         switch value {
-        
-        
         case .noUpdates:
             writeInt(&buf, Int32(1))
-        
-        
-        case let .applied(applied,failed):
+
+        case let .applied(applied, failed):
             writeInt(&buf, Int32(2))
             FfiConverterSequenceTypeMobileContentType.write(applied, into: &buf)
             FfiConverterSequenceTypeMobileApplyFailure.write(failed, into: &buf)
-            
-        
+
         case .disabled:
             writeInt(&buf, Int32(3))
-        
-        
+
         case let .error(error):
             writeInt(&buf, Int32(4))
             FfiConverterString.write(error, into: &buf)
-            
         }
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileApplyResult_lift(_ buf: RustBuffer) throws -> MobileApplyResult {
     return try FfiConverterTypeMobileApplyResult.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileApplyResult_lower(_ value: MobileApplyResult) -> RustBuffer {
     return FfiConverterTypeMobileApplyResult.lower(value)
 }
 
-
-
 extension MobileApplyResult: Equatable, Hashable {}
-
-
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/**
+/* 
+ * Authentication mode result for mobile platforms.
+ */
+
+public enum MobileAuthMode {
+    /**
+     * The normal (real) password was used.
+     */
+    case normal
+    /**
+     * The duress PIN was used — show decoy contacts only.
+     */
+    case duress
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileAuthMode: FfiConverterRustBuffer {
+    typealias SwiftType = MobileAuthMode
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileAuthMode {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return .normal
+
+        case 2: return .duress
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileAuthMode, into buf: inout [UInt8]) {
+        switch value {
+        case .normal:
+            writeInt(&buf, Int32(1))
+
+        case .duress:
+            writeInt(&buf, Int32(2))
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileAuthMode_lift(_ buf: RustBuffer) throws -> MobileAuthMode {
+    return try FfiConverterTypeMobileAuthMode.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileAuthMode_lower(_ value: MobileAuthMode) -> RustBuffer {
+    return FfiConverterTypeMobileAuthMode.lower(value)
+}
+
+extension MobileAuthMode: Equatable, Hashable {}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/* 
+ * Status of BLE exchange availability on this device.
+ */
+
+public enum MobileBleExchangeStatus {
+    /**
+     * BLE exchange is available (native transport configured)
+     */
+    case available
+    /**
+     * BLE exchange not available — requires native Bluetooth implementation
+     */
+    case notAvailable(reason: String)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileBleExchangeStatus: FfiConverterRustBuffer {
+    typealias SwiftType = MobileBleExchangeStatus
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileBleExchangeStatus {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return .available
+
+        case 2: return try .notAvailable(reason: FfiConverterString.read(from: &buf))
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileBleExchangeStatus, into buf: inout [UInt8]) {
+        switch value {
+        case .available:
+            writeInt(&buf, Int32(1))
+
+        case let .notAvailable(reason):
+            writeInt(&buf, Int32(2))
+            FfiConverterString.write(reason, into: &buf)
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileBleExchangeStatus_lift(_ buf: RustBuffer) throws -> MobileBleExchangeStatus {
+    return try FfiConverterTypeMobileBleExchangeStatus.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileBleExchangeStatus_lower(_ value: MobileBleExchangeStatus) -> RustBuffer {
+    return FfiConverterTypeMobileBleExchangeStatus.lower(value)
+}
+
+extension MobileBleExchangeStatus: Equatable, Hashable {}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/* 
  * Types of consent that can be granted or revoked.
  */
 
 public enum MobileConsentType {
-    
     /**
      * Consent for local data processing.
      */
@@ -8128,9 +9257,8 @@ public enum MobileConsentType {
     case recoveryVouching
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileConsentType: FfiConverterRustBuffer {
     typealias SwiftType = MobileConsentType
@@ -8138,71 +9266,58 @@ public struct FfiConverterTypeMobileConsentType: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileConsentType {
         let variant: Int32 = try readInt(&buf)
         switch variant {
-        
         case 1: return .dataProcessing
-        
+
         case 2: return .contactSharing
-        
+
         case 3: return .analytics
-        
+
         case 4: return .recoveryVouching
-        
+
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
 
     public static func write(_ value: MobileConsentType, into buf: inout [UInt8]) {
         switch value {
-        
-        
         case .dataProcessing:
             writeInt(&buf, Int32(1))
-        
-        
+
         case .contactSharing:
             writeInt(&buf, Int32(2))
-        
-        
+
         case .analytics:
             writeInt(&buf, Int32(3))
-        
-        
+
         case .recoveryVouching:
             writeInt(&buf, Int32(4))
-        
         }
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileConsentType_lift(_ buf: RustBuffer) throws -> MobileConsentType {
     return try FfiConverterTypeMobileConsentType.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileConsentType_lower(_ value: MobileConsentType) -> RustBuffer {
     return FfiConverterTypeMobileConsentType.lower(value)
 }
 
-
-
 extension MobileConsentType: Equatable, Hashable {}
-
-
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/**
+/* 
  * Content type for mobile platforms.
  */
 
 public enum MobileContentType {
-    
     /**
      * Social network definitions
      */
@@ -8221,9 +9336,8 @@ public enum MobileContentType {
     case help
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileContentType: FfiConverterRustBuffer {
     typealias SwiftType = MobileContentType
@@ -8231,71 +9345,58 @@ public struct FfiConverterTypeMobileContentType: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileContentType {
         let variant: Int32 = try readInt(&buf)
         switch variant {
-        
         case 1: return .networks
-        
+
         case 2: return .locales
-        
+
         case 3: return .themes
-        
+
         case 4: return .help
-        
+
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
 
     public static func write(_ value: MobileContentType, into buf: inout [UInt8]) {
         switch value {
-        
-        
         case .networks:
             writeInt(&buf, Int32(1))
-        
-        
+
         case .locales:
             writeInt(&buf, Int32(2))
-        
-        
+
         case .themes:
             writeInt(&buf, Int32(3))
-        
-        
+
         case .help:
             writeInt(&buf, Int32(4))
-        
         }
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileContentType_lift(_ buf: RustBuffer) throws -> MobileContentType {
     return try FfiConverterTypeMobileContentType.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileContentType_lower(_ value: MobileContentType) -> RustBuffer {
     return FfiConverterTypeMobileContentType.lower(value)
 }
 
-
-
 extension MobileContentType: Equatable, Hashable {}
-
-
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/**
+/* 
  * Deletion state for mobile.
  */
 
 public enum MobileDeletionState {
-    
     /**
      * No deletion scheduled.
      */
@@ -8310,9 +9411,8 @@ public enum MobileDeletionState {
     case executed
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileDeletionState: FfiConverterRustBuffer {
     typealias SwiftType = MobileDeletionState
@@ -8320,65 +9420,53 @@ public struct FfiConverterTypeMobileDeletionState: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileDeletionState {
         let variant: Int32 = try readInt(&buf)
         switch variant {
-        
         case 1: return .none
-        
+
         case 2: return .scheduled
-        
+
         case 3: return .executed
-        
+
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
 
     public static func write(_ value: MobileDeletionState, into buf: inout [UInt8]) {
         switch value {
-        
-        
         case .none:
             writeInt(&buf, Int32(1))
-        
-        
+
         case .scheduled:
             writeInt(&buf, Int32(2))
-        
-        
+
         case .executed:
             writeInt(&buf, Int32(3))
-        
         }
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileDeletionState_lift(_ buf: RustBuffer) throws -> MobileDeletionState {
     return try FfiConverterTypeMobileDeletionState.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileDeletionState_lower(_ value: MobileDeletionState) -> RustBuffer {
     return FfiConverterTypeMobileDeletionState.lower(value)
 }
 
-
-
 extension MobileDeletionState: Equatable, Hashable {}
-
-
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/**
+/* 
  * Delivery status for tracking message delivery progression.
  */
 
 public enum MobileDeliveryStatus {
-    
     /**
      * Message queued locally, not yet sent.
      */
@@ -8405,9 +9493,8 @@ public enum MobileDeliveryStatus {
     case failed
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileDeliveryStatus: FfiConverterRustBuffer {
     typealias SwiftType = MobileDeliveryStatus
@@ -8415,83 +9502,68 @@ public struct FfiConverterTypeMobileDeliveryStatus: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileDeliveryStatus {
         let variant: Int32 = try readInt(&buf)
         switch variant {
-        
         case 1: return .queued
-        
+
         case 2: return .sent
-        
+
         case 3: return .stored
-        
+
         case 4: return .delivered
-        
+
         case 5: return .expired
-        
+
         case 6: return .failed
-        
+
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
 
     public static func write(_ value: MobileDeliveryStatus, into buf: inout [UInt8]) {
         switch value {
-        
-        
         case .queued:
             writeInt(&buf, Int32(1))
-        
-        
+
         case .sent:
             writeInt(&buf, Int32(2))
-        
-        
+
         case .stored:
             writeInt(&buf, Int32(3))
-        
-        
+
         case .delivered:
             writeInt(&buf, Int32(4))
-        
-        
+
         case .expired:
             writeInt(&buf, Int32(5))
-        
-        
+
         case .failed:
             writeInt(&buf, Int32(6))
-        
         }
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileDeliveryStatus_lift(_ buf: RustBuffer) throws -> MobileDeliveryStatus {
     return try FfiConverterTypeMobileDeliveryStatus.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileDeliveryStatus_lower(_ value: MobileDeliveryStatus) -> RustBuffer {
     return FfiConverterTypeMobileDeliveryStatus.lower(value)
 }
 
-
-
 extension MobileDeliveryStatus: Equatable, Hashable {}
-
-
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/**
+/* 
  * Delivery status for a specific device.
  */
 
 public enum MobileDeviceDeliveryStatus {
-    
     /**
      * Message pending delivery to this device.
      */
@@ -8510,9 +9582,8 @@ public enum MobileDeviceDeliveryStatus {
     case failed
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileDeviceDeliveryStatus: FfiConverterRustBuffer {
     typealias SwiftType = MobileDeviceDeliveryStatus
@@ -8520,106 +9591,77 @@ public struct FfiConverterTypeMobileDeviceDeliveryStatus: FfiConverterRustBuffer
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileDeviceDeliveryStatus {
         let variant: Int32 = try readInt(&buf)
         switch variant {
-        
         case 1: return .pending
-        
+
         case 2: return .stored
-        
+
         case 3: return .delivered
-        
+
         case 4: return .failed
-        
+
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
 
     public static func write(_ value: MobileDeviceDeliveryStatus, into buf: inout [UInt8]) {
         switch value {
-        
-        
         case .pending:
             writeInt(&buf, Int32(1))
-        
-        
+
         case .stored:
             writeInt(&buf, Int32(2))
-        
-        
+
         case .delivered:
             writeInt(&buf, Int32(3))
-        
-        
+
         case .failed:
             writeInt(&buf, Int32(4))
-        
         }
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileDeviceDeliveryStatus_lift(_ buf: RustBuffer) throws -> MobileDeviceDeliveryStatus {
     return try FfiConverterTypeMobileDeviceDeliveryStatus.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileDeviceDeliveryStatus_lower(_ value: MobileDeviceDeliveryStatus) -> RustBuffer {
     return FfiConverterTypeMobileDeviceDeliveryStatus.lower(value)
 }
 
-
-
 extension MobileDeviceDeliveryStatus: Equatable, Hashable {}
-
-
-
 
 /**
  * Mobile-friendly error type.
  */
 public enum MobileError {
-
-    
-    
     case NotInitialized
     case AlreadyInitialized
     case IdentityNotFound
-    case ContactNotFound(String
-    )
+    case ContactNotFound(String)
     case InvalidQrCode
-    case ExchangeFailed(String
-    )
-    case SyncFailed(String
-    )
-    case StorageError(String
-    )
-    case CryptoError(String
-    )
-    case SerializationError(String
-    )
-    case NetworkError(String
-    )
-    case InvalidInput(String
-    )
-    case GdprError(String
-    )
-    case DeletionNotAllowed(String
-    )
-    case ShredError(String
-    )
-    case InitError(String
-    )
-    case Internal(String
-    )
+    case ExchangeFailed(String)
+    case SyncFailed(String)
+    case StorageError(String)
+    case CryptoError(String)
+    case SerializationError(String)
+    case NetworkError(String)
+    case InvalidInput(String)
+    case GdprError(String)
+    case DeletionNotAllowed(String)
+    case ShredError(String)
+    case InitError(String)
+    case Internal(String)
+    case BleNotAvailable(String)
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileError: FfiConverterRustBuffer {
     typealias SwiftType = MobileError
@@ -8627,149 +9669,128 @@ public struct FfiConverterTypeMobileError: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileError {
         let variant: Int32 = try readInt(&buf)
         switch variant {
-
-        
-
-        
         case 1: return .NotInitialized
         case 2: return .AlreadyInitialized
         case 3: return .IdentityNotFound
-        case 4: return .ContactNotFound(
-            try FfiConverterString.read(from: &buf)
+        case 4: return try .ContactNotFound(
+                FfiConverterString.read(from: &buf)
             )
         case 5: return .InvalidQrCode
-        case 6: return .ExchangeFailed(
-            try FfiConverterString.read(from: &buf)
+        case 6: return try .ExchangeFailed(
+                FfiConverterString.read(from: &buf)
             )
-        case 7: return .SyncFailed(
-            try FfiConverterString.read(from: &buf)
+        case 7: return try .SyncFailed(
+                FfiConverterString.read(from: &buf)
             )
-        case 8: return .StorageError(
-            try FfiConverterString.read(from: &buf)
+        case 8: return try .StorageError(
+                FfiConverterString.read(from: &buf)
             )
-        case 9: return .CryptoError(
-            try FfiConverterString.read(from: &buf)
+        case 9: return try .CryptoError(
+                FfiConverterString.read(from: &buf)
             )
-        case 10: return .SerializationError(
-            try FfiConverterString.read(from: &buf)
+        case 10: return try .SerializationError(
+                FfiConverterString.read(from: &buf)
             )
-        case 11: return .NetworkError(
-            try FfiConverterString.read(from: &buf)
+        case 11: return try .NetworkError(
+                FfiConverterString.read(from: &buf)
             )
-        case 12: return .InvalidInput(
-            try FfiConverterString.read(from: &buf)
+        case 12: return try .InvalidInput(
+                FfiConverterString.read(from: &buf)
             )
-        case 13: return .GdprError(
-            try FfiConverterString.read(from: &buf)
+        case 13: return try .GdprError(
+                FfiConverterString.read(from: &buf)
             )
-        case 14: return .DeletionNotAllowed(
-            try FfiConverterString.read(from: &buf)
+        case 14: return try .DeletionNotAllowed(
+                FfiConverterString.read(from: &buf)
             )
-        case 15: return .ShredError(
-            try FfiConverterString.read(from: &buf)
+        case 15: return try .ShredError(
+                FfiConverterString.read(from: &buf)
             )
-        case 16: return .InitError(
-            try FfiConverterString.read(from: &buf)
+        case 16: return try .InitError(
+                FfiConverterString.read(from: &buf)
             )
-        case 17: return .Internal(
-            try FfiConverterString.read(from: &buf)
+        case 17: return try .Internal(
+                FfiConverterString.read(from: &buf)
             )
-
-         default: throw UniffiInternalError.unexpectedEnumCase
+        case 18: return try .BleNotAvailable(
+                FfiConverterString.read(from: &buf)
+            )
+        default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
 
     public static func write(_ value: MobileError, into buf: inout [UInt8]) {
         switch value {
-
-        
-
-        
-        
         case .NotInitialized:
             writeInt(&buf, Int32(1))
-        
-        
+
         case .AlreadyInitialized:
             writeInt(&buf, Int32(2))
-        
-        
+
         case .IdentityNotFound:
             writeInt(&buf, Int32(3))
-        
-        
+
         case let .ContactNotFound(v1):
             writeInt(&buf, Int32(4))
             FfiConverterString.write(v1, into: &buf)
-            
-        
+
         case .InvalidQrCode:
             writeInt(&buf, Int32(5))
-        
-        
+
         case let .ExchangeFailed(v1):
             writeInt(&buf, Int32(6))
             FfiConverterString.write(v1, into: &buf)
-            
-        
+
         case let .SyncFailed(v1):
             writeInt(&buf, Int32(7))
             FfiConverterString.write(v1, into: &buf)
-            
-        
+
         case let .StorageError(v1):
             writeInt(&buf, Int32(8))
             FfiConverterString.write(v1, into: &buf)
-            
-        
+
         case let .CryptoError(v1):
             writeInt(&buf, Int32(9))
             FfiConverterString.write(v1, into: &buf)
-            
-        
+
         case let .SerializationError(v1):
             writeInt(&buf, Int32(10))
             FfiConverterString.write(v1, into: &buf)
-            
-        
+
         case let .NetworkError(v1):
             writeInt(&buf, Int32(11))
             FfiConverterString.write(v1, into: &buf)
-            
-        
+
         case let .InvalidInput(v1):
             writeInt(&buf, Int32(12))
             FfiConverterString.write(v1, into: &buf)
-            
-        
+
         case let .GdprError(v1):
             writeInt(&buf, Int32(13))
             FfiConverterString.write(v1, into: &buf)
-            
-        
+
         case let .DeletionNotAllowed(v1):
             writeInt(&buf, Int32(14))
             FfiConverterString.write(v1, into: &buf)
-            
-        
+
         case let .ShredError(v1):
             writeInt(&buf, Int32(15))
             FfiConverterString.write(v1, into: &buf)
-            
-        
+
         case let .InitError(v1):
             writeInt(&buf, Int32(16))
             FfiConverterString.write(v1, into: &buf)
-            
-        
+
         case let .Internal(v1):
             writeInt(&buf, Int32(17))
             FfiConverterString.write(v1, into: &buf)
-            
+
+        case let .BleNotAvailable(v1):
+            writeInt(&buf, Int32(18))
+            FfiConverterString.write(v1, into: &buf)
         }
     }
 }
-
 
 extension MobileError: Equatable, Hashable {}
 
@@ -8781,27 +9802,22 @@ extension MobileError: Foundation.LocalizedError {
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/**
+/* 
  * Mobile-friendly exchange state (no raw bytes or core types).
  */
 
 public enum MobileExchangeState {
-    
     case idle
-    case displayingQr(qrData: String
-    )
+    case displayingQr(qrData: String)
     case peerScanned
     case awaitingKeyAgreement
     case awaitingCardExchange
-    case complete(contactId: String, contactName: String
-    )
-    case failed(error: String
-    )
+    case complete(contactId: String, contactName: String)
+    case failed(error: String)
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileExchangeState: FfiConverterRustBuffer {
     typealias SwiftType = MobileExchangeState
@@ -8809,96 +9825,77 @@ public struct FfiConverterTypeMobileExchangeState: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileExchangeState {
         let variant: Int32 = try readInt(&buf)
         switch variant {
-        
         case 1: return .idle
-        
-        case 2: return .displayingQr(qrData: try FfiConverterString.read(from: &buf)
-        )
-        
+
+        case 2: return try .displayingQr(qrData: FfiConverterString.read(from: &buf))
+
         case 3: return .peerScanned
-        
+
         case 4: return .awaitingKeyAgreement
-        
+
         case 5: return .awaitingCardExchange
-        
-        case 6: return .complete(contactId: try FfiConverterString.read(from: &buf), contactName: try FfiConverterString.read(from: &buf)
-        )
-        
-        case 7: return .failed(error: try FfiConverterString.read(from: &buf)
-        )
-        
+
+        case 6: return try .complete(contactId: FfiConverterString.read(from: &buf), contactName: FfiConverterString.read(from: &buf))
+
+        case 7: return try .failed(error: FfiConverterString.read(from: &buf))
+
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
 
     public static func write(_ value: MobileExchangeState, into buf: inout [UInt8]) {
         switch value {
-        
-        
         case .idle:
             writeInt(&buf, Int32(1))
-        
-        
+
         case let .displayingQr(qrData):
             writeInt(&buf, Int32(2))
             FfiConverterString.write(qrData, into: &buf)
-            
-        
+
         case .peerScanned:
             writeInt(&buf, Int32(3))
-        
-        
+
         case .awaitingKeyAgreement:
             writeInt(&buf, Int32(4))
-        
-        
+
         case .awaitingCardExchange:
             writeInt(&buf, Int32(5))
-        
-        
-        case let .complete(contactId,contactName):
+
+        case let .complete(contactId, contactName):
             writeInt(&buf, Int32(6))
             FfiConverterString.write(contactId, into: &buf)
             FfiConverterString.write(contactName, into: &buf)
-            
-        
+
         case let .failed(error):
             writeInt(&buf, Int32(7))
             FfiConverterString.write(error, into: &buf)
-            
         }
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileExchangeState_lift(_ buf: RustBuffer) throws -> MobileExchangeState {
     return try FfiConverterTypeMobileExchangeState.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileExchangeState_lower(_ value: MobileExchangeState) -> RustBuffer {
     return FfiConverterTypeMobileExchangeState.lower(value)
 }
 
-
-
 extension MobileExchangeState: Equatable, Hashable {}
-
-
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/**
+/* 
  * Mobile-friendly field type enum.
  */
 
 public enum MobileFieldType {
-    
     case email
     case phone
     case website
@@ -8907,9 +9904,8 @@ public enum MobileFieldType {
     case custom
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileFieldType: FfiConverterRustBuffer {
     typealias SwiftType = MobileFieldType
@@ -8917,83 +9913,68 @@ public struct FfiConverterTypeMobileFieldType: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileFieldType {
         let variant: Int32 = try readInt(&buf)
         switch variant {
-        
         case 1: return .email
-        
+
         case 2: return .phone
-        
+
         case 3: return .website
-        
+
         case 4: return .address
-        
+
         case 5: return .social
-        
+
         case 6: return .custom
-        
+
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
 
     public static func write(_ value: MobileFieldType, into buf: inout [UInt8]) {
         switch value {
-        
-        
         case .email:
             writeInt(&buf, Int32(1))
-        
-        
+
         case .phone:
             writeInt(&buf, Int32(2))
-        
-        
+
         case .website:
             writeInt(&buf, Int32(3))
-        
-        
+
         case .address:
             writeInt(&buf, Int32(4))
-        
-        
+
         case .social:
             writeInt(&buf, Int32(5))
-        
-        
+
         case .custom:
             writeInt(&buf, Int32(6))
-        
         }
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileFieldType_lift(_ buf: RustBuffer) throws -> MobileFieldType {
     return try FfiConverterTypeMobileFieldType.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileFieldType_lower(_ value: MobileFieldType) -> RustBuffer {
     return FfiConverterTypeMobileFieldType.lower(value)
 }
 
-
-
 extension MobileFieldType: Equatable, Hashable {}
-
-
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/**
+/* 
  * Categories of help content.
  */
 
 public enum MobileHelpCategory {
-    
     case gettingStarted
     case privacy
     case recovery
@@ -9002,9 +9983,8 @@ public enum MobileHelpCategory {
     case features
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileHelpCategory: FfiConverterRustBuffer {
     typealias SwiftType = MobileHelpCategory
@@ -9012,92 +9992,76 @@ public struct FfiConverterTypeMobileHelpCategory: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileHelpCategory {
         let variant: Int32 = try readInt(&buf)
         switch variant {
-        
         case 1: return .gettingStarted
-        
+
         case 2: return .privacy
-        
+
         case 3: return .recovery
-        
+
         case 4: return .contacts
-        
+
         case 5: return .updates
-        
+
         case 6: return .features
-        
+
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
 
     public static func write(_ value: MobileHelpCategory, into buf: inout [UInt8]) {
         switch value {
-        
-        
         case .gettingStarted:
             writeInt(&buf, Int32(1))
-        
-        
+
         case .privacy:
             writeInt(&buf, Int32(2))
-        
-        
+
         case .recovery:
             writeInt(&buf, Int32(3))
-        
-        
+
         case .contacts:
             writeInt(&buf, Int32(4))
-        
-        
+
         case .updates:
             writeInt(&buf, Int32(5))
-        
-        
+
         case .features:
             writeInt(&buf, Int32(6))
-        
         }
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileHelpCategory_lift(_ buf: RustBuffer) throws -> MobileHelpCategory {
     return try FfiConverterTypeMobileHelpCategory.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileHelpCategory_lower(_ value: MobileHelpCategory) -> RustBuffer {
     return FfiConverterTypeMobileHelpCategory.lower(value)
 }
 
-
-
 extension MobileHelpCategory: Equatable, Hashable {}
-
-
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/**
+/* 
  * Supported locales for the app.
  */
 
 public enum MobileLocale {
-    
     case english
     case german
     case french
     case spanish
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileLocale: FfiConverterRustBuffer {
     typealias SwiftType = MobileLocale
@@ -9105,71 +10069,58 @@ public struct FfiConverterTypeMobileLocale: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileLocale {
         let variant: Int32 = try readInt(&buf)
         switch variant {
-        
         case 1: return .english
-        
+
         case 2: return .german
-        
+
         case 3: return .french
-        
+
         case 4: return .spanish
-        
+
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
 
     public static func write(_ value: MobileLocale, into buf: inout [UInt8]) {
         switch value {
-        
-        
         case .english:
             writeInt(&buf, Int32(1))
-        
-        
+
         case .german:
             writeInt(&buf, Int32(2))
-        
-        
+
         case .french:
             writeInt(&buf, Int32(3))
-        
-        
+
         case .spanish:
             writeInt(&buf, Int32(4))
-        
         }
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileLocale_lift(_ buf: RustBuffer) throws -> MobileLocale {
     return try FfiConverterTypeMobileLocale.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileLocale_lower(_ value: MobileLocale) -> RustBuffer {
     return FfiConverterTypeMobileLocale.lower(value)
 }
 
-
-
 extension MobileLocale: Equatable, Hashable {}
-
-
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/**
+/* 
  * Password strength level for display to users.
  */
 
 public enum MobilePasswordStrength {
-    
     /**
      * Score 0-1: Too weak to use
      */
@@ -9188,9 +10139,8 @@ public enum MobilePasswordStrength {
     case veryStrong
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobilePasswordStrength: FfiConverterRustBuffer {
     typealias SwiftType = MobilePasswordStrength
@@ -9198,71 +10148,58 @@ public struct FfiConverterTypeMobilePasswordStrength: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobilePasswordStrength {
         let variant: Int32 = try readInt(&buf)
         switch variant {
-        
         case 1: return .tooWeak
-        
+
         case 2: return .fair
-        
+
         case 3: return .strong
-        
+
         case 4: return .veryStrong
-        
+
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
 
     public static func write(_ value: MobilePasswordStrength, into buf: inout [UInt8]) {
         switch value {
-        
-        
         case .tooWeak:
             writeInt(&buf, Int32(1))
-        
-        
+
         case .fair:
             writeInt(&buf, Int32(2))
-        
-        
+
         case .strong:
             writeInt(&buf, Int32(3))
-        
-        
+
         case .veryStrong:
             writeInt(&buf, Int32(4))
-        
         }
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobilePasswordStrength_lift(_ buf: RustBuffer) throws -> MobilePasswordStrength {
     return try FfiConverterTypeMobilePasswordStrength.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobilePasswordStrength_lower(_ value: MobilePasswordStrength) -> RustBuffer {
     return FfiConverterTypeMobilePasswordStrength.lower(value)
 }
 
-
-
 extension MobilePasswordStrength: Equatable, Hashable {}
-
-
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/**
+/* 
  * Current shred status for the account.
  */
 
 public enum MobileShredStatus {
-    
     /**
      * No shred operation in progress.
      */
@@ -9271,9 +10208,9 @@ public enum MobileShredStatus {
      * Soft shred scheduled — waiting for grace period to elapse.
      */
     case scheduled(
-        /**
+        /* 
          * Seconds remaining in grace period.
-         */remainingSecs: UInt64
+         */ remainingSecs: UInt64
     )
     /**
      * Hard shred has been executed — all data destroyed.
@@ -9281,9 +10218,8 @@ public enum MobileShredStatus {
     case executed
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileShredStatus: FfiConverterRustBuffer {
     typealias SwiftType = MobileShredStatus
@@ -9291,75 +10227,61 @@ public struct FfiConverterTypeMobileShredStatus: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileShredStatus {
         let variant: Int32 = try readInt(&buf)
         switch variant {
-        
         case 1: return .none
-        
-        case 2: return .scheduled(remainingSecs: try FfiConverterUInt64.read(from: &buf)
-        )
-        
+
+        case 2: return try .scheduled(remainingSecs: FfiConverterUInt64.read(from: &buf))
+
         case 3: return .executed
-        
+
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
 
     public static func write(_ value: MobileShredStatus, into buf: inout [UInt8]) {
         switch value {
-        
-        
         case .none:
             writeInt(&buf, Int32(1))
-        
-        
+
         case let .scheduled(remainingSecs):
             writeInt(&buf, Int32(2))
             FfiConverterUInt64.write(remainingSecs, into: &buf)
-            
-        
+
         case .executed:
             writeInt(&buf, Int32(3))
-        
         }
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileShredStatus_lift(_ buf: RustBuffer) throws -> MobileShredStatus {
     return try FfiConverterTypeMobileShredStatus.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileShredStatus_lower(_ value: MobileShredStatus) -> RustBuffer {
     return FfiConverterTypeMobileShredStatus.lower(value)
 }
 
-
-
 extension MobileShredStatus: Equatable, Hashable {}
-
-
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/**
+/* 
  * Sync status.
  */
 
 public enum MobileSyncStatus {
-    
     case idle
     case syncing
     case error
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileSyncStatus: FfiConverterRustBuffer {
     typealias SwiftType = MobileSyncStatus
@@ -9367,72 +10289,59 @@ public struct FfiConverterTypeMobileSyncStatus: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileSyncStatus {
         let variant: Int32 = try readInt(&buf)
         switch variant {
-        
         case 1: return .idle
-        
+
         case 2: return .syncing
-        
+
         case 3: return .error
-        
+
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
 
     public static func write(_ value: MobileSyncStatus, into buf: inout [UInt8]) {
         switch value {
-        
-        
         case .idle:
             writeInt(&buf, Int32(1))
-        
-        
+
         case .syncing:
             writeInt(&buf, Int32(2))
-        
-        
+
         case .error:
             writeInt(&buf, Int32(3))
-        
         }
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileSyncStatus_lift(_ buf: RustBuffer) throws -> MobileSyncStatus {
     return try FfiConverterTypeMobileSyncStatus.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileSyncStatus_lower(_ value: MobileSyncStatus) -> RustBuffer {
     return FfiConverterTypeMobileSyncStatus.lower(value)
 }
 
-
-
 extension MobileSyncStatus: Equatable, Hashable {}
-
-
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/**
+/* 
  * Theme mode (light or dark)
  */
 
 public enum MobileThemeMode {
-    
     case light
     case dark
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileThemeMode: FfiConverterRustBuffer {
     typealias SwiftType = MobileThemeMode
@@ -9440,59 +10349,48 @@ public struct FfiConverterTypeMobileThemeMode: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileThemeMode {
         let variant: Int32 = try readInt(&buf)
         switch variant {
-        
         case 1: return .light
-        
+
         case 2: return .dark
-        
+
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
 
     public static func write(_ value: MobileThemeMode, into buf: inout [UInt8]) {
         switch value {
-        
-        
         case .light:
             writeInt(&buf, Int32(1))
-        
-        
+
         case .dark:
             writeInt(&buf, Int32(2))
-        
         }
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileThemeMode_lift(_ buf: RustBuffer) throws -> MobileThemeMode {
     return try FfiConverterTypeMobileThemeMode.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileThemeMode_lower(_ value: MobileThemeMode) -> RustBuffer {
     return FfiConverterTypeMobileThemeMode.lower(value)
 }
 
-
-
 extension MobileThemeMode: Equatable, Hashable {}
-
-
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/**
+/* 
  * Trust level based on validation count.
  */
 
 public enum MobileTrustLevel {
-    
     /**
      * No validations yet.
      */
@@ -9511,9 +10409,8 @@ public enum MobileTrustLevel {
     case highConfidence
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileTrustLevel: FfiConverterRustBuffer {
     typealias SwiftType = MobileTrustLevel
@@ -9521,71 +10418,58 @@ public struct FfiConverterTypeMobileTrustLevel: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileTrustLevel {
         let variant: Int32 = try readInt(&buf)
         switch variant {
-        
         case 1: return .unverified
-        
+
         case 2: return .lowConfidence
-        
+
         case 3: return .partialConfidence
-        
+
         case 4: return .highConfidence
-        
+
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
 
     public static func write(_ value: MobileTrustLevel, into buf: inout [UInt8]) {
         switch value {
-        
-        
         case .unverified:
             writeInt(&buf, Int32(1))
-        
-        
+
         case .lowConfidence:
             writeInt(&buf, Int32(2))
-        
-        
+
         case .partialConfidence:
             writeInt(&buf, Int32(3))
-        
-        
+
         case .highConfidence:
             writeInt(&buf, Int32(4))
-        
         }
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileTrustLevel_lift(_ buf: RustBuffer) throws -> MobileTrustLevel {
     return try FfiConverterTypeMobileTrustLevel.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileTrustLevel_lower(_ value: MobileTrustLevel) -> RustBuffer {
     return FfiConverterTypeMobileTrustLevel.lower(value)
 }
 
-
-
 extension MobileTrustLevel: Equatable, Hashable {}
-
-
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/**
+/* 
  * Result of checking for content updates.
  */
 
 public enum MobileUpdateStatus {
-    
     /**
      * Content is up to date
      */
@@ -9593,22 +10477,19 @@ public enum MobileUpdateStatus {
     /**
      * Updates are available for the specified content types
      */
-    case updatesAvailable(types: [MobileContentType]
-    )
+    case updatesAvailable(types: [MobileContentType])
     /**
      * Update check failed
      */
-    case checkFailed(error: String
-    )
+    case checkFailed(error: String)
     /**
      * Remote updates are disabled
      */
     case disabled
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeMobileUpdateStatus: FfiConverterRustBuffer {
     typealias SwiftType = MobileUpdateStatus
@@ -9616,69 +10497,124 @@ public struct FfiConverterTypeMobileUpdateStatus: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileUpdateStatus {
         let variant: Int32 = try readInt(&buf)
         switch variant {
-        
         case 1: return .upToDate
-        
-        case 2: return .updatesAvailable(types: try FfiConverterSequenceTypeMobileContentType.read(from: &buf)
-        )
-        
-        case 3: return .checkFailed(error: try FfiConverterString.read(from: &buf)
-        )
-        
+
+        case 2: return try .updatesAvailable(types: FfiConverterSequenceTypeMobileContentType.read(from: &buf))
+
+        case 3: return try .checkFailed(error: FfiConverterString.read(from: &buf))
+
         case 4: return .disabled
-        
+
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
 
     public static func write(_ value: MobileUpdateStatus, into buf: inout [UInt8]) {
         switch value {
-        
-        
         case .upToDate:
             writeInt(&buf, Int32(1))
-        
-        
+
         case let .updatesAvailable(types):
             writeInt(&buf, Int32(2))
             FfiConverterSequenceTypeMobileContentType.write(types, into: &buf)
-            
-        
+
         case let .checkFailed(error):
             writeInt(&buf, Int32(3))
             FfiConverterString.write(error, into: &buf)
-            
-        
+
         case .disabled:
             writeInt(&buf, Int32(4))
-        
         }
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileUpdateStatus_lift(_ buf: RustBuffer) throws -> MobileUpdateStatus {
     return try FfiConverterTypeMobileUpdateStatus.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeMobileUpdateStatus_lower(_ value: MobileUpdateStatus) -> RustBuffer {
     return FfiConverterTypeMobileUpdateStatus.lower(value)
 }
 
-
-
 extension MobileUpdateStatus: Equatable, Hashable {}
 
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/* 
+ * Widget confirmation mode for panic shred activation.
+ *
+ * Defines how the user confirms a panic shred from the home screen widget.
+ */
 
+public enum MobileWidgetConfirmationMode {
+    /**
+     * Default: tap once, then confirm in a dialog.
+     */
+    case tapConfirm
+    /**
+     * Long press to trigger.
+     */
+    case longPress
+    /**
+     * Double tap to trigger.
+     */
+    case doubleTap
+}
 
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileWidgetConfirmationMode: FfiConverterRustBuffer {
+    typealias SwiftType = MobileWidgetConfirmationMode
 
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileWidgetConfirmationMode {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return .tapConfirm
 
+        case 2: return .longPress
+
+        case 3: return .doubleTap
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileWidgetConfirmationMode, into buf: inout [UInt8]) {
+        switch value {
+        case .tapConfirm:
+            writeInt(&buf, Int32(1))
+
+        case .longPress:
+            writeInt(&buf, Int32(2))
+
+        case .doubleTap:
+            writeInt(&buf, Int32(3))
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileWidgetConfirmationMode_lift(_ buf: RustBuffer) throws -> MobileWidgetConfirmationMode {
+    return try FfiConverterTypeMobileWidgetConfirmationMode.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileWidgetConfirmationMode_lower(_ value: MobileWidgetConfirmationMode) -> RustBuffer {
+    return FfiConverterTypeMobileWidgetConfirmationMode.lower(value)
+}
+
+extension MobileWidgetConfirmationMode: Equatable, Hashable {}
 
 /**
  * Callback interface for platform-specific secure key storage.
@@ -9687,59 +10623,55 @@ extension MobileUpdateStatus: Equatable, Hashable {}
  * access to the native keychain (iOS Keychain, Android KeyStore).
  * Used by shred operations to destroy the Shredding Master Key (SMK).
  */
-public protocol MobilePlatformKeychain : AnyObject {
-    
+public protocol MobilePlatformKeychain: AnyObject {
     /**
      * Saves a key to the platform keychain.
      */
-    func saveKey(name: String, key: Data) throws 
-    
+    func saveKey(name: String, key: Data) throws
+
     /**
      * Loads a key from the platform keychain.
      * Returns None if the key doesn't exist.
      */
-    func loadKey(name: String) throws  -> Data?
-    
+    func loadKey(name: String) throws -> Data?
+
     /**
      * Deletes a key from the platform keychain.
      */
-    func deleteKey(name: String) throws 
-    
+    func deleteKey(name: String) throws
 }
 
-// Magic number for the Rust proxy to call using the same mechanism as every other method,
-// to free the callback once it's dropped by Rust.
+/// Magic number for the Rust proxy to call using the same mechanism as every other method,
+/// to free the callback once it's dropped by Rust.
 private let IDX_CALLBACK_FREE: Int32 = 0
 // Callback return codes
 private let UNIFFI_CALLBACK_SUCCESS: Int32 = 0
 private let UNIFFI_CALLBACK_ERROR: Int32 = 1
 private let UNIFFI_CALLBACK_UNEXPECTED_ERROR: Int32 = 2
 
-// Put the implementation in a struct so we don't pollute the top-level namespace
-fileprivate struct UniffiCallbackInterfaceMobilePlatformKeychain {
-
-    // Create the VTable using a series of closures.
-    // Swift automatically converts these into C callback functions.
-    static var vtable: UniffiVTableCallbackInterfaceMobilePlatformKeychain = UniffiVTableCallbackInterfaceMobilePlatformKeychain(
+/// Put the implementation in a struct so we don't pollute the top-level namespace
+private enum UniffiCallbackInterfaceMobilePlatformKeychain {
+    /// Create the VTable using a series of closures.
+    /// Swift automatically converts these into C callback functions.
+    static var vtable: UniffiVTableCallbackInterfaceMobilePlatformKeychain = .init(
         saveKey: { (
             uniffiHandle: UInt64,
             name: RustBuffer,
             key: RustBuffer,
-            uniffiOutReturn: UnsafeMutableRawPointer,
+            _: UnsafeMutableRawPointer,
             uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
         ) in
             let makeCall = {
-                () throws -> () in
+                () throws in
                 guard let uniffiObj = try? FfiConverterCallbackInterfaceMobilePlatformKeychain.handleMap.get(handle: uniffiHandle) else {
                     throw UniffiInternalError.unexpectedStaleHandle
                 }
                 return try uniffiObj.saveKey(
-                     name: try FfiConverterString.lift(name),
-                     key: try FfiConverterData.lift(key)
+                    name: FfiConverterString.lift(name),
+                    key: FfiConverterData.lift(key)
                 )
             }
 
-            
             let writeReturn = { () }
             uniffiTraitInterfaceCallWithError(
                 callStatus: uniffiCallStatus,
@@ -9760,11 +10692,10 @@ fileprivate struct UniffiCallbackInterfaceMobilePlatformKeychain {
                     throw UniffiInternalError.unexpectedStaleHandle
                 }
                 return try uniffiObj.loadKey(
-                     name: try FfiConverterString.lift(name)
+                    name: FfiConverterString.lift(name)
                 )
             }
 
-            
             let writeReturn = { uniffiOutReturn.pointee = FfiConverterOptionData.lower($0) }
             uniffiTraitInterfaceCallWithError(
                 callStatus: uniffiCallStatus,
@@ -9776,20 +10707,19 @@ fileprivate struct UniffiCallbackInterfaceMobilePlatformKeychain {
         deleteKey: { (
             uniffiHandle: UInt64,
             name: RustBuffer,
-            uniffiOutReturn: UnsafeMutableRawPointer,
+            _: UnsafeMutableRawPointer,
             uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
         ) in
             let makeCall = {
-                () throws -> () in
+                () throws in
                 guard let uniffiObj = try? FfiConverterCallbackInterfaceMobilePlatformKeychain.handleMap.get(handle: uniffiHandle) else {
                     throw UniffiInternalError.unexpectedStaleHandle
                 }
                 return try uniffiObj.deleteKey(
-                     name: try FfiConverterString.lift(name)
+                    name: FfiConverterString.lift(name)
                 )
             }
 
-            
             let writeReturn = { () }
             uniffiTraitInterfaceCallWithError(
                 callStatus: uniffiCallStatus,
@@ -9798,7 +10728,7 @@ fileprivate struct UniffiCallbackInterfaceMobilePlatformKeychain {
                 lowerError: FfiConverterTypeKeychainError.lower
             )
         },
-        uniffiFree: { (uniffiHandle: UInt64) -> () in
+        uniffiFree: { (uniffiHandle: UInt64) in
             let result = try? FfiConverterCallbackInterfaceMobilePlatformKeychain.handleMap.remove(handle: uniffiHandle)
             if result == nil {
                 print("Uniffi callback interface MobilePlatformKeychain: handle missing in uniffiFree")
@@ -9813,51 +10743,48 @@ private func uniffiCallbackInitMobilePlatformKeychain() {
 
 // FfiConverter protocol for callback interfaces
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterCallbackInterfaceMobilePlatformKeychain {
+private enum FfiConverterCallbackInterfaceMobilePlatformKeychain {
     fileprivate static var handleMap = UniffiHandleMap<MobilePlatformKeychain>()
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-extension FfiConverterCallbackInterfaceMobilePlatformKeychain : FfiConverter {
+extension FfiConverterCallbackInterfaceMobilePlatformKeychain: FfiConverter {
     typealias SwiftType = MobilePlatformKeychain
     typealias FfiType = UInt64
 
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public static func lift(_ handle: UInt64) throws -> SwiftType {
         try handleMap.get(handle: handle)
     }
 
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
         let handle: UInt64 = try readInt(&buf)
         return try lift(handle)
     }
 
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public static func lower(_ v: SwiftType) -> UInt64 {
         return handleMap.insert(obj: v)
     }
 
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public static func write(_ v: SwiftType, into buf: inout [UInt8]) {
         writeInt(&buf, lower(v))
     }
 }
-
-
-
 
 /**
  * Callback interface for platform-specific proximity verification.
@@ -9865,8 +10792,7 @@ extension FfiConverterCallbackInterfaceMobilePlatformKeychain : FfiConverter {
  * Mobile apps (iOS/Android) implement this to provide proximity verification
  * using ultrasonic audio or other hardware-based mechanisms.
  */
-public protocol MobileProximityHandler : AnyObject {
-    
+public protocol MobileProximityHandler: AnyObject {
     /**
      * Perform proximity verification with the given challenge.
      *
@@ -9875,18 +10801,14 @@ public protocol MobileProximityHandler : AnyObject {
      *
      * Returns empty string on success, error message on failure.
      */
-    func verifyProximity(challenge: Data, timeoutMs: UInt64)  -> String
-    
+    func verifyProximity(challenge: Data, timeoutMs: UInt64) -> String
 }
 
-
-
-// Put the implementation in a struct so we don't pollute the top-level namespace
-fileprivate struct UniffiCallbackInterfaceMobileProximityHandler {
-
-    // Create the VTable using a series of closures.
-    // Swift automatically converts these into C callback functions.
-    static var vtable: UniffiVTableCallbackInterfaceMobileProximityHandler = UniffiVTableCallbackInterfaceMobileProximityHandler(
+/// Put the implementation in a struct so we don't pollute the top-level namespace
+private enum UniffiCallbackInterfaceMobileProximityHandler {
+    /// Create the VTable using a series of closures.
+    /// Swift automatically converts these into C callback functions.
+    static var vtable: UniffiVTableCallbackInterfaceMobileProximityHandler = .init(
         verifyProximity: { (
             uniffiHandle: UInt64,
             challenge: RustBuffer,
@@ -9899,13 +10821,12 @@ fileprivate struct UniffiCallbackInterfaceMobileProximityHandler {
                 guard let uniffiObj = try? FfiConverterCallbackInterfaceMobileProximityHandler.handleMap.get(handle: uniffiHandle) else {
                     throw UniffiInternalError.unexpectedStaleHandle
                 }
-                return uniffiObj.verifyProximity(
-                     challenge: try FfiConverterData.lift(challenge),
-                     timeoutMs: try FfiConverterUInt64.lift(timeoutMs)
+                return try uniffiObj.verifyProximity(
+                    challenge: FfiConverterData.lift(challenge),
+                    timeoutMs: FfiConverterUInt64.lift(timeoutMs)
                 )
             }
 
-            
             let writeReturn = { uniffiOutReturn.pointee = FfiConverterString.lower($0) }
             uniffiTraitInterfaceCall(
                 callStatus: uniffiCallStatus,
@@ -9913,7 +10834,7 @@ fileprivate struct UniffiCallbackInterfaceMobileProximityHandler {
                 writeReturn: writeReturn
             )
         },
-        uniffiFree: { (uniffiHandle: UInt64) -> () in
+        uniffiFree: { (uniffiHandle: UInt64) in
             let result = try? FfiConverterCallbackInterfaceMobileProximityHandler.handleMap.remove(handle: uniffiHandle)
             if result == nil {
                 print("Uniffi callback interface MobileProximityHandler: handle missing in uniffiFree")
@@ -9928,51 +10849,48 @@ private func uniffiCallbackInitMobileProximityHandler() {
 
 // FfiConverter protocol for callback interfaces
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterCallbackInterfaceMobileProximityHandler {
+private enum FfiConverterCallbackInterfaceMobileProximityHandler {
     fileprivate static var handleMap = UniffiHandleMap<MobileProximityHandler>()
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-extension FfiConverterCallbackInterfaceMobileProximityHandler : FfiConverter {
+extension FfiConverterCallbackInterfaceMobileProximityHandler: FfiConverter {
     typealias SwiftType = MobileProximityHandler
     typealias FfiType = UInt64
 
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public static func lift(_ handle: UInt64) throws -> SwiftType {
         try handleMap.get(handle: handle)
     }
 
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
         let handle: UInt64 = try readInt(&buf)
         return try lift(handle)
     }
 
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public static func lower(_ v: SwiftType) -> UInt64 {
         return handleMap.insert(obj: v)
     }
 
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public static func write(_ v: SwiftType, into buf: inout [UInt8]) {
         writeInt(&buf, lower(v))
     }
 }
-
-
-
 
 /**
  * Callback interface for platform-specific audio operations.
@@ -9980,15 +10898,14 @@ extension FfiConverterCallbackInterfaceMobileProximityHandler : FfiConverter {
  * Implement this trait in Swift (iOS) or Kotlin (Android) to provide
  * native audio functionality for ultrasonic proximity verification.
  */
-public protocol PlatformAudioHandler : AnyObject {
-    
+public protocol PlatformAudioHandler: AnyObject {
     /**
      * Check if the device supports ultrasonic audio.
      *
      * Returns: "full", "emit_only", "receive_only", or "none"
      */
-    func checkCapability()  -> String
-    
+    func checkCapability() -> String
+
     /**
      * Emit an ultrasonic signal encoding the given data.
      *
@@ -9997,8 +10914,8 @@ public protocol PlatformAudioHandler : AnyObject {
      *
      * Returns empty string on success, error message on failure.
      */
-    func emitSignal(samples: [Float], sampleRate: UInt32)  -> String
-    
+    func emitSignal(samples: [Float], sampleRate: UInt32) -> String
+
     /**
      * Record audio and return samples.
      *
@@ -10007,28 +10924,24 @@ public protocol PlatformAudioHandler : AnyObject {
      *
      * Returns recorded samples, or empty vec on timeout/error.
      */
-    func receiveSignal(timeoutMs: UInt64, sampleRate: UInt32)  -> [Float]
-    
+    func receiveSignal(timeoutMs: UInt64, sampleRate: UInt32) -> [Float]
+
     /**
      * Check if audio is currently active.
      */
-    func isActive()  -> Bool
-    
+    func isActive() -> Bool
+
     /**
      * Stop any ongoing audio operation.
      */
-    func stop() 
-    
+    func stop()
 }
 
-
-
-// Put the implementation in a struct so we don't pollute the top-level namespace
-fileprivate struct UniffiCallbackInterfacePlatformAudioHandler {
-
-    // Create the VTable using a series of closures.
-    // Swift automatically converts these into C callback functions.
-    static var vtable: UniffiVTableCallbackInterfacePlatformAudioHandler = UniffiVTableCallbackInterfacePlatformAudioHandler(
+/// Put the implementation in a struct so we don't pollute the top-level namespace
+private enum UniffiCallbackInterfacePlatformAudioHandler {
+    /// Create the VTable using a series of closures.
+    /// Swift automatically converts these into C callback functions.
+    static var vtable: UniffiVTableCallbackInterfacePlatformAudioHandler = .init(
         checkCapability: { (
             uniffiHandle: UInt64,
             uniffiOutReturn: UnsafeMutablePointer<RustBuffer>,
@@ -10043,7 +10956,6 @@ fileprivate struct UniffiCallbackInterfacePlatformAudioHandler {
                 )
             }
 
-            
             let writeReturn = { uniffiOutReturn.pointee = FfiConverterString.lower($0) }
             uniffiTraitInterfaceCall(
                 callStatus: uniffiCallStatus,
@@ -10063,13 +10975,12 @@ fileprivate struct UniffiCallbackInterfacePlatformAudioHandler {
                 guard let uniffiObj = try? FfiConverterCallbackInterfacePlatformAudioHandler.handleMap.get(handle: uniffiHandle) else {
                     throw UniffiInternalError.unexpectedStaleHandle
                 }
-                return uniffiObj.emitSignal(
-                     samples: try FfiConverterSequenceFloat.lift(samples),
-                     sampleRate: try FfiConverterUInt32.lift(sampleRate)
+                return try uniffiObj.emitSignal(
+                    samples: FfiConverterSequenceFloat.lift(samples),
+                    sampleRate: FfiConverterUInt32.lift(sampleRate)
                 )
             }
 
-            
             let writeReturn = { uniffiOutReturn.pointee = FfiConverterString.lower($0) }
             uniffiTraitInterfaceCall(
                 callStatus: uniffiCallStatus,
@@ -10089,13 +11000,12 @@ fileprivate struct UniffiCallbackInterfacePlatformAudioHandler {
                 guard let uniffiObj = try? FfiConverterCallbackInterfacePlatformAudioHandler.handleMap.get(handle: uniffiHandle) else {
                     throw UniffiInternalError.unexpectedStaleHandle
                 }
-                return uniffiObj.receiveSignal(
-                     timeoutMs: try FfiConverterUInt64.lift(timeoutMs),
-                     sampleRate: try FfiConverterUInt32.lift(sampleRate)
+                return try uniffiObj.receiveSignal(
+                    timeoutMs: FfiConverterUInt64.lift(timeoutMs),
+                    sampleRate: FfiConverterUInt32.lift(sampleRate)
                 )
             }
 
-            
             let writeReturn = { uniffiOutReturn.pointee = FfiConverterSequenceFloat.lower($0) }
             uniffiTraitInterfaceCall(
                 callStatus: uniffiCallStatus,
@@ -10117,7 +11027,6 @@ fileprivate struct UniffiCallbackInterfacePlatformAudioHandler {
                 )
             }
 
-            
             let writeReturn = { uniffiOutReturn.pointee = FfiConverterBool.lower($0) }
             uniffiTraitInterfaceCall(
                 callStatus: uniffiCallStatus,
@@ -10127,11 +11036,11 @@ fileprivate struct UniffiCallbackInterfacePlatformAudioHandler {
         },
         stop: { (
             uniffiHandle: UInt64,
-            uniffiOutReturn: UnsafeMutableRawPointer,
+            _: UnsafeMutableRawPointer,
             uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
         ) in
             let makeCall = {
-                () throws -> () in
+                () throws in
                 guard let uniffiObj = try? FfiConverterCallbackInterfacePlatformAudioHandler.handleMap.get(handle: uniffiHandle) else {
                     throw UniffiInternalError.unexpectedStaleHandle
                 }
@@ -10139,7 +11048,6 @@ fileprivate struct UniffiCallbackInterfacePlatformAudioHandler {
                 )
             }
 
-            
             let writeReturn = { () }
             uniffiTraitInterfaceCall(
                 callStatus: uniffiCallStatus,
@@ -10147,7 +11055,7 @@ fileprivate struct UniffiCallbackInterfacePlatformAudioHandler {
                 writeReturn: writeReturn
             )
         },
-        uniffiFree: { (uniffiHandle: UInt64) -> () in
+        uniffiFree: { (uniffiHandle: UInt64) in
             let result = try? FfiConverterCallbackInterfacePlatformAudioHandler.handleMap.remove(handle: uniffiHandle)
             if result == nil {
                 print("Uniffi callback interface PlatformAudioHandler: handle missing in uniffiFree")
@@ -10162,56 +11070,56 @@ private func uniffiCallbackInitPlatformAudioHandler() {
 
 // FfiConverter protocol for callback interfaces
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterCallbackInterfacePlatformAudioHandler {
+private enum FfiConverterCallbackInterfacePlatformAudioHandler {
     fileprivate static var handleMap = UniffiHandleMap<PlatformAudioHandler>()
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-extension FfiConverterCallbackInterfacePlatformAudioHandler : FfiConverter {
+extension FfiConverterCallbackInterfacePlatformAudioHandler: FfiConverter {
     typealias SwiftType = PlatformAudioHandler
     typealias FfiType = UInt64
 
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public static func lift(_ handle: UInt64) throws -> SwiftType {
         try handleMap.get(handle: handle)
     }
 
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
         let handle: UInt64 = try readInt(&buf)
         return try lift(handle)
     }
 
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public static func lower(_ v: SwiftType) -> UInt64 {
         return handleMap.insert(obj: v)
     }
 
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public static func write(_ v: SwiftType, into buf: inout [UInt8]) {
         writeInt(&buf, lower(v))
     }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterOptionUInt64: FfiConverterRustBuffer {
+private struct FfiConverterOptionUInt64: FfiConverterRustBuffer {
     typealias SwiftType = UInt64?
 
-    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+    static func write(_ value: SwiftType, into buf: inout [UInt8]) {
         guard let value = value else {
             writeInt(&buf, Int8(0))
             return
@@ -10220,7 +11128,7 @@ fileprivate struct FfiConverterOptionUInt64: FfiConverterRustBuffer {
         FfiConverterUInt64.write(value, into: &buf)
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterUInt64.read(from: &buf)
@@ -10230,12 +11138,12 @@ fileprivate struct FfiConverterOptionUInt64: FfiConverterRustBuffer {
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterOptionString: FfiConverterRustBuffer {
+private struct FfiConverterOptionString: FfiConverterRustBuffer {
     typealias SwiftType = String?
 
-    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+    static func write(_ value: SwiftType, into buf: inout [UInt8]) {
         guard let value = value else {
             writeInt(&buf, Int8(0))
             return
@@ -10244,7 +11152,7 @@ fileprivate struct FfiConverterOptionString: FfiConverterRustBuffer {
         FfiConverterString.write(value, into: &buf)
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterString.read(from: &buf)
@@ -10254,12 +11162,12 @@ fileprivate struct FfiConverterOptionString: FfiConverterRustBuffer {
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterOptionData: FfiConverterRustBuffer {
+private struct FfiConverterOptionData: FfiConverterRustBuffer {
     typealias SwiftType = Data?
 
-    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+    static func write(_ value: SwiftType, into buf: inout [UInt8]) {
         guard let value = value else {
             writeInt(&buf, Int8(0))
             return
@@ -10268,7 +11176,7 @@ fileprivate struct FfiConverterOptionData: FfiConverterRustBuffer {
         FfiConverterData.write(value, into: &buf)
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterData.read(from: &buf)
@@ -10278,12 +11186,12 @@ fileprivate struct FfiConverterOptionData: FfiConverterRustBuffer {
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterOptionTypeMobileAhaMoment: FfiConverterRustBuffer {
+private struct FfiConverterOptionTypeMobileAhaMoment: FfiConverterRustBuffer {
     typealias SwiftType = MobileAhaMoment?
 
-    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+    static func write(_ value: SwiftType, into buf: inout [UInt8]) {
         guard let value = value else {
             writeInt(&buf, Int8(0))
             return
@@ -10292,7 +11200,7 @@ fileprivate struct FfiConverterOptionTypeMobileAhaMoment: FfiConverterRustBuffer
         FfiConverterTypeMobileAhaMoment.write(value, into: &buf)
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterTypeMobileAhaMoment.read(from: &buf)
@@ -10302,12 +11210,12 @@ fileprivate struct FfiConverterOptionTypeMobileAhaMoment: FfiConverterRustBuffer
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterOptionTypeMobileContact: FfiConverterRustBuffer {
+private struct FfiConverterOptionTypeMobileContact: FfiConverterRustBuffer {
     typealias SwiftType = MobileContact?
 
-    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+    static func write(_ value: SwiftType, into buf: inout [UInt8]) {
         guard let value = value else {
             writeInt(&buf, Int8(0))
             return
@@ -10316,7 +11224,7 @@ fileprivate struct FfiConverterOptionTypeMobileContact: FfiConverterRustBuffer {
         FfiConverterTypeMobileContact.write(value, into: &buf)
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterTypeMobileContact.read(from: &buf)
@@ -10326,12 +11234,12 @@ fileprivate struct FfiConverterOptionTypeMobileContact: FfiConverterRustBuffer {
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterOptionTypeMobileDeliveryRecord: FfiConverterRustBuffer {
+private struct FfiConverterOptionTypeMobileDeliveryRecord: FfiConverterRustBuffer {
     typealias SwiftType = MobileDeliveryRecord?
 
-    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+    static func write(_ value: SwiftType, into buf: inout [UInt8]) {
         guard let value = value else {
             writeInt(&buf, Int8(0))
             return
@@ -10340,7 +11248,7 @@ fileprivate struct FfiConverterOptionTypeMobileDeliveryRecord: FfiConverterRustB
         FfiConverterTypeMobileDeliveryRecord.write(value, into: &buf)
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterTypeMobileDeliveryRecord.read(from: &buf)
@@ -10350,12 +11258,12 @@ fileprivate struct FfiConverterOptionTypeMobileDeliveryRecord: FfiConverterRustB
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterOptionTypeMobileDemoContact: FfiConverterRustBuffer {
+private struct FfiConverterOptionTypeMobileDemoContact: FfiConverterRustBuffer {
     typealias SwiftType = MobileDemoContact?
 
-    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+    static func write(_ value: SwiftType, into buf: inout [UInt8]) {
         guard let value = value else {
             writeInt(&buf, Int8(0))
             return
@@ -10364,7 +11272,7 @@ fileprivate struct FfiConverterOptionTypeMobileDemoContact: FfiConverterRustBuff
         FfiConverterTypeMobileDemoContact.write(value, into: &buf)
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterTypeMobileDemoContact.read(from: &buf)
@@ -10374,12 +11282,60 @@ fileprivate struct FfiConverterOptionTypeMobileDemoContact: FfiConverterRustBuff
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterOptionTypeMobileFaqItem: FfiConverterRustBuffer {
+private struct FfiConverterOptionTypeMobileDuressSettings: FfiConverterRustBuffer {
+    typealias SwiftType = MobileDuressSettings?
+
+    static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeMobileDuressSettings.write(value, into: &buf)
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeMobileDuressSettings.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+private struct FfiConverterOptionTypeMobileEmergencyConfig: FfiConverterRustBuffer {
+    typealias SwiftType = MobileEmergencyConfig?
+
+    static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeMobileEmergencyConfig.write(value, into: &buf)
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeMobileEmergencyConfig.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+private struct FfiConverterOptionTypeMobileFaqItem: FfiConverterRustBuffer {
     typealias SwiftType = MobileFaqItem?
 
-    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+    static func write(_ value: SwiftType, into buf: inout [UInt8]) {
         guard let value = value else {
             writeInt(&buf, Int8(0))
             return
@@ -10388,7 +11344,7 @@ fileprivate struct FfiConverterOptionTypeMobileFaqItem: FfiConverterRustBuffer {
         FfiConverterTypeMobileFaqItem.write(value, into: &buf)
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterTypeMobileFaqItem.read(from: &buf)
@@ -10398,12 +11354,12 @@ fileprivate struct FfiConverterOptionTypeMobileFaqItem: FfiConverterRustBuffer {
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterOptionTypeMobileRecoveryProgress: FfiConverterRustBuffer {
+private struct FfiConverterOptionTypeMobileRecoveryProgress: FfiConverterRustBuffer {
     typealias SwiftType = MobileRecoveryProgress?
 
-    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+    static func write(_ value: SwiftType, into buf: inout [UInt8]) {
         guard let value = value else {
             writeInt(&buf, Int8(0))
             return
@@ -10412,7 +11368,7 @@ fileprivate struct FfiConverterOptionTypeMobileRecoveryProgress: FfiConverterRus
         FfiConverterTypeMobileRecoveryProgress.write(value, into: &buf)
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterTypeMobileRecoveryProgress.read(from: &buf)
@@ -10422,12 +11378,12 @@ fileprivate struct FfiConverterOptionTypeMobileRecoveryProgress: FfiConverterRus
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterOptionTypeMobileTheme: FfiConverterRustBuffer {
+private struct FfiConverterOptionTypeMobileTheme: FfiConverterRustBuffer {
     typealias SwiftType = MobileTheme?
 
-    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+    static func write(_ value: SwiftType, into buf: inout [UInt8]) {
         guard let value = value else {
             writeInt(&buf, Int8(0))
             return
@@ -10436,7 +11392,7 @@ fileprivate struct FfiConverterOptionTypeMobileTheme: FfiConverterRustBuffer {
         FfiConverterTypeMobileTheme.write(value, into: &buf)
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterTypeMobileTheme.read(from: &buf)
@@ -10446,12 +11402,12 @@ fileprivate struct FfiConverterOptionTypeMobileTheme: FfiConverterRustBuffer {
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterOptionTypeMobileLocale: FfiConverterRustBuffer {
+private struct FfiConverterOptionTypeMobileLocale: FfiConverterRustBuffer {
     typealias SwiftType = MobileLocale?
 
-    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+    static func write(_ value: SwiftType, into buf: inout [UInt8]) {
         guard let value = value else {
             writeInt(&buf, Int8(0))
             return
@@ -10460,7 +11416,7 @@ fileprivate struct FfiConverterOptionTypeMobileLocale: FfiConverterRustBuffer {
         FfiConverterTypeMobileLocale.write(value, into: &buf)
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterTypeMobileLocale.read(from: &buf)
@@ -10470,12 +11426,12 @@ fileprivate struct FfiConverterOptionTypeMobileLocale: FfiConverterRustBuffer {
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterSequenceFloat: FfiConverterRustBuffer {
+private struct FfiConverterSequenceFloat: FfiConverterRustBuffer {
     typealias SwiftType = [Float]
 
-    public static func write(_ value: [Float], into buf: inout [UInt8]) {
+    static func write(_ value: [Float], into buf: inout [UInt8]) {
         let len = Int32(value.count)
         writeInt(&buf, len)
         for item in value {
@@ -10483,24 +11439,24 @@ fileprivate struct FfiConverterSequenceFloat: FfiConverterRustBuffer {
         }
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [Float] {
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [Float] {
         let len: Int32 = try readInt(&buf)
         var seq = [Float]()
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
-            seq.append(try FfiConverterFloat.read(from: &buf))
+            try seq.append(FfiConverterFloat.read(from: &buf))
         }
         return seq
     }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterSequenceString: FfiConverterRustBuffer {
+private struct FfiConverterSequenceString: FfiConverterRustBuffer {
     typealias SwiftType = [String]
 
-    public static func write(_ value: [String], into buf: inout [UInt8]) {
+    static func write(_ value: [String], into buf: inout [UInt8]) {
         let len = Int32(value.count)
         writeInt(&buf, len)
         for item in value {
@@ -10508,24 +11464,24 @@ fileprivate struct FfiConverterSequenceString: FfiConverterRustBuffer {
         }
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [String] {
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [String] {
         let len: Int32 = try readInt(&buf)
         var seq = [String]()
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
-            seq.append(try FfiConverterString.read(from: &buf))
+            try seq.append(FfiConverterString.read(from: &buf))
         }
         return seq
     }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterSequenceTypeMobileApplyFailure: FfiConverterRustBuffer {
+private struct FfiConverterSequenceTypeMobileApplyFailure: FfiConverterRustBuffer {
     typealias SwiftType = [MobileApplyFailure]
 
-    public static func write(_ value: [MobileApplyFailure], into buf: inout [UInt8]) {
+    static func write(_ value: [MobileApplyFailure], into buf: inout [UInt8]) {
         let len = Int32(value.count)
         writeInt(&buf, len)
         for item in value {
@@ -10533,24 +11489,24 @@ fileprivate struct FfiConverterSequenceTypeMobileApplyFailure: FfiConverterRustB
         }
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileApplyFailure] {
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileApplyFailure] {
         let len: Int32 = try readInt(&buf)
         var seq = [MobileApplyFailure]()
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
-            seq.append(try FfiConverterTypeMobileApplyFailure.read(from: &buf))
+            try seq.append(FfiConverterTypeMobileApplyFailure.read(from: &buf))
         }
         return seq
     }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterSequenceTypeMobileConsentRecord: FfiConverterRustBuffer {
+private struct FfiConverterSequenceTypeMobileConsentRecord: FfiConverterRustBuffer {
     typealias SwiftType = [MobileConsentRecord]
 
-    public static func write(_ value: [MobileConsentRecord], into buf: inout [UInt8]) {
+    static func write(_ value: [MobileConsentRecord], into buf: inout [UInt8]) {
         let len = Int32(value.count)
         writeInt(&buf, len)
         for item in value {
@@ -10558,24 +11514,24 @@ fileprivate struct FfiConverterSequenceTypeMobileConsentRecord: FfiConverterRust
         }
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileConsentRecord] {
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileConsentRecord] {
         let len: Int32 = try readInt(&buf)
         var seq = [MobileConsentRecord]()
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
-            seq.append(try FfiConverterTypeMobileConsentRecord.read(from: &buf))
+            try seq.append(FfiConverterTypeMobileConsentRecord.read(from: &buf))
         }
         return seq
     }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterSequenceTypeMobileContact: FfiConverterRustBuffer {
+private struct FfiConverterSequenceTypeMobileContact: FfiConverterRustBuffer {
     typealias SwiftType = [MobileContact]
 
-    public static func write(_ value: [MobileContact], into buf: inout [UInt8]) {
+    static func write(_ value: [MobileContact], into buf: inout [UInt8]) {
         let len = Int32(value.count)
         writeInt(&buf, len)
         for item in value {
@@ -10583,24 +11539,24 @@ fileprivate struct FfiConverterSequenceTypeMobileContact: FfiConverterRustBuffer
         }
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileContact] {
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileContact] {
         let len: Int32 = try readInt(&buf)
         var seq = [MobileContact]()
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
-            seq.append(try FfiConverterTypeMobileContact.read(from: &buf))
+            try seq.append(FfiConverterTypeMobileContact.read(from: &buf))
         }
         return seq
     }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterSequenceTypeMobileContactField: FfiConverterRustBuffer {
+private struct FfiConverterSequenceTypeMobileContactField: FfiConverterRustBuffer {
     typealias SwiftType = [MobileContactField]
 
-    public static func write(_ value: [MobileContactField], into buf: inout [UInt8]) {
+    static func write(_ value: [MobileContactField], into buf: inout [UInt8]) {
         let len = Int32(value.count)
         writeInt(&buf, len)
         for item in value {
@@ -10608,24 +11564,49 @@ fileprivate struct FfiConverterSequenceTypeMobileContactField: FfiConverterRustB
         }
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileContactField] {
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileContactField] {
         let len: Int32 = try readInt(&buf)
         var seq = [MobileContactField]()
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
-            seq.append(try FfiConverterTypeMobileContactField.read(from: &buf))
+            try seq.append(FfiConverterTypeMobileContactField.read(from: &buf))
         }
         return seq
     }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterSequenceTypeMobileDeliveryRecord: FfiConverterRustBuffer {
+private struct FfiConverterSequenceTypeMobileDecoyContact: FfiConverterRustBuffer {
+    typealias SwiftType = [MobileDecoyContact]
+
+    static func write(_ value: [MobileDecoyContact], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeMobileDecoyContact.write(item, into: &buf)
+        }
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileDecoyContact] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [MobileDecoyContact]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            try seq.append(FfiConverterTypeMobileDecoyContact.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+private struct FfiConverterSequenceTypeMobileDeliveryRecord: FfiConverterRustBuffer {
     typealias SwiftType = [MobileDeliveryRecord]
 
-    public static func write(_ value: [MobileDeliveryRecord], into buf: inout [UInt8]) {
+    static func write(_ value: [MobileDeliveryRecord], into buf: inout [UInt8]) {
         let len = Int32(value.count)
         writeInt(&buf, len)
         for item in value {
@@ -10633,24 +11614,24 @@ fileprivate struct FfiConverterSequenceTypeMobileDeliveryRecord: FfiConverterRus
         }
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileDeliveryRecord] {
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileDeliveryRecord] {
         let len: Int32 = try readInt(&buf)
         var seq = [MobileDeliveryRecord]()
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
-            seq.append(try FfiConverterTypeMobileDeliveryRecord.read(from: &buf))
+            try seq.append(FfiConverterTypeMobileDeliveryRecord.read(from: &buf))
         }
         return seq
     }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterSequenceTypeMobileDeviceDeliveryRecord: FfiConverterRustBuffer {
+private struct FfiConverterSequenceTypeMobileDeviceDeliveryRecord: FfiConverterRustBuffer {
     typealias SwiftType = [MobileDeviceDeliveryRecord]
 
-    public static func write(_ value: [MobileDeviceDeliveryRecord], into buf: inout [UInt8]) {
+    static func write(_ value: [MobileDeviceDeliveryRecord], into buf: inout [UInt8]) {
         let len = Int32(value.count)
         writeInt(&buf, len)
         for item in value {
@@ -10658,24 +11639,24 @@ fileprivate struct FfiConverterSequenceTypeMobileDeviceDeliveryRecord: FfiConver
         }
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileDeviceDeliveryRecord] {
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileDeviceDeliveryRecord] {
         let len: Int32 = try readInt(&buf)
         var seq = [MobileDeviceDeliveryRecord]()
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
-            seq.append(try FfiConverterTypeMobileDeviceDeliveryRecord.read(from: &buf))
+            try seq.append(FfiConverterTypeMobileDeviceDeliveryRecord.read(from: &buf))
         }
         return seq
     }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterSequenceTypeMobileDeviceInfo: FfiConverterRustBuffer {
+private struct FfiConverterSequenceTypeMobileDeviceInfo: FfiConverterRustBuffer {
     typealias SwiftType = [MobileDeviceInfo]
 
-    public static func write(_ value: [MobileDeviceInfo], into buf: inout [UInt8]) {
+    static func write(_ value: [MobileDeviceInfo], into buf: inout [UInt8]) {
         let len = Int32(value.count)
         writeInt(&buf, len)
         for item in value {
@@ -10683,24 +11664,24 @@ fileprivate struct FfiConverterSequenceTypeMobileDeviceInfo: FfiConverterRustBuf
         }
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileDeviceInfo] {
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileDeviceInfo] {
         let len: Int32 = try readInt(&buf)
         var seq = [MobileDeviceInfo]()
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
-            seq.append(try FfiConverterTypeMobileDeviceInfo.read(from: &buf))
+            try seq.append(FfiConverterTypeMobileDeviceInfo.read(from: &buf))
         }
         return seq
     }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterSequenceTypeMobileFaqItem: FfiConverterRustBuffer {
+private struct FfiConverterSequenceTypeMobileFaqItem: FfiConverterRustBuffer {
     typealias SwiftType = [MobileFaqItem]
 
-    public static func write(_ value: [MobileFaqItem], into buf: inout [UInt8]) {
+    static func write(_ value: [MobileFaqItem], into buf: inout [UInt8]) {
         let len = Int32(value.count)
         writeInt(&buf, len)
         for item in value {
@@ -10708,24 +11689,24 @@ fileprivate struct FfiConverterSequenceTypeMobileFaqItem: FfiConverterRustBuffer
         }
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileFaqItem] {
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileFaqItem] {
         let len: Int32 = try readInt(&buf)
         var seq = [MobileFaqItem]()
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
-            seq.append(try FfiConverterTypeMobileFaqItem.read(from: &buf))
+            try seq.append(FfiConverterTypeMobileFaqItem.read(from: &buf))
         }
         return seq
     }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterSequenceTypeMobileFieldValidation: FfiConverterRustBuffer {
+private struct FfiConverterSequenceTypeMobileFieldValidation: FfiConverterRustBuffer {
     typealias SwiftType = [MobileFieldValidation]
 
-    public static func write(_ value: [MobileFieldValidation], into buf: inout [UInt8]) {
+    static func write(_ value: [MobileFieldValidation], into buf: inout [UInt8]) {
         let len = Int32(value.count)
         writeInt(&buf, len)
         for item in value {
@@ -10733,24 +11714,24 @@ fileprivate struct FfiConverterSequenceTypeMobileFieldValidation: FfiConverterRu
         }
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileFieldValidation] {
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileFieldValidation] {
         let len: Int32 = try readInt(&buf)
         var seq = [MobileFieldValidation]()
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
-            seq.append(try FfiConverterTypeMobileFieldValidation.read(from: &buf))
+            try seq.append(FfiConverterTypeMobileFieldValidation.read(from: &buf))
         }
         return seq
     }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterSequenceTypeMobileHelpCategoryInfo: FfiConverterRustBuffer {
+private struct FfiConverterSequenceTypeMobileHelpCategoryInfo: FfiConverterRustBuffer {
     typealias SwiftType = [MobileHelpCategoryInfo]
 
-    public static func write(_ value: [MobileHelpCategoryInfo], into buf: inout [UInt8]) {
+    static func write(_ value: [MobileHelpCategoryInfo], into buf: inout [UInt8]) {
         let len = Int32(value.count)
         writeInt(&buf, len)
         for item in value {
@@ -10758,24 +11739,24 @@ fileprivate struct FfiConverterSequenceTypeMobileHelpCategoryInfo: FfiConverterR
         }
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileHelpCategoryInfo] {
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileHelpCategoryInfo] {
         let len: Int32 = try readInt(&buf)
         var seq = [MobileHelpCategoryInfo]()
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
-            seq.append(try FfiConverterTypeMobileHelpCategoryInfo.read(from: &buf))
+            try seq.append(FfiConverterTypeMobileHelpCategoryInfo.read(from: &buf))
         }
         return seq
     }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterSequenceTypeMobileLocaleInfo: FfiConverterRustBuffer {
+private struct FfiConverterSequenceTypeMobileLocaleInfo: FfiConverterRustBuffer {
     typealias SwiftType = [MobileLocaleInfo]
 
-    public static func write(_ value: [MobileLocaleInfo], into buf: inout [UInt8]) {
+    static func write(_ value: [MobileLocaleInfo], into buf: inout [UInt8]) {
         let len = Int32(value.count)
         writeInt(&buf, len)
         for item in value {
@@ -10783,24 +11764,24 @@ fileprivate struct FfiConverterSequenceTypeMobileLocaleInfo: FfiConverterRustBuf
         }
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileLocaleInfo] {
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileLocaleInfo] {
         let len: Int32 = try readInt(&buf)
         var seq = [MobileLocaleInfo]()
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
-            seq.append(try FfiConverterTypeMobileLocaleInfo.read(from: &buf))
+            try seq.append(FfiConverterTypeMobileLocaleInfo.read(from: &buf))
         }
         return seq
     }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterSequenceTypeMobileRetryEntry: FfiConverterRustBuffer {
+private struct FfiConverterSequenceTypeMobileRetryEntry: FfiConverterRustBuffer {
     typealias SwiftType = [MobileRetryEntry]
 
-    public static func write(_ value: [MobileRetryEntry], into buf: inout [UInt8]) {
+    static func write(_ value: [MobileRetryEntry], into buf: inout [UInt8]) {
         let len = Int32(value.count)
         writeInt(&buf, len)
         for item in value {
@@ -10808,24 +11789,24 @@ fileprivate struct FfiConverterSequenceTypeMobileRetryEntry: FfiConverterRustBuf
         }
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileRetryEntry] {
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileRetryEntry] {
         let len: Int32 = try readInt(&buf)
         var seq = [MobileRetryEntry]()
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
-            seq.append(try FfiConverterTypeMobileRetryEntry.read(from: &buf))
+            try seq.append(FfiConverterTypeMobileRetryEntry.read(from: &buf))
         }
         return seq
     }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterSequenceTypeMobileSocialNetwork: FfiConverterRustBuffer {
+private struct FfiConverterSequenceTypeMobileSocialNetwork: FfiConverterRustBuffer {
     typealias SwiftType = [MobileSocialNetwork]
 
-    public static func write(_ value: [MobileSocialNetwork], into buf: inout [UInt8]) {
+    static func write(_ value: [MobileSocialNetwork], into buf: inout [UInt8]) {
         let len = Int32(value.count)
         writeInt(&buf, len)
         for item in value {
@@ -10833,24 +11814,24 @@ fileprivate struct FfiConverterSequenceTypeMobileSocialNetwork: FfiConverterRust
         }
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileSocialNetwork] {
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileSocialNetwork] {
         let len: Int32 = try readInt(&buf)
         var seq = [MobileSocialNetwork]()
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
-            seq.append(try FfiConverterTypeMobileSocialNetwork.read(from: &buf))
+            try seq.append(FfiConverterTypeMobileSocialNetwork.read(from: &buf))
         }
         return seq
     }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterSequenceTypeMobileTheme: FfiConverterRustBuffer {
+private struct FfiConverterSequenceTypeMobileTheme: FfiConverterRustBuffer {
     typealias SwiftType = [MobileTheme]
 
-    public static func write(_ value: [MobileTheme], into buf: inout [UInt8]) {
+    static func write(_ value: [MobileTheme], into buf: inout [UInt8]) {
         let len = Int32(value.count)
         writeInt(&buf, len)
         for item in value {
@@ -10858,24 +11839,24 @@ fileprivate struct FfiConverterSequenceTypeMobileTheme: FfiConverterRustBuffer {
         }
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileTheme] {
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileTheme] {
         let len: Int32 = try readInt(&buf)
         var seq = [MobileTheme]()
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
-            seq.append(try FfiConverterTypeMobileTheme.read(from: &buf))
+            try seq.append(FfiConverterTypeMobileTheme.read(from: &buf))
         }
         return seq
     }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterSequenceTypeMobileVisibilityLabel: FfiConverterRustBuffer {
+private struct FfiConverterSequenceTypeMobileVisibilityLabel: FfiConverterRustBuffer {
     typealias SwiftType = [MobileVisibilityLabel]
 
-    public static func write(_ value: [MobileVisibilityLabel], into buf: inout [UInt8]) {
+    static func write(_ value: [MobileVisibilityLabel], into buf: inout [UInt8]) {
         let len = Int32(value.count)
         writeInt(&buf, len)
         for item in value {
@@ -10883,24 +11864,24 @@ fileprivate struct FfiConverterSequenceTypeMobileVisibilityLabel: FfiConverterRu
         }
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileVisibilityLabel] {
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileVisibilityLabel] {
         let len: Int32 = try readInt(&buf)
         var seq = [MobileVisibilityLabel]()
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
-            seq.append(try FfiConverterTypeMobileVisibilityLabel.read(from: &buf))
+            try seq.append(FfiConverterTypeMobileVisibilityLabel.read(from: &buf))
         }
         return seq
     }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterSequenceTypeMobileContentType: FfiConverterRustBuffer {
+private struct FfiConverterSequenceTypeMobileContentType: FfiConverterRustBuffer {
     typealias SwiftType = [MobileContentType]
 
-    public static func write(_ value: [MobileContentType], into buf: inout [UInt8]) {
+    static func write(_ value: [MobileContentType], into buf: inout [UInt8]) {
         let len = Int32(value.count)
         writeInt(&buf, len)
         for item in value {
@@ -10908,22 +11889,22 @@ fileprivate struct FfiConverterSequenceTypeMobileContentType: FfiConverterRustBu
         }
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileContentType] {
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileContentType] {
         let len: Int32 = try readInt(&buf)
         var seq = [MobileContentType]()
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
-            seq.append(try FfiConverterTypeMobileContentType.read(from: &buf))
+            try seq.append(FfiConverterTypeMobileContentType.read(from: &buf))
         }
         return seq
     }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterDictionaryStringString: FfiConverterRustBuffer {
-    public static func write(_ value: [String: String], into buf: inout [UInt8]) {
+private struct FfiConverterDictionaryStringString: FfiConverterRustBuffer {
+    static func write(_ value: [String: String], into buf: inout [UInt8]) {
         let len = Int32(value.count)
         writeInt(&buf, len)
         for (key, value) in value {
@@ -10932,11 +11913,11 @@ fileprivate struct FfiConverterDictionaryStringString: FfiConverterRustBuffer {
         }
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [String: String] {
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [String: String] {
         let len: Int32 = try readInt(&buf)
         var dict = [String: String]()
         dict.reserveCapacity(Int(len))
-        for _ in 0..<len {
+        for _ in 0 ..< len {
             let key = try FfiConverterString.read(from: &buf)
             let value = try FfiConverterString.read(from: &buf)
             dict[key] = value
@@ -10944,18 +11925,79 @@ fileprivate struct FfiConverterDictionaryStringString: FfiConverterRustBuffer {
         return dict
     }
 }
+
+private let UNIFFI_RUST_FUTURE_POLL_READY: Int8 = 0
+private let UNIFFI_RUST_FUTURE_POLL_MAYBE_READY: Int8 = 1
+
+private let uniffiContinuationHandleMap = UniffiHandleMap<UnsafeContinuation<Int8, Never>>()
+
+private func uniffiRustCallAsync<F, T>(
+    rustFutureFunc: () -> UInt64,
+    pollFunc: (UInt64, @escaping UniffiRustFutureContinuationCallback, UInt64) -> Void,
+    completeFunc: (UInt64, UnsafeMutablePointer<RustCallStatus>) -> F,
+    freeFunc: (UInt64) -> Void,
+    liftFunc: (F) throws -> T,
+    errorHandler: ((RustBuffer) throws -> Swift.Error)?
+) async throws -> T {
+    // Make sure to call uniffiEnsureInitialized() since future creation doesn't have a
+    // RustCallStatus param, so doesn't use makeRustCall()
+    uniffiEnsureInitialized()
+    let rustFuture = rustFutureFunc()
+    defer {
+        freeFunc(rustFuture)
+    }
+    var pollResult: Int8
+    repeat {
+        pollResult = await withUnsafeContinuation {
+            pollFunc(
+                rustFuture,
+                uniffiFutureContinuationCallback,
+                uniffiContinuationHandleMap.insert(obj: $0)
+            )
+        }
+    } while pollResult != UNIFFI_RUST_FUTURE_POLL_READY
+
+    return try liftFunc(makeRustCall(
+        { completeFunc(rustFuture, $0) },
+        errorHandler: errorHandler
+    ))
+}
+
+/// Callback handlers for an async calls.  These are invoked by Rust when the future is ready.  They
+/// lift the return value or error and resume the suspended function.
+private func uniffiFutureContinuationCallback(handle: UInt64, pollResult: Int8) {
+    if let continuation = try? uniffiContinuationHandleMap.remove(handle: handle) {
+        continuation.resume(returning: pollResult)
+    } else {
+        print("uniffiFutureContinuationCallback invalid handle")
+    }
+}
+
+/**
+ * Check if BLE exchange is available on this device.
+ *
+ * Returns NotAvailable until native BLE transport is implemented
+ * for each platform (CoreBluetooth on iOS, Android BLE on Android).
+ */
+public func bleExchangeStatus() -> MobileBleExchangeStatus {
+    return try! FfiConverterTypeMobileBleExchangeStatus.lift(try! rustCall {
+        uniffi_vauchi_mobile_fn_func_ble_exchange_status($0)
+    })
+}
+
 /**
  * Check password strength for backup encryption.
  *
  * Returns strength level, description, and feedback for improvement.
  */
 public func checkPasswordStrength(password: String) -> MobilePasswordCheck {
-    return try!  FfiConverterTypeMobilePasswordCheck.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_func_check_password_strength(
-        FfiConverterString.lower(password),$0
-    )
-})
+    return try! FfiConverterTypeMobilePasswordCheck.lift(try! rustCall {
+        uniffi_vauchi_mobile_fn_func_check_password_strength(
+            FfiConverterString.lower(password), $0
+        )
+    })
 }
+
 /**
  * Generate a new random storage key.
  *
@@ -10964,11 +12006,11 @@ public func checkPasswordStrength(password: String) -> MobilePasswordCheck {
  * (iOS Keychain or Android KeyStore).
  */
 public func generateStorageKey() -> Data {
-    return try!  FfiConverterData.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_func_generate_storage_key($0
-    )
-})
+    return try! FfiConverterData.lift(try! rustCall {
+        uniffi_vauchi_mobile_fn_func_generate_storage_key($0)
+    })
 }
+
 /**
  * Get localized aha moment content for a given moment type.
  *
@@ -10978,140 +12020,149 @@ public func generateStorageKey() -> Data {
  * state-tracked triggering.
  */
 public func getAhaMomentLocalized(momentType: MobileAhaMomentType, locale: MobileLocale) -> MobileAhaMoment {
-    return try!  FfiConverterTypeMobileAhaMoment.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_func_get_aha_moment_localized(
-        FfiConverterTypeMobileAhaMomentType.lower(momentType),
-        FfiConverterTypeMobileLocale.lower(locale),$0
-    )
-})
+    return try! FfiConverterTypeMobileAhaMoment.lift(try! rustCall {
+        uniffi_vauchi_mobile_fn_func_get_aha_moment_localized(
+            FfiConverterTypeMobileAhaMomentType.lower(momentType),
+            FfiConverterTypeMobileLocale.lower(locale), $0
+        )
+    })
 }
+
 /**
  * Get all available locales.
  */
 public func getAvailableLocales() -> [MobileLocaleInfo] {
-    return try!  FfiConverterSequenceTypeMobileLocaleInfo.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_func_get_available_locales($0
-    )
-})
+    return try! FfiConverterSequenceTypeMobileLocaleInfo.lift(try! rustCall {
+        uniffi_vauchi_mobile_fn_func_get_available_locales($0)
+    })
 }
+
 /**
  * Get all available bundled themes.
  */
 public func getAvailableThemes() -> [MobileTheme] {
-    return try!  FfiConverterSequenceTypeMobileTheme.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_func_get_available_themes($0
-    )
-})
+    return try! FfiConverterSequenceTypeMobileTheme.lift(try! rustCall {
+        uniffi_vauchi_mobile_fn_func_get_available_themes($0)
+    })
 }
+
 /**
  * Get the default theme ID based on system preference.
  *
  * Returns "default-dark" for dark mode, "default-light" for light mode.
  */
 public func getDefaultThemeId(preferDark: Bool) -> String {
-    return try!  FfiConverterString.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_func_get_default_theme_id(
-        FfiConverterBool.lower(preferDark),$0
-    )
-})
+    return try! FfiConverterString.lift(try! rustCall {
+        uniffi_vauchi_mobile_fn_func_get_default_theme_id(
+            FfiConverterBool.lower(preferDark), $0
+        )
+    })
 }
+
 /**
  * Get a specific FAQ item by ID.
  *
  * Returns None if the FAQ is not found.
  */
 public func getFaqById(id: String) -> MobileFaqItem? {
-    return try!  FfiConverterOptionTypeMobileFaqItem.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_func_get_faq_by_id(
-        FfiConverterString.lower(id),$0
-    )
-})
+    return try! FfiConverterOptionTypeMobileFaqItem.lift(try! rustCall {
+        uniffi_vauchi_mobile_fn_func_get_faq_by_id(
+            FfiConverterString.lower(id), $0
+        )
+    })
 }
+
 /**
  * Get a specific FAQ item by ID in the specified locale.
  *
  * Returns None if the FAQ is not found.
  */
 public func getFaqByIdLocalized(id: String, locale: MobileLocale) -> MobileFaqItem? {
-    return try!  FfiConverterOptionTypeMobileFaqItem.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_func_get_faq_by_id_localized(
-        FfiConverterString.lower(id),
-        FfiConverterTypeMobileLocale.lower(locale),$0
-    )
-})
+    return try! FfiConverterOptionTypeMobileFaqItem.lift(try! rustCall {
+        uniffi_vauchi_mobile_fn_func_get_faq_by_id_localized(
+            FfiConverterString.lower(id),
+            FfiConverterTypeMobileLocale.lower(locale), $0
+        )
+    })
 }
+
 /**
  * Get all FAQ items.
  */
 public func getFaqs() -> [MobileFaqItem] {
-    return try!  FfiConverterSequenceTypeMobileFaqItem.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_func_get_faqs($0
-    )
-})
+    return try! FfiConverterSequenceTypeMobileFaqItem.lift(try! rustCall {
+        uniffi_vauchi_mobile_fn_func_get_faqs($0)
+    })
 }
+
 /**
  * Get FAQ items for a specific category.
  */
 public func getFaqsByCategory(category: MobileHelpCategory) -> [MobileFaqItem] {
-    return try!  FfiConverterSequenceTypeMobileFaqItem.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_func_get_faqs_by_category(
-        FfiConverterTypeMobileHelpCategory.lower(category),$0
-    )
-})
+    return try! FfiConverterSequenceTypeMobileFaqItem.lift(try! rustCall {
+        uniffi_vauchi_mobile_fn_func_get_faqs_by_category(
+            FfiConverterTypeMobileHelpCategory.lower(category), $0
+        )
+    })
 }
+
 /**
  * Get FAQ items for a specific category in the specified locale.
  */
 public func getFaqsByCategoryLocalized(category: MobileHelpCategory, locale: MobileLocale) -> [MobileFaqItem] {
-    return try!  FfiConverterSequenceTypeMobileFaqItem.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_func_get_faqs_by_category_localized(
-        FfiConverterTypeMobileHelpCategory.lower(category),
-        FfiConverterTypeMobileLocale.lower(locale),$0
-    )
-})
+    return try! FfiConverterSequenceTypeMobileFaqItem.lift(try! rustCall {
+        uniffi_vauchi_mobile_fn_func_get_faqs_by_category_localized(
+            FfiConverterTypeMobileHelpCategory.lower(category),
+            FfiConverterTypeMobileLocale.lower(locale), $0
+        )
+    })
 }
+
 /**
  * Get all FAQ items in the specified locale.
  */
 public func getFaqsLocalized(locale: MobileLocale) -> [MobileFaqItem] {
-    return try!  FfiConverterSequenceTypeMobileFaqItem.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_func_get_faqs_localized(
-        FfiConverterTypeMobileLocale.lower(locale),$0
-    )
-})
+    return try! FfiConverterSequenceTypeMobileFaqItem.lift(try! rustCall {
+        uniffi_vauchi_mobile_fn_func_get_faqs_localized(
+            FfiConverterTypeMobileLocale.lower(locale), $0
+        )
+    })
 }
+
 /**
  * Get all help categories with their display names.
  */
 public func getHelpCategories() -> [MobileHelpCategoryInfo] {
-    return try!  FfiConverterSequenceTypeMobileHelpCategoryInfo.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_func_get_help_categories($0
-    )
-})
+    return try! FfiConverterSequenceTypeMobileHelpCategoryInfo.lift(try! rustCall {
+        uniffi_vauchi_mobile_fn_func_get_help_categories($0)
+    })
 }
+
 /**
  * Get information about a specific locale.
  */
 public func getLocaleInfo(locale: MobileLocale) -> MobileLocaleInfo {
-    return try!  FfiConverterTypeMobileLocaleInfo.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_func_get_locale_info(
-        FfiConverterTypeMobileLocale.lower(locale),$0
-    )
-})
+    return try! FfiConverterTypeMobileLocaleInfo.lift(try! rustCall {
+        uniffi_vauchi_mobile_fn_func_get_locale_info(
+            FfiConverterTypeMobileLocale.lower(locale), $0
+        )
+    })
 }
+
 /**
  * Get a localized string by key.
  *
  * Falls back to English if the key is not found in the requested locale.
  */
 public func getString(locale: MobileLocale, key: String) -> String {
-    return try!  FfiConverterString.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_func_get_string(
-        FfiConverterTypeMobileLocale.lower(locale),
-        FfiConverterString.lower(key),$0
-    )
-})
+    return try! FfiConverterString.lift(try! rustCall {
+        uniffi_vauchi_mobile_fn_func_get_string(
+            FfiConverterTypeMobileLocale.lower(locale),
+            FfiConverterString.lower(key), $0
+        )
+    })
 }
+
 /**
  * Get a localized string with argument interpolation.
  *
@@ -11119,26 +12170,28 @@ public func getString(locale: MobileLocale, key: String) -> String {
  * Falls back to English if the key is not found in the requested locale.
  */
 public func getStringWithArgs(locale: MobileLocale, key: String, args: [String: String]) -> String {
-    return try!  FfiConverterString.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_func_get_string_with_args(
-        FfiConverterTypeMobileLocale.lower(locale),
-        FfiConverterString.lower(key),
-        FfiConverterDictionaryStringString.lower(args),$0
-    )
-})
+    return try! FfiConverterString.lift(try! rustCall {
+        uniffi_vauchi_mobile_fn_func_get_string_with_args(
+            FfiConverterTypeMobileLocale.lower(locale),
+            FfiConverterString.lower(key),
+            FfiConverterDictionaryStringString.lower(args), $0
+        )
+    })
 }
+
 /**
  * Get a specific theme by ID.
  *
  * Returns None if the theme is not found.
  */
 public func getTheme(themeId: String) -> MobileTheme? {
-    return try!  FfiConverterOptionTypeMobileTheme.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_func_get_theme(
-        FfiConverterString.lower(themeId),$0
-    )
-})
+    return try! FfiConverterOptionTypeMobileTheme.lift(try! rustCall {
+        uniffi_vauchi_mobile_fn_func_get_theme(
+            FfiConverterString.lower(themeId), $0
+        )
+    })
 }
+
 /**
  * Initialize the i18n system by loading locale files from a directory.
  *
@@ -11146,36 +12199,40 @@ public func getTheme(themeId: String) -> MobileTheme? {
  * The resource_dir should point to a directory containing locale JSON files
  * (e.g., en.json, de.json, fr.json, es.json).
  */
-public func initLocales(resourceDir: String)throws  {try rustCallWithError(FfiConverterTypeMobileError.lift) {
-    uniffi_vauchi_mobile_fn_func_init_locales(
-        FfiConverterString.lower(resourceDir),$0
-    )
+public func initLocales(resourceDir: String) throws {
+    try rustCallWithError(FfiConverterTypeMobileError.lift) {
+        uniffi_vauchi_mobile_fn_func_init_locales(
+            FfiConverterString.lower(resourceDir), $0
+        )
+    }
 }
-}
+
 /**
  * Check if a URL scheme is in the allowed list.
  *
  * Allowed schemes: tel, mailto, sms, https, http, geo.
  */
 public func isAllowedScheme(scheme: String) -> Bool {
-    return try!  FfiConverterBool.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_func_is_allowed_scheme(
-        FfiConverterString.lower(scheme),$0
-    )
-})
+    return try! FfiConverterBool.lift(try! rustCall {
+        uniffi_vauchi_mobile_fn_func_is_allowed_scheme(
+            FfiConverterString.lower(scheme), $0
+        )
+    })
 }
+
 /**
  * Check if a URL scheme is explicitly blocked.
  *
  * Blocked schemes: javascript, vbscript, data, file, ftp, blob.
  */
 public func isBlockedScheme(scheme: String) -> Bool {
-    return try!  FfiConverterBool.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_func_is_blocked_scheme(
-        FfiConverterString.lower(scheme),$0
-    )
-})
+    return try! FfiConverterBool.lift(try! rustCall {
+        uniffi_vauchi_mobile_fn_func_is_blocked_scheme(
+            FfiConverterString.lower(scheme), $0
+        )
+    })
 }
+
 /**
  * Check if a URL is safe to open in an external application.
  *
@@ -11185,12 +12242,13 @@ public func isBlockedScheme(scheme: String) -> Bool {
  * Use this to validate URLs before opening them to prevent security issues.
  */
 public func isSafeUrl(url: String) -> Bool {
-    return try!  FfiConverterBool.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_func_is_safe_url(
-        FfiConverterString.lower(url),$0
-    )
-})
+    return try! FfiConverterBool.lift(try! rustCall {
+        uniffi_vauchi_mobile_fn_func_is_safe_url(
+            FfiConverterString.lower(url), $0
+        )
+    })
 }
+
 /**
  * Parse a locale code to MobileLocale.
  *
@@ -11198,36 +12256,61 @@ public func isSafeUrl(url: String) -> Bool {
  * Returns None if the code is not recognized.
  */
 public func parseLocaleCode(code: String) -> MobileLocale? {
-    return try!  FfiConverterOptionTypeMobileLocale.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_func_parse_locale_code(
-        FfiConverterString.lower(code),$0
-    )
-})
+    return try! FfiConverterOptionTypeMobileLocale.lift(try! rustCall {
+        uniffi_vauchi_mobile_fn_func_parse_locale_code(
+            FfiConverterString.lower(code), $0
+        )
+    })
 }
+
 /**
  * Search FAQs by query text.
  *
  * Searches in both questions and answers (case-insensitive).
  */
 public func searchFaqs(query: String) -> [MobileFaqItem] {
-    return try!  FfiConverterSequenceTypeMobileFaqItem.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_func_search_faqs(
-        FfiConverterString.lower(query),$0
-    )
-})
+    return try! FfiConverterSequenceTypeMobileFaqItem.lift(try! rustCall {
+        uniffi_vauchi_mobile_fn_func_search_faqs(
+            FfiConverterString.lower(query), $0
+        )
+    })
 }
+
 /**
  * Search FAQs by query text in the specified locale.
  *
  * Searches in both questions and answers (case-insensitive).
  */
 public func searchFaqsLocalized(query: String, locale: MobileLocale) -> [MobileFaqItem] {
-    return try!  FfiConverterSequenceTypeMobileFaqItem.lift(try! rustCall() {
-    uniffi_vauchi_mobile_fn_func_search_faqs_localized(
-        FfiConverterString.lower(query),
-        FfiConverterTypeMobileLocale.lower(locale),$0
-    )
-})
+    return try! FfiConverterSequenceTypeMobileFaqItem.lift(try! rustCall {
+        uniffi_vauchi_mobile_fn_func_search_faqs_localized(
+            FfiConverterString.lower(query),
+            FfiConverterTypeMobileLocale.lower(locale), $0
+        )
+    })
+}
+
+/**
+ * Panic shred callable from a widget without full app initialization.
+ *
+ * This is the key API for iOS/Android home screen widgets that need to
+ * trigger emergency data destruction without opening the full app or
+ * calling `open_vauchi()`.
+ *
+ * Only requires:
+ * - `data_dir`: The app's data directory path (String for UniFFI compat)
+ * - `keychain`: Platform keychain callback for SMK destruction
+ *
+ * **WARNING**: This operation is irreversible and immediate. All account
+ * data in the specified directory will be permanently destroyed.
+ */
+public func widgetPanicShred(dataDir: String, keychain: MobilePlatformKeychain) throws -> MobileShredReport {
+    return try FfiConverterTypeMobileShredReport.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+        uniffi_vauchi_mobile_fn_func_widget_panic_shred(
+            FfiConverterString.lower(dataDir),
+            FfiConverterCallbackInterfaceMobilePlatformKeychain.lower(keychain), $0
+        )
+    })
 }
 
 private enum InitializationResult {
@@ -11235,8 +12318,9 @@ private enum InitializationResult {
     case contractVersionMismatch
     case apiChecksumMismatch
 }
-// Use a global variable to perform the versioning checks. Swift ensures that
-// the code inside is only computed once.
+
+/// Use a global variable to perform the versioning checks. Swift ensures that
+/// the code inside is only computed once.
 private var initializationResult: InitializationResult = {
     // Get the bindings contract version from our ComponentInterface
     let bindings_contract_version = 26
@@ -11245,511 +12329,613 @@ private var initializationResult: InitializationResult = {
     if bindings_contract_version != scaffolding_contract_version {
         return InitializationResult.contractVersionMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_func_check_password_strength() != 58506) {
+    if uniffi_vauchi_mobile_checksum_func_ble_exchange_status() != 2830 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_func_generate_storage_key() != 24673) {
+    if uniffi_vauchi_mobile_checksum_func_check_password_strength() != 58506 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_func_get_aha_moment_localized() != 58190) {
+    if uniffi_vauchi_mobile_checksum_func_generate_storage_key() != 24673 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_func_get_available_locales() != 16699) {
+    if uniffi_vauchi_mobile_checksum_func_get_aha_moment_localized() != 58190 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_func_get_available_themes() != 43638) {
+    if uniffi_vauchi_mobile_checksum_func_get_available_locales() != 16699 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_func_get_default_theme_id() != 15911) {
+    if uniffi_vauchi_mobile_checksum_func_get_available_themes() != 43638 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_func_get_faq_by_id() != 53682) {
+    if uniffi_vauchi_mobile_checksum_func_get_default_theme_id() != 15911 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_func_get_faq_by_id_localized() != 4391) {
+    if uniffi_vauchi_mobile_checksum_func_get_faq_by_id() != 53682 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_func_get_faqs() != 34098) {
+    if uniffi_vauchi_mobile_checksum_func_get_faq_by_id_localized() != 4391 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_func_get_faqs_by_category() != 19763) {
+    if uniffi_vauchi_mobile_checksum_func_get_faqs() != 34098 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_func_get_faqs_by_category_localized() != 52283) {
+    if uniffi_vauchi_mobile_checksum_func_get_faqs_by_category() != 19763 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_func_get_faqs_localized() != 46848) {
+    if uniffi_vauchi_mobile_checksum_func_get_faqs_by_category_localized() != 52283 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_func_get_help_categories() != 65096) {
+    if uniffi_vauchi_mobile_checksum_func_get_faqs_localized() != 46848 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_func_get_locale_info() != 48465) {
+    if uniffi_vauchi_mobile_checksum_func_get_help_categories() != 65096 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_func_get_string() != 35223) {
+    if uniffi_vauchi_mobile_checksum_func_get_locale_info() != 48465 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_func_get_string_with_args() != 45803) {
+    if uniffi_vauchi_mobile_checksum_func_get_string() != 35223 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_func_get_theme() != 36476) {
+    if uniffi_vauchi_mobile_checksum_func_get_string_with_args() != 45803 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_func_init_locales() != 4158) {
+    if uniffi_vauchi_mobile_checksum_func_get_theme() != 36476 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_func_is_allowed_scheme() != 10327) {
+    if uniffi_vauchi_mobile_checksum_func_init_locales() != 4158 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_func_is_blocked_scheme() != 1634) {
+    if uniffi_vauchi_mobile_checksum_func_is_allowed_scheme() != 10327 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_func_is_safe_url() != 43299) {
+    if uniffi_vauchi_mobile_checksum_func_is_blocked_scheme() != 1634 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_func_parse_locale_code() != 51633) {
+    if uniffi_vauchi_mobile_checksum_func_is_safe_url() != 43299 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_func_search_faqs() != 9146) {
+    if uniffi_vauchi_mobile_checksum_func_parse_locale_code() != 51633 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_func_search_faqs_localized() != 57224) {
+    if uniffi_vauchi_mobile_checksum_func_search_faqs() != 9146 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_mobileexchangesession_complete_card_exchange() != 64003) {
+    if uniffi_vauchi_mobile_checksum_func_search_faqs_localized() != 57224 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_mobileexchangesession_generate_qr() != 21097) {
+    if uniffi_vauchi_mobile_checksum_func_widget_panic_shred() != 35082 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_mobileexchangesession_is_timed_out() != 25990) {
+    if uniffi_vauchi_mobile_checksum_method_mobiledevicelinkinitiator_confirm_link() != 24604 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_mobileexchangesession_perform_key_agreement() != 4833) {
+    if uniffi_vauchi_mobile_checksum_method_mobiledevicelinkinitiator_prepare_confirmation() != 45542 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_mobileexchangesession_process_qr() != 54960) {
+    if uniffi_vauchi_mobile_checksum_method_mobiledevicelinkinitiator_proximity_challenge() != 64927 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_mobileexchangesession_state() != 19066) {
+    if uniffi_vauchi_mobile_checksum_method_mobiledevicelinkinitiator_qr_data() != 669 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_mobileexchangesession_they_scanned_our_qr() != 55148) {
+    if uniffi_vauchi_mobile_checksum_method_mobiledevicelinkinitiator_set_proximity_verified() != 56517 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_mobileproximityverifier_emit_challenge() != 35393) {
+    if uniffi_vauchi_mobile_checksum_method_mobiledevicelinkresponder_compute_confirmation_code() != 4477 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_mobileproximityverifier_get_capability() != 11037) {
+    if uniffi_vauchi_mobile_checksum_method_mobiledevicelinkresponder_create_request() != 43772 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_mobileproximityverifier_is_supported() != 55487) {
+    if uniffi_vauchi_mobile_checksum_method_mobiledevicelinkresponder_finish_join() != 23650 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_mobileproximityverifier_listen_for_response() != 13338) {
+    if uniffi_vauchi_mobile_checksum_method_mobiledevicelinkresponder_identity_fingerprint() != 55591 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_mobileproximityverifier_stop() != 48109) {
+    if uniffi_vauchi_mobile_checksum_method_mobileexchangesession_complete_card_exchange() != 64003 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_add_contact_to_label() != 6394) {
+    if uniffi_vauchi_mobile_checksum_method_mobileexchangesession_confirm_proximity() != 36862 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_add_field() != 50791) {
+    if uniffi_vauchi_mobile_checksum_method_mobileexchangesession_generate_qr() != 21097 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_add_recovery_voucher() != 24135) {
+    if uniffi_vauchi_mobile_checksum_method_mobileexchangesession_is_timed_out() != 25990 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_aha_moments_seen_count() != 62433) {
+    if uniffi_vauchi_mobile_checksum_method_mobileexchangesession_perform_key_agreement() != 4833 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_aha_moments_total_count() != 39450) {
+    if uniffi_vauchi_mobile_checksum_method_mobileexchangesession_process_qr() != 54960 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_apply_content_updates() != 9726) {
+    if uniffi_vauchi_mobile_checksum_method_mobileexchangesession_state() != 19066 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_auto_remove_demo_contact() != 63912) {
+    if uniffi_vauchi_mobile_checksum_method_mobileexchangesession_they_scanned_our_qr() != 55148 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_calculate_retry_backoff() != 60454) {
+    if uniffi_vauchi_mobile_checksum_method_mobileproximityverifier_emit_challenge() != 35393 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_cancel_account_deletion() != 49743) {
+    if uniffi_vauchi_mobile_checksum_method_mobileproximityverifier_get_capability() != 11037 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_cancel_shred() != 45075) {
+    if uniffi_vauchi_mobile_checksum_method_mobileproximityverifier_is_supported() != 55487 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_check_consent() != 20830) {
+    if uniffi_vauchi_mobile_checksum_method_mobileproximityverifier_listen_for_response() != 13338 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_check_content_updates() != 7487) {
+    if uniffi_vauchi_mobile_checksum_method_mobileproximityverifier_stop() != 48109 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_clear_pending_updates_for_contact() != 25049) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_add_contact_to_label() != 6394 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_contact_count() != 30960) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_add_decoy_contact() != 30330 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_count_failed_deliveries() != 59375) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_add_field() != 50791 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_create_identity() != 63328) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_add_recovery_voucher() != 24135 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_create_label() != 53912) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_aha_moments_seen_count() != 62433 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_create_qr_exchange() != 42535) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_aha_moments_total_count() != 39450 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_create_qr_exchange_manual() != 25533) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_apply_content_updates() != 9726 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_create_recovery_claim() != 34741) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_authenticate() != 26386 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_create_recovery_voucher() != 64336) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_auto_remove_demo_contact() != 63912 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_delete_label() != 49151) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_calculate_retry_backoff() != 60454 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_delete_retry() != 45088) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_cancel_account_deletion() != 49743 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_device_count() != 11012) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_cancel_shred() != 45075 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_dismiss_demo_contact() != 52421) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_check_consent() != 20830 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_execute_account_deletion() != 5865) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_check_content_updates() != 7487 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_export_backup() != 14975) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_clear_pending_updates_for_contact() != 25049 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_export_gdpr_data() != 23597) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_configure_duress_alerts() != 16570 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_export_storage_key() != 42895) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_configure_emergency_broadcast() != 40924 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_finalize_exchange() != 62679) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_contact_count() != 30960 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_generate_device_link_qr() != 28478) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_count_failed_deliveries() != 59375 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_get_all_delivery_records() != 60693) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_create_identity() != 63328 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_get_consent_records() != 7910) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_create_label() != 53912 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_get_contact() != 17724) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_create_qr_exchange() != 42535 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_get_deletion_state() != 30292) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_create_qr_exchange_manual() != 25533 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_get_delivery_count_by_status() != 25864) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_create_recovery_claim() != 34741 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_get_delivery_record() != 7344) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_create_recovery_voucher() != 64336 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_get_delivery_records_for_contact() != 47399) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_delete_decoy_contact() != 36941 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_get_delivery_summary() != 26032) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_delete_label() != 49151 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_get_demo_contact() != 57328) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_delete_retry() != 45088 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_get_demo_contact_state() != 10277) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_device_count() != 11012 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_get_device_deliveries() != 13834) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_disable_duress() != 50779 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_get_devices() != 4284) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_disable_emergency_broadcast() != 24366 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_get_display_name() != 22034) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_dismiss_demo_contact() != 52421 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_get_due_retries() != 45644) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_execute_account_deletion() != 5865 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_get_field_validation_count() != 23050) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_export_backup() != 14975 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_get_field_validation_status() != 10695) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_export_gdpr_data() != 23597 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_get_label() != 23616) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_export_storage_key() != 42895 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_get_labels_for_contact() != 34054) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_finalize_exchange() != 62679 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_get_offline_queue_capacity() != 37318) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_generate_device_link_qr() != 28478 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_get_own_card() != 41646) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_all_delivery_records() != 60693 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_get_pending_deliveries() != 20816) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_consent_records() != 7910 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_get_pending_device_deliveries() != 59136) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_contact() != 17724 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_get_profile_url() != 40964) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_deletion_state() != 30292 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_get_public_id() != 47690) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_delivery_count_by_status() != 25864 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_get_recovery_proof() != 53462) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_delivery_record() != 7344 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_get_recovery_status() != 18084) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_delivery_records_for_contact() != 47399 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_get_retries_for_contact() != 16947) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_delivery_summary() != 26032 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_get_retry_count() != 56457) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_demo_contact() != 57328 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_get_suggested_labels() != 35491) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_demo_contact_state() != 10277 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_get_sync_status() != 18804) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_device_deliveries() != 13834 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_get_total_pending_count() != 28547) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_devices() != 4284 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_grant_consent() != 28571) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_display_name() != 22034 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_hard_shred() != 25712) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_due_retries() != 45644 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_has_identity() != 17028) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_duress_settings() != 46277 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_has_seen_aha_moment() != 37304) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_emergency_config() != 46434 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_has_validated_field() != 50022) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_field_validation_count() != 23050 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_hide_field_from_contact() != 26050) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_field_validation_status() != 10695 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_import_backup() != 16228) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_label() != 23616 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_init_demo_contact_if_needed() != 24963) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_labels_for_contact() != 34054 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_is_certificate_pinning_enabled() != 31532) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_offline_queue_capacity() != 37318 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_is_content_updates_supported() != 25945) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_own_card() != 41646 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_is_demo_update_available() != 17863) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_own_fingerprint() != 60612 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_is_field_visible_to_contact() != 31866) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_pending_deliveries() != 20816 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_is_offline_queue_full() != 65171) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_pending_device_deliveries() != 59136 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_is_primary_device() != 55103) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_profile_url() != 40964 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_list_contacts() != 21454) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_public_id() != 47690 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_list_contacts_paginated() != 30748) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_recovery_proof() != 53462 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_list_labels() != 31739) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_recovery_status() != 18084 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_list_my_validations() != 30917) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_retries_for_contact() != 16947 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_list_social_networks() != 64160) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_retry_count() != 56457 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_manual_retry() != 42209) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_suggested_labels() != 35491 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_panic_shred() != 52835) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_sync_status() != 18804 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_parse_device_link_qr() != 14305) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_total_pending_count() != 28547 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_parse_recovery_claim() != 19311) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_grant_consent() != 28571 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_pending_update_count() != 109) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_hard_shred() != 25712 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_reload_social_networks() != 53115) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_has_identity() != 17028 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_remove_contact() != 60263) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_has_seen_aha_moment() != 37304 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_remove_contact_field_override() != 62988) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_has_validated_field() != 50022 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_remove_contact_from_label() != 34319) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_hide_contact() != 15708 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_remove_field() != 48211) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_hide_field_from_contact() != 26050 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_rename_label() != 5503) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_import_backup() != 16228 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_reset_aha_moments() != 24810) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_init_demo_contact_if_needed() != 24963 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_restore_demo_contact() != 31302) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_is_certificate_pinning_enabled() != 31532 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_revoke_consent() != 7992) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_is_content_updates_supported() != 25945 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_revoke_field_validation() != 14878) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_is_demo_update_available() != 17863 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_schedule_account_deletion() != 23295) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_is_duress_enabled() != 45103 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_search_contacts() != 4061) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_is_field_visible_to_contact() != 31866 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_search_social_networks() != 27909) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_is_offline_queue_full() != 65171 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_set_contact_field_override() != 24591) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_is_password_enabled() != 34976 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_set_display_name() != 21017) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_is_primary_device() != 55103 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_set_label_field_visibility() != 63370) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_list_contacts() != 21454 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_set_pinned_certificate() != 2029) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_list_contacts_paginated() != 30748 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_set_platform_keychain() != 45535) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_list_decoy_contacts() != 27082 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_show_field_to_contact() != 3699) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_list_hidden_contacts() != 42503 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_shred_status() != 19648) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_list_labels() != 31739 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_soft_shred() != 22022) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_list_my_validations() != 30917 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_sync() != 44616) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_list_social_networks() != 64160 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_trigger_demo_update() != 56863) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_manual_retry() != 42209 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_trust_contact_for_recovery() != 65532) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_panic_shred() != 52835 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_trusted_contact_count() != 12819) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_parse_device_link_qr() != 14305 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_try_trigger_aha_moment() != 32158) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_parse_recovery_claim() != 19311 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_try_trigger_aha_moment_with_context() != 36865) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_pending_update_count() != 109 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_unlink_device() != 30553) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_reload_social_networks() != 53115 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_untrust_contact_for_recovery() != 31348) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_remove_contact() != 60263 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_update_field() != 13386) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_remove_contact_field_override() != 62988 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_validate_field() != 21676) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_remove_contact_from_label() != 34319 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_verify_contact() != 57061) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_remove_field() != 48211 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_verify_recovery_proof() != 55854) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_rename_label() != 5503 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_vauchimobile_verify_shred() != 51157) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_reset_aha_moments() != 24810 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_constructor_mobileproximityverifier_new() != 33177) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_restore_demo_contact() != 31302 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_constructor_mobileproximityverifier_without_handler() != 27250) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_revoke_consent() != 7992 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_constructor_vauchimobile_new() != 54148) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_revoke_field_validation() != 14878 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_constructor_vauchimobile_new_with_secure_key() != 16278) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_schedule_account_deletion() != 23295 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_mobileplatformkeychain_save_key() != 54986) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_search_contacts() != 4061 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_mobileplatformkeychain_load_key() != 19543) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_search_social_networks() != 27909 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_mobileplatformkeychain_delete_key() != 34382) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_send_emergency_broadcast() != 34786 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_mobileproximityhandler_verify_proximity() != 10196) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_set_contact_field_override() != 24591 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_platformaudiohandler_check_capability() != 34713) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_set_display_name() != 21017 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_platformaudiohandler_emit_signal() != 23893) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_set_label_field_visibility() != 63370 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_platformaudiohandler_receive_signal() != 19346) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_set_pinned_certificate() != 2029 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_platformaudiohandler_is_active() != 3765) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_set_platform_keychain() != 45535 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_mobile_checksum_method_platformaudiohandler_stop() != 15316) {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_setup_app_password() != 46352 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_setup_duress_password() != 48796 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_show_field_to_contact() != 3699 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_shred_status() != 19648 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_soft_shred() != 22022 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_start_device_join() != 7246 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_start_device_link() != 44513 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_sync() != 44616 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_sync_async() != 40029 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_trigger_demo_update() != 56863 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_trust_contact_for_recovery() != 65532 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_trusted_contact_count() != 12819 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_try_trigger_aha_moment() != 32158 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_try_trigger_aha_moment_with_context() != 36865 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_unhide_contact() != 3991 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_unlink_device() != 30553 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_untrust_contact_for_recovery() != 31348 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_update_field() != 13386 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_validate_field() != 21676 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_verify_contact() != 57061 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_verify_recovery_proof() != 55854 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_verify_shred() != 51157 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_constructor_mobileproximityverifier_new() != 33177 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_constructor_mobileproximityverifier_without_handler() != 27250 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_constructor_vauchimobile_new() != 54148 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_constructor_vauchimobile_new_with_secure_key() != 16278 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobileplatformkeychain_save_key() != 54986 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobileplatformkeychain_load_key() != 19543 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobileplatformkeychain_delete_key() != 34382 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobileproximityhandler_verify_proximity() != 10196 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_platformaudiohandler_check_capability() != 34713 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_platformaudiohandler_emit_signal() != 23893 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_platformaudiohandler_receive_signal() != 19346 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_platformaudiohandler_is_active() != 3765 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_platformaudiohandler_stop() != 15316 {
         return InitializationResult.apiChecksumMismatch
     }
 

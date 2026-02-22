@@ -1122,6 +1122,203 @@ public func FfiConverterTypeMobileExchangeSession_lower(_ value: MobileExchangeS
 }
 
 /**
+ * UniFFI-friendly wrapper around `MultipartDecoder`.
+ *
+ * Exposes the decoder as an Arc-wrapped object that mobile platforms (iOS/Android)
+ * can use to reassemble animated QR code sequences. The inner `MultipartDecoder`
+ * is protected by a `Mutex` for thread safety.
+ */
+public protocol MobileMultipartDecoderProtocol: AnyObject {
+    /**
+     * Add a scanned QR chunk string. Returns `true` if new, `false` if duplicate.
+     */
+    func addChunk(chunk: String) throws -> Bool
+
+    /**
+     * Reassemble the complete payload from received chunks.
+     *
+     * Only valid when `is_complete()` returns `true`.
+     */
+    func assemble() throws -> Data
+
+    /**
+     * Expected total number of chunks, if at least one has been received.
+     */
+    func expectedTotal() -> UInt32?
+
+    /**
+     * Whether all chunks have been received.
+     */
+    func isComplete() -> Bool
+
+    /**
+     * Number of unique chunks received so far.
+     */
+    func received() -> UInt32
+}
+
+/**
+ * UniFFI-friendly wrapper around `MultipartDecoder`.
+ *
+ * Exposes the decoder as an Arc-wrapped object that mobile platforms (iOS/Android)
+ * can use to reassemble animated QR code sequences. The inner `MultipartDecoder`
+ * is protected by a `Mutex` for thread safety.
+ */
+open class MobileMultipartDecoder:
+    MobileMultipartDecoderProtocol
+{
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    // Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noPointer _: NoPointer) {
+        pointer = nil
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobilemultipartdecoder(self.pointer, $0) }
+    }
+
+    /**
+     * Create a new empty multipart QR decoder.
+     */
+    public convenience init() {
+        let pointer =
+            try! rustCall {
+                uniffi_vauchi_mobile_fn_constructor_mobilemultipartdecoder_new($0)
+            }
+        self.init(unsafeFromRawPointer: pointer)
+    }
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_vauchi_mobile_fn_free_mobilemultipartdecoder(pointer, $0) }
+    }
+
+    /**
+     * Add a scanned QR chunk string. Returns `true` if new, `false` if duplicate.
+     */
+    open func addChunk(chunk: String) throws -> Bool {
+        return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobilemultipartdecoder_add_chunk(self.uniffiClonePointer(),
+                                                                            FfiConverterString.lower(chunk), $0)
+        })
+    }
+
+    /**
+     * Reassemble the complete payload from received chunks.
+     *
+     * Only valid when `is_complete()` returns `true`.
+     */
+    open func assemble() throws -> Data {
+        return try FfiConverterData.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobilemultipartdecoder_assemble(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Expected total number of chunks, if at least one has been received.
+     */
+    open func expectedTotal() -> UInt32? {
+        return try! FfiConverterOptionUInt32.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_mobilemultipartdecoder_expected_total(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Whether all chunks have been received.
+     */
+    open func isComplete() -> Bool {
+        return try! FfiConverterBool.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_mobilemultipartdecoder_is_complete(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Number of unique chunks received so far.
+     */
+    open func received() -> UInt32 {
+        return try! FfiConverterUInt32.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_mobilemultipartdecoder_received(self.uniffiClonePointer(), $0)
+        })
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileMultipartDecoder: FfiConverter {
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = MobileMultipartDecoder
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileMultipartDecoder {
+        return MobileMultipartDecoder(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: MobileMultipartDecoder) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileMultipartDecoder {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if ptr == nil {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: MobileMultipartDecoder, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileMultipartDecoder_lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileMultipartDecoder {
+    return try FfiConverterTypeMobileMultipartDecoder.lift(pointer)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileMultipartDecoder_lower(_ value: MobileMultipartDecoder) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeMobileMultipartDecoder.lower(value)
+}
+
+/**
  * Mobile-friendly proximity verification API.
  */
 public protocol MobileProximityVerifierProtocol: AnyObject {
@@ -1542,6 +1739,15 @@ public protocol VauchiMobileProtocol: AnyObject {
     func dismissDemoContact() throws
 
     /**
+     * Encode data into multipart QR chunk strings for animated display.
+     *
+     * Each chunk fits within a QR code's data capacity. The chunks should
+     * be displayed in sequence as an animated QR code for the scanning
+     * device to reassemble using `MobileMultipartDecoder`.
+     */
+    func encodeMultipartQr(data: Data) -> [String]
+
+    /**
      * Execute account deletion (only after grace period).
      *
      * Generates revocation messages for all contacts and shreds CEKs.
@@ -1911,6 +2117,14 @@ public protocol VauchiMobileProtocol: AnyObject {
     func listSocialNetworks() -> [MobileSocialNetwork]
 
     /**
+     * Listen for incoming device link request via relay (existing device / initiator).
+     *
+     * Connects to the relay, registers as a listener for this identity, and
+     * waits for a new device to send a device link request.
+     */
+    func listenForDeviceLinkRequest(timeoutSecs: UInt64) throws -> MobileDeviceLinkRequest
+
+    /**
      * Manually retry a failed delivery.
      *
      * Returns true if the retry entry was found and rescheduled.
@@ -2017,6 +2231,22 @@ public protocol VauchiMobileProtocol: AnyObject {
      * Search social networks.
      */
     func searchSocialNetworks(query: String) -> [MobileSocialNetwork]
+
+    /**
+     * Send device link request via relay and wait for response (new device / responder).
+     *
+     * Connects to the relay, sends the encrypted request targeting the existing
+     * device's identity, and waits for the encrypted response.
+     */
+    func sendDeviceLinkRequest(targetIdentity: String, senderToken: String, encryptedRequest: Data, timeoutSecs: UInt64) throws -> Data
+
+    /**
+     * Send device link response back via relay (existing device / initiator).
+     *
+     * After confirming a device link, sends the encrypted response back to the
+     * new device via the relay using the sender's token for routing.
+     */
+    func sendDeviceLinkResponse(senderToken: String, encryptedResponse: Data) throws
 
     /**
      * Sends an emergency broadcast to all trusted contacts.
@@ -2653,6 +2883,20 @@ open class VauchiMobile:
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_mobile_fn_method_vauchimobile_dismiss_demo_contact(self.uniffiClonePointer(), $0)
         }
+    }
+
+    /**
+     * Encode data into multipart QR chunk strings for animated display.
+     *
+     * Each chunk fits within a QR code's data capacity. The chunks should
+     * be displayed in sequence as an animated QR code for the scanning
+     * device to reassemble using `MobileMultipartDecoder`.
+     */
+    open func encodeMultipartQr(data: Data) -> [String] {
+        return try! FfiConverterSequenceString.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_encode_multipart_qr(self.uniffiClonePointer(),
+                                                                            FfiConverterData.lower(data), $0)
+        })
     }
 
     /**
@@ -3313,6 +3557,19 @@ open class VauchiMobile:
     }
 
     /**
+     * Listen for incoming device link request via relay (existing device / initiator).
+     *
+     * Connects to the relay, registers as a listener for this identity, and
+     * waits for a new device to send a device link request.
+     */
+    open func listenForDeviceLinkRequest(timeoutSecs: UInt64) throws -> MobileDeviceLinkRequest {
+        return try FfiConverterTypeMobileDeviceLinkRequest.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_listen_for_device_link_request(self.uniffiClonePointer(),
+                                                                                       FfiConverterUInt64.lower(timeoutSecs), $0)
+        })
+    }
+
+    /**
      * Manually retry a failed delivery.
      *
      * Returns true if the retry entry was found and rescheduled.
@@ -3506,6 +3763,36 @@ open class VauchiMobile:
             uniffi_vauchi_mobile_fn_method_vauchimobile_search_social_networks(self.uniffiClonePointer(),
                                                                                FfiConverterString.lower(query), $0)
         })
+    }
+
+    /**
+     * Send device link request via relay and wait for response (new device / responder).
+     *
+     * Connects to the relay, sends the encrypted request targeting the existing
+     * device's identity, and waits for the encrypted response.
+     */
+    open func sendDeviceLinkRequest(targetIdentity: String, senderToken: String, encryptedRequest: Data, timeoutSecs: UInt64) throws -> Data {
+        return try FfiConverterData.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_send_device_link_request(self.uniffiClonePointer(),
+                                                                                 FfiConverterString.lower(targetIdentity),
+                                                                                 FfiConverterString.lower(senderToken),
+                                                                                 FfiConverterData.lower(encryptedRequest),
+                                                                                 FfiConverterUInt64.lower(timeoutSecs), $0)
+        })
+    }
+
+    /**
+     * Send device link response back via relay (existing device / initiator).
+     *
+     * After confirming a device link, sends the encrypted response back to the
+     * new device via the relay using the sender's token for routing.
+     */
+    open func sendDeviceLinkResponse(senderToken: String, encryptedResponse: Data) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_send_device_link_response(self.uniffiClonePointer(),
+                                                                                  FfiConverterString.lower(senderToken),
+                                                                                  FfiConverterData.lower(encryptedResponse), $0)
+        }
     }
 
     /**
@@ -5983,6 +6270,85 @@ public func FfiConverterTypeMobileDeviceLinkInfo_lower(_ value: MobileDeviceLink
 }
 
 /**
+ * Incoming device link request received via relay.
+ *
+ * Returned by `listen_for_device_link_request` on the existing device.
+ */
+public struct MobileDeviceLinkRequest {
+    /**
+     * Encrypted device link request payload.
+     */
+    public var encryptedPayload: Data
+    /**
+     * Sender token for routing the response back.
+     */
+    public var senderToken: String
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(
+        /* 
+         * Encrypted device link request payload.
+         */ encryptedPayload: Data,
+        /* 
+            * Sender token for routing the response back.
+            */ senderToken: String
+    ) {
+        self.encryptedPayload = encryptedPayload
+        self.senderToken = senderToken
+    }
+}
+
+extension MobileDeviceLinkRequest: Equatable, Hashable {
+    public static func == (lhs: MobileDeviceLinkRequest, rhs: MobileDeviceLinkRequest) -> Bool {
+        if lhs.encryptedPayload != rhs.encryptedPayload {
+            return false
+        }
+        if lhs.senderToken != rhs.senderToken {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(encryptedPayload)
+        hasher.combine(senderToken)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileDeviceLinkRequest: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileDeviceLinkRequest {
+        return
+            try MobileDeviceLinkRequest(
+                encryptedPayload: FfiConverterData.read(from: &buf),
+                senderToken: FfiConverterString.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileDeviceLinkRequest, into buf: inout [UInt8]) {
+        FfiConverterData.write(value.encryptedPayload, into: &buf)
+        FfiConverterString.write(value.senderToken, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileDeviceLinkRequest_lift(_ buf: RustBuffer) throws -> MobileDeviceLinkRequest {
+    return try FfiConverterTypeMobileDeviceLinkRequest.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileDeviceLinkRequest_lower(_ value: MobileDeviceLinkRequest) -> RustBuffer {
+    return FfiConverterTypeMobileDeviceLinkRequest.lower(value)
+}
+
+/**
  * Result of completing device link (for existing device).
  */
 public struct MobileDeviceLinkResult {
@@ -7663,6 +8029,14 @@ public struct MobileShredReport {
      * Whether the data directory was removed.
      */
     public var dataDirDeleted: Bool
+    /**
+     * Whether revocation sender construction failed.
+     */
+    public var revocationFailed: Bool
+    /**
+     * Error message if revocation sender failed to construct.
+     */
+    public var revocationError: String?
 
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
@@ -7693,7 +8067,13 @@ public struct MobileShredReport {
             */ preSignedDeleted: Bool,
         /* 
             * Whether the data directory was removed.
-            */ dataDirDeleted: Bool
+            */ dataDirDeleted: Bool,
+        /* 
+            * Whether revocation sender construction failed.
+            */ revocationFailed: Bool,
+        /* 
+            * Error message if revocation sender failed to construct.
+            */ revocationError: String?
     ) {
         self.contactsNotified = contactsNotified
         self.relayPurgeSent = relayPurgeSent
@@ -7704,6 +8084,8 @@ public struct MobileShredReport {
         self.sqliteDestroyed = sqliteDestroyed
         self.preSignedDeleted = preSignedDeleted
         self.dataDirDeleted = dataDirDeleted
+        self.revocationFailed = revocationFailed
+        self.revocationError = revocationError
     }
 }
 
@@ -7736,6 +8118,12 @@ extension MobileShredReport: Equatable, Hashable {
         if lhs.dataDirDeleted != rhs.dataDirDeleted {
             return false
         }
+        if lhs.revocationFailed != rhs.revocationFailed {
+            return false
+        }
+        if lhs.revocationError != rhs.revocationError {
+            return false
+        }
         return true
     }
 
@@ -7749,6 +8137,8 @@ extension MobileShredReport: Equatable, Hashable {
         hasher.combine(sqliteDestroyed)
         hasher.combine(preSignedDeleted)
         hasher.combine(dataDirDeleted)
+        hasher.combine(revocationFailed)
+        hasher.combine(revocationError)
     }
 }
 
@@ -7767,7 +8157,9 @@ public struct FfiConverterTypeMobileShredReport: FfiConverterRustBuffer {
                 keyFilesDestroyed: FfiConverterUInt32.read(from: &buf),
                 sqliteDestroyed: FfiConverterBool.read(from: &buf),
                 preSignedDeleted: FfiConverterBool.read(from: &buf),
-                dataDirDeleted: FfiConverterBool.read(from: &buf)
+                dataDirDeleted: FfiConverterBool.read(from: &buf),
+                revocationFailed: FfiConverterBool.read(from: &buf),
+                revocationError: FfiConverterOptionString.read(from: &buf)
             )
     }
 
@@ -7781,6 +8173,8 @@ public struct FfiConverterTypeMobileShredReport: FfiConverterRustBuffer {
         FfiConverterBool.write(value.sqliteDestroyed, into: &buf)
         FfiConverterBool.write(value.preSignedDeleted, into: &buf)
         FfiConverterBool.write(value.dataDirDeleted, into: &buf)
+        FfiConverterBool.write(value.revocationFailed, into: &buf)
+        FfiConverterOptionString.write(value.revocationError, into: &buf)
     }
 }
 
@@ -11116,6 +11510,30 @@ extension FfiConverterCallbackInterfacePlatformAudioHandler: FfiConverter {
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
+private struct FfiConverterOptionUInt32: FfiConverterRustBuffer {
+    typealias SwiftType = UInt32?
+
+    static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterUInt32.write(value, into: &buf)
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterUInt32.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
 private struct FfiConverterOptionUInt64: FfiConverterRustBuffer {
     typealias SwiftType = UInt64?
 
@@ -12038,7 +12456,7 @@ public func getAvailableLocales() -> [MobileLocaleInfo] {
 }
 
 /**
- * Get all available bundled themes.
+ * Get all available themes from themes.json.
  */
 public func getAvailableThemes() -> [MobileTheme] {
     return try! FfiConverterSequenceTypeMobileTheme.lift(try! rustCall {
@@ -12344,7 +12762,7 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_func_get_available_locales() != 16699 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_func_get_available_themes() != 43638 {
+    if uniffi_vauchi_mobile_checksum_func_get_available_themes() != 59234 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_func_get_default_theme_id() != 15911 {
@@ -12458,6 +12876,21 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_method_mobileexchangesession_they_scanned_our_qr() != 55148 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_mobile_checksum_method_mobilemultipartdecoder_add_chunk() != 22960 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilemultipartdecoder_assemble() != 36454 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilemultipartdecoder_expected_total() != 56693 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilemultipartdecoder_is_complete() != 33003 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilemultipartdecoder_received() != 14281 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_mobile_checksum_method_mobileproximityverifier_emit_challenge() != 35393 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -12567,6 +13000,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_dismiss_demo_contact() != 52421 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_encode_multipart_qr() != 29028 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_execute_account_deletion() != 5865 {
@@ -12761,6 +13197,9 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_list_social_networks() != 64160 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_listen_for_device_link_request() != 59845 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_manual_retry() != 42209 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -12813,6 +13252,12 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_search_social_networks() != 27909 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_send_device_link_request() != 11214 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_send_device_link_response() != 7939 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_send_emergency_broadcast() != 34786 {
@@ -12897,6 +13342,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_verify_shred() != 51157 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_constructor_mobilemultipartdecoder_new() != 15717 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_constructor_mobileproximityverifier_new() != 33177 {

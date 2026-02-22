@@ -111,17 +111,24 @@ update:version:
       sed -i "s/let checksum = \".*\"/let checksum = \"$CHECKSUM\"/" Package.swift
 
       echo "Updated Package.swift:"
-      head -8 Package.swift
+      head -12 Package.swift
 
       # Configure git to push via CI_JOB_TOKEN
       git config user.email "ci@vauchi.com"
       git config user.name "Vauchi CI"
       git remote set-url origin "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/${CI_PROJECT_PATH}.git"
 
+      # GitLab clones in detached HEAD — checkout main so we can commit and push
+      git checkout -B main
+
       git add Package.swift Sources/VauchiMobile/vauchi_mobile.swift
+      if git diff --cached --quiet; then
+        echo "No changes to commit — bindings already up to date"
+        exit 0
+      fi
       git commit -m "chore: Update to $UPSTREAM_VERSION"
       git tag -f "$UPSTREAM_VERSION"
-      git push origin HEAD:main --tags --force
+      git push origin main --tags --force
 
 # Notify consumer app about new bindings version
 # Triggers vauchi/ios to create an MR bumping the dependency

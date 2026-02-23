@@ -130,38 +130,18 @@ update:version:
       git tag -f "$UPSTREAM_VERSION"
       git push origin main --tags --force
 
-# Notify consumer app about new bindings version
-# Triggers vauchi/ios to create an MR bumping the dependency
-notify:ios-app:
+# Trigger vauchi/ios to create an MR bumping the dependency.
+# Uses GitLab's native trigger: keyword — CI_JOB_TOKEN is used implicitly.
+# Requires vauchi/ios to allow CI job tokens from this project.
+trigger:ios-app:
   stage: notify
-  image: alpine:latest
-  resource_group: notify-downstream
   needs:
     - update:version
+  variables:
+    BINDINGS_VERSION: $UPSTREAM_VERSION
+  trigger:
+    project: vauchi/ios
+    branch: main
+    strategy: depend
   rules:
     - if: ($CI_PIPELINE_SOURCE == "trigger" || $CI_PIPELINE_SOURCE == "pipeline" || $CI_PIPELINE_SOURCE == "api") && $UPSTREAM_VERSION
-  before_script:
-    - apk add --no-cache curl
-  script:
-    - |
-      CLEAN_VERSION="${UPSTREAM_VERSION#v}"
-      echo "Notifying vauchi/ios about version $CLEAN_VERSION"
-
-      IOS_APP_PROJECT_ID="77813130"
-
-      response=$(curl -s -w "\n%{http_code}" \
-        --request POST \
-        --header "JOB-TOKEN: $CI_JOB_TOKEN" \
-        --header "Content-Type: application/json" \
-        --data "{\"ref\": \"main\", \"variables\": [{\"key\": \"BINDINGS_VERSION\", \"value\": \"$CLEAN_VERSION\"}]}" \
-        "${CI_SERVER_URL}/api/v4/projects/$IOS_APP_PROJECT_ID/pipeline")
-
-      http_code=$(echo "$response" | tail -n1)
-      body=$(echo "$response" | head -n -1)
-
-      if [ "$http_code" = "201" ] || [ "$http_code" = "200" ]; then
-        echo "Triggered iOS app pipeline: $(echo "$body" | grep -o '"web_url":"[^"]*"' | head -1)"
-      else
-        echo "Failed to trigger ($http_code): $body"
-        exit 1
-      fi

@@ -6,8 +6,8 @@
 
 import PackageDescription
 
-let version = "0.1.16"
-let checksum = "9f3807a4eee50133fae6907118c2a29389965c61f839d6041fc26dfec7a45295" // Updated by CI on release
+let version = "0.1.17"
+let checksum = "91698c47255ac55973bb27e0ce061dd9a670787a381bd4638a978695d2b7f0bd" // Updated by CI on release
 
 let package = Package(
     name: "VauchiMobile",

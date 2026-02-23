@@ -12467,7 +12467,7 @@ public func getAvailableThemes() -> [MobileTheme] {
 /**
  * Get the default theme ID based on system preference.
  *
- * Returns "default-dark" for dark mode, "default-light" for light mode.
+ * Returns "catppuccin-mocha" for dark mode, "catppuccin-latte" for light mode.
  */
 public func getDefaultThemeId(preferDark: Bool) -> String {
     return try! FfiConverterString.lift(try! rustCall {
@@ -12765,7 +12765,7 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_func_get_available_themes() != 59234 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_func_get_default_theme_id() != 15911 {
+    if uniffi_vauchi_mobile_checksum_func_get_default_theme_id() != 7198 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_func_get_faq_by_id() != 53682 {

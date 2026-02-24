@@ -1801,6 +1801,14 @@ public protocol VauchiMobileProtocol: AnyObject {
     func getConsentRecords() throws -> [MobileConsentRecord]
 
     /**
+     * Get the aggregated consent status for a specific type.
+     *
+     * Returns granted state, last change timestamp, and policy version
+     * in a single call. Replaces inline consent record filtering in clients.
+     */
+    func getConsentStatus(consentType: MobileConsentType) throws -> MobileConsentStatus
+
+    /**
      * Get single contact by ID.
      */
     func getContact(id: String) throws -> MobileContact?
@@ -2983,6 +2991,19 @@ open class VauchiMobile:
     open func getConsentRecords() throws -> [MobileConsentRecord] {
         return try FfiConverterSequenceTypeMobileConsentRecord.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_mobile_fn_method_vauchimobile_get_consent_records(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Get the aggregated consent status for a specific type.
+     *
+     * Returns granted state, last change timestamp, and policy version
+     * in a single call. Replaces inline consent record filtering in clients.
+     */
+    open func getConsentStatus(consentType: MobileConsentType) throws -> MobileConsentStatus {
+        return try FfiConverterTypeMobileConsentStatus.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_get_consent_status(self.uniffiClonePointer(),
+                                                                           FfiConverterTypeMobileConsentType.lower(consentType), $0)
         })
     }
 
@@ -4562,6 +4583,97 @@ public func FfiConverterTypeMobileConsentRecord_lift(_ buf: RustBuffer) throws -
 #endif
 public func FfiConverterTypeMobileConsentRecord_lower(_ value: MobileConsentRecord) -> RustBuffer {
     return FfiConverterTypeMobileConsentRecord.lower(value)
+}
+
+/**
+ * Aggregated consent status for a specific consent type.
+ */
+public struct MobileConsentStatus {
+    /**
+     * Whether consent is currently granted.
+     */
+    public var granted: Bool
+    /**
+     * Unix timestamp of the most recent grant or revocation, if any.
+     */
+    public var lastChangedAt: UInt64?
+    /**
+     * Privacy policy version from the most recent consent record, if any.
+     */
+    public var policyVersion: String?
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(
+        /* 
+         * Whether consent is currently granted.
+         */ granted: Bool,
+        /* 
+            * Unix timestamp of the most recent grant or revocation, if any.
+            */ lastChangedAt: UInt64?,
+        /* 
+            * Privacy policy version from the most recent consent record, if any.
+            */ policyVersion: String?
+    ) {
+        self.granted = granted
+        self.lastChangedAt = lastChangedAt
+        self.policyVersion = policyVersion
+    }
+}
+
+extension MobileConsentStatus: Equatable, Hashable {
+    public static func == (lhs: MobileConsentStatus, rhs: MobileConsentStatus) -> Bool {
+        if lhs.granted != rhs.granted {
+            return false
+        }
+        if lhs.lastChangedAt != rhs.lastChangedAt {
+            return false
+        }
+        if lhs.policyVersion != rhs.policyVersion {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(granted)
+        hasher.combine(lastChangedAt)
+        hasher.combine(policyVersion)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileConsentStatus: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileConsentStatus {
+        return
+            try MobileConsentStatus(
+                granted: FfiConverterBool.read(from: &buf),
+                lastChangedAt: FfiConverterOptionUInt64.read(from: &buf),
+                policyVersion: FfiConverterOptionString.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileConsentStatus, into buf: inout [UInt8]) {
+        FfiConverterBool.write(value.granted, into: &buf)
+        FfiConverterOptionUInt64.write(value.lastChangedAt, into: &buf)
+        FfiConverterOptionString.write(value.policyVersion, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileConsentStatus_lift(_ buf: RustBuffer) throws -> MobileConsentStatus {
+    return try FfiConverterTypeMobileConsentStatus.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileConsentStatus_lower(_ value: MobileConsentStatus) -> RustBuffer {
+    return FfiConverterTypeMobileConsentStatus.lower(value)
 }
 
 /**
@@ -8462,6 +8574,14 @@ public struct MobileSyncResult {
      * Number of outbound updates sent.
      */
     public var updatesSent: UInt32
+    /**
+     * Total number of operations (contacts_added + cards_updated + updates_sent).
+     */
+    public var total: UInt32
+    /**
+     * Whether any changes were synced.
+     */
+    public var hasChanges: Bool
 
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
@@ -8474,11 +8594,19 @@ public struct MobileSyncResult {
             */ cardsUpdated: UInt32,
         /* 
             * Number of outbound updates sent.
-            */ updatesSent: UInt32
+            */ updatesSent: UInt32,
+        /* 
+            * Total number of operations (contacts_added + cards_updated + updates_sent).
+            */ total: UInt32,
+        /* 
+            * Whether any changes were synced.
+            */ hasChanges: Bool
     ) {
         self.contactsAdded = contactsAdded
         self.cardsUpdated = cardsUpdated
         self.updatesSent = updatesSent
+        self.total = total
+        self.hasChanges = hasChanges
     }
 }
 
@@ -8493,6 +8621,12 @@ extension MobileSyncResult: Equatable, Hashable {
         if lhs.updatesSent != rhs.updatesSent {
             return false
         }
+        if lhs.total != rhs.total {
+            return false
+        }
+        if lhs.hasChanges != rhs.hasChanges {
+            return false
+        }
         return true
     }
 
@@ -8500,6 +8634,8 @@ extension MobileSyncResult: Equatable, Hashable {
         hasher.combine(contactsAdded)
         hasher.combine(cardsUpdated)
         hasher.combine(updatesSent)
+        hasher.combine(total)
+        hasher.combine(hasChanges)
     }
 }
 
@@ -8512,7 +8648,9 @@ public struct FfiConverterTypeMobileSyncResult: FfiConverterRustBuffer {
             try MobileSyncResult(
                 contactsAdded: FfiConverterUInt32.read(from: &buf),
                 cardsUpdated: FfiConverterUInt32.read(from: &buf),
-                updatesSent: FfiConverterUInt32.read(from: &buf)
+                updatesSent: FfiConverterUInt32.read(from: &buf),
+                total: FfiConverterUInt32.read(from: &buf),
+                hasChanges: FfiConverterBool.read(from: &buf)
             )
     }
 
@@ -8520,6 +8658,8 @@ public struct FfiConverterTypeMobileSyncResult: FfiConverterRustBuffer {
         FfiConverterUInt32.write(value.contactsAdded, into: &buf)
         FfiConverterUInt32.write(value.cardsUpdated, into: &buf)
         FfiConverterUInt32.write(value.updatesSent, into: &buf)
+        FfiConverterUInt32.write(value.total, into: &buf)
+        FfiConverterBool.write(value.hasChanges, into: &buf)
     }
 }
 
@@ -13027,6 +13167,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_consent_records() != 7910 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_consent_status() != 15482 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_contact() != 17724 {

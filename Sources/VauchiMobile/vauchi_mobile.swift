@@ -10170,6 +10170,88 @@ public func FfiConverterTypeMobileDeviceDeliveryStatus_lower(_ value: MobileDevi
 
 extension MobileDeviceDeliveryStatus: Equatable, Hashable {}
 
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/* 
+ * Device type classification for UI icon selection.
+ *
+ * Core classifies the device name into a type so all platforms
+ * produce consistent results without duplicating the logic.
+ */
+
+public enum MobileDeviceType {
+    case phone
+    case tablet
+    case laptop
+    case watch
+    case desktop
+    case unknown
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileDeviceType: FfiConverterRustBuffer {
+    typealias SwiftType = MobileDeviceType
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileDeviceType {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return .phone
+
+        case 2: return .tablet
+
+        case 3: return .laptop
+
+        case 4: return .watch
+
+        case 5: return .desktop
+
+        case 6: return .unknown
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileDeviceType, into buf: inout [UInt8]) {
+        switch value {
+        case .phone:
+            writeInt(&buf, Int32(1))
+
+        case .tablet:
+            writeInt(&buf, Int32(2))
+
+        case .laptop:
+            writeInt(&buf, Int32(3))
+
+        case .watch:
+            writeInt(&buf, Int32(4))
+
+        case .desktop:
+            writeInt(&buf, Int32(5))
+
+        case .unknown:
+            writeInt(&buf, Int32(6))
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileDeviceType_lift(_ buf: RustBuffer) throws -> MobileDeviceType {
+    return try FfiConverterTypeMobileDeviceType.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileDeviceType_lower(_ value: MobileDeviceType) -> RustBuffer {
+    return FfiConverterTypeMobileDeviceType.lower(value)
+}
+
+extension MobileDeviceType: Equatable, Hashable {}
+
 /**
  * Mobile-friendly error type.
  */
@@ -12557,6 +12639,20 @@ public func checkPasswordStrength(password: String) -> MobilePasswordCheck {
 }
 
 /**
+ * Classify a device type from its name string.
+ *
+ * Returns a device type for UI icon selection. The classification
+ * logic lives in core so all platforms produce consistent results.
+ */
+public func classifyDeviceType(name: String) -> MobileDeviceType {
+    return try! FfiConverterTypeMobileDeviceType.lift(try! rustCall {
+        uniffi_vauchi_mobile_fn_func_classify_device_type(
+            FfiConverterString.lower(name), $0
+        )
+    })
+}
+
+/**
  * Generate a new random storage key.
  *
  * Use this when setting up a new installation with secure storage.
@@ -12891,6 +12987,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_func_check_password_strength() != 58506 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_func_classify_device_type() != 49202 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_func_generate_storage_key() != 24673 {

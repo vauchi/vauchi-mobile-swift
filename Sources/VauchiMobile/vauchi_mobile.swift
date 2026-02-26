@@ -535,11 +535,26 @@ private struct FfiConverterData: FfiConverterRustBuffer {
  */
 public protocol MobileDeviceLinkInitiatorProtocol: AnyObject {
     /**
-     * After user confirms, creates the encrypted response.
+     * After user confirms codes match, creates the encrypted response.
      *
-     * Must call prepare_confirmation() and set_proximity_verified() first.
+     * For manual confirmation: pass the raw confirmation code string
+     * (displayed during linking). Rust computes the HMAC internally
+     * so the link key never crosses the FFI boundary.
+     *
+     * Must call prepare_confirmation() first. The `confirmation_code` is the
+     * human-readable code (e.g. "123-456") displayed during linking, and
+     * `confirmed_at` is the Unix timestamp (seconds) when the user confirmed.
      */
-    func confirmLink() throws -> MobileDeviceLinkResult
+    func confirmLinkManual(confirmationCode: String, confirmedAt: UInt64) throws -> MobileDeviceLinkResult
+
+    /**
+     * After user confirms, creates the encrypted response with ultrasonic proof.
+     *
+     * Must call prepare_confirmation() first. The `challenge_response` is the
+     * 16-byte proximity challenge echoed back, and `verified_at` is the Unix
+     * timestamp (seconds) when verification completed.
+     */
+    func confirmLinkUltrasonic(challengeResponse: Data, verifiedAt: UInt64) throws -> MobileDeviceLinkResult
 
     /**
      * Decrypts an incoming link request and returns confirmation details.
@@ -557,11 +572,6 @@ public protocol MobileDeviceLinkInitiatorProtocol: AnyObject {
      * Returns the QR data string for display.
      */
     func qrData() -> String
-
-    /**
-     * Marks proximity as verified.
-     */
-    func setProximityVerified()
 }
 
 /**
@@ -621,13 +631,36 @@ open class MobileDeviceLinkInitiator:
     }
 
     /**
-     * After user confirms, creates the encrypted response.
+     * After user confirms codes match, creates the encrypted response.
      *
-     * Must call prepare_confirmation() and set_proximity_verified() first.
+     * For manual confirmation: pass the raw confirmation code string
+     * (displayed during linking). Rust computes the HMAC internally
+     * so the link key never crosses the FFI boundary.
+     *
+     * Must call prepare_confirmation() first. The `confirmation_code` is the
+     * human-readable code (e.g. "123-456") displayed during linking, and
+     * `confirmed_at` is the Unix timestamp (seconds) when the user confirmed.
      */
-    open func confirmLink() throws -> MobileDeviceLinkResult {
+    open func confirmLinkManual(confirmationCode: String, confirmedAt: UInt64) throws -> MobileDeviceLinkResult {
         return try FfiConverterTypeMobileDeviceLinkResult.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobiledevicelinkinitiator_confirm_link(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_mobile_fn_method_mobiledevicelinkinitiator_confirm_link_manual(self.uniffiClonePointer(),
+                                                                                         FfiConverterString.lower(confirmationCode),
+                                                                                         FfiConverterUInt64.lower(confirmedAt), $0)
+        })
+    }
+
+    /**
+     * After user confirms, creates the encrypted response with ultrasonic proof.
+     *
+     * Must call prepare_confirmation() first. The `challenge_response` is the
+     * 16-byte proximity challenge echoed back, and `verified_at` is the Unix
+     * timestamp (seconds) when verification completed.
+     */
+    open func confirmLinkUltrasonic(challengeResponse: Data, verifiedAt: UInt64) throws -> MobileDeviceLinkResult {
+        return try FfiConverterTypeMobileDeviceLinkResult.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobiledevicelinkinitiator_confirm_link_ultrasonic(self.uniffiClonePointer(),
+                                                                                             FfiConverterData.lower(challengeResponse),
+                                                                                             FfiConverterUInt64.lower(verifiedAt), $0)
         })
     }
 
@@ -659,15 +692,6 @@ open class MobileDeviceLinkInitiator:
         return try! FfiConverterString.lift(try! rustCall {
             uniffi_vauchi_mobile_fn_method_mobiledevicelinkinitiator_qr_data(self.uniffiClonePointer(), $0)
         })
-    }
-
-    /**
-     * Marks proximity as verified.
-     */
-    open func setProximityVerified() {
-        try! rustCall {
-            uniffi_vauchi_mobile_fn_method_mobiledevicelinkinitiator_set_proximity_verified(self.uniffiClonePointer(), $0)
-        }
     }
 }
 
@@ -13064,7 +13088,10 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_func_widget_panic_shred() != 35082 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobiledevicelinkinitiator_confirm_link() != 24604 {
+    if uniffi_vauchi_mobile_checksum_method_mobiledevicelinkinitiator_confirm_link_manual() != 50570 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobiledevicelinkinitiator_confirm_link_ultrasonic() != 233 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_mobiledevicelinkinitiator_prepare_confirmation() != 45542 {
@@ -13074,9 +13101,6 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_mobiledevicelinkinitiator_qr_data() != 669 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_mobile_checksum_method_mobiledevicelinkinitiator_set_proximity_verified() != 56517 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_mobiledevicelinkresponder_compute_confirmation_code() != 4477 {

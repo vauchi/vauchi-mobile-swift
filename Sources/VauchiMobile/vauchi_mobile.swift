@@ -1676,6 +1676,13 @@ public protocol VauchiMobileProtocol: AnyObject {
     func configureEmergencyBroadcast(contactIds: [String], message: String, includeLocation: Bool) throws
 
     /**
+     * Configures Tor bridge addresses.
+     *
+     * Bridges are used when direct Tor connections are blocked.
+     */
+    func configureTorBridges(bridges: [String]) throws
+
+    /**
      * Get contact count.
      */
     func contactCount() throws -> UInt32
@@ -1758,9 +1765,24 @@ public protocol VauchiMobileProtocol: AnyObject {
     func disableEmergencyBroadcast() throws
 
     /**
+     * Disables Tor.
+     *
+     * Persists the disabled state to storage.
+     */
+    func disableTor() throws
+
+    /**
      * Dismiss the demo contact.
      */
     func dismissDemoContact() throws
+
+    /**
+     * Enables Tor with the current configuration.
+     *
+     * Persists the enabled state to storage.
+     * Note: Actual Tor bootstrapping requires the `tor` feature in core.
+     */
+    func enableTor() throws
 
     /**
      * Encode data into multipart QR chunk strings for animated display.
@@ -2078,6 +2100,11 @@ public protocol VauchiMobileProtocol: AnyObject {
     func isContentUpdatesSupported() -> Bool
 
     /**
+     * Returns whether delivery receipts (ReceivedByRecipient ACKs) are enabled.
+     */
+    func isDeliveryReceiptsEnabled() -> Bool
+
+    /**
      * Check if a demo update is available.
      */
     func isDemoUpdateAvailable() -> Bool
@@ -2108,6 +2135,11 @@ public protocol VauchiMobileProtocol: AnyObject {
      * Check if this device is the primary device (index 0).
      */
     func isPrimaryDevice() throws -> Bool
+
+    /**
+     * Returns whether presence suppression is enabled.
+     */
+    func isSuppressPresenceEnabled() -> Bool
 
     /**
      * List all contacts.
@@ -2155,6 +2187,11 @@ public protocol VauchiMobileProtocol: AnyObject {
      * waits for a new device to send a device link request.
      */
     func listenForDeviceLinkRequest(timeoutSecs: UInt64) throws -> MobileDeviceLinkRequest
+
+    /**
+     * Loads the persisted Tor configuration from storage and returns it.
+     */
+    func loadTorConfig() throws -> MobileTorConfig
 
     /**
      * Manually retry a failed delivery.
@@ -2228,6 +2265,13 @@ public protocol VauchiMobileProtocol: AnyObject {
     func renameLabel(labelId: String, newName: String) throws
 
     /**
+     * Requests a new Tor circuit rotation.
+     *
+     * Without the `tor` feature, this is a no-op that returns Ok.
+     */
+    func requestNewTorCircuit() throws
+
+    /**
      * Reset all aha moments (for testing/debugging).
      */
     func resetAhaMoments() throws
@@ -2295,6 +2339,11 @@ public protocol VauchiMobileProtocol: AnyObject {
     func setContactFieldOverride(contactId: String, fieldLabel: String, isVisible: Bool) throws
 
     /**
+     * Sets whether delivery receipts are enabled.
+     */
+    func setDeliveryReceiptsEnabled(enabled: Bool)
+
+    /**
      * Set display name.
      */
     func setDisplayName(name: String) throws
@@ -2320,6 +2369,11 @@ public protocol VauchiMobileProtocol: AnyObject {
      * Android KeyStore) for SMK management.
      */
     func setPlatformKeychain(keychain: MobilePlatformKeychain)
+
+    /**
+     * Sets whether presence suppression is enabled.
+     */
+    func setSuppressPresenceEnabled(enabled: Bool)
 
     /**
      * Sets up an app password (PIN).
@@ -2387,6 +2441,11 @@ public protocol VauchiMobileProtocol: AnyObject {
      * the future `Send` (required by UniFFI async exports).
      */
     func syncAsync() async throws -> MobileSyncResult
+
+    /**
+     * Returns the current Tor connection status.
+     */
+    func torStatus() throws -> MobileTorStatus
 
     /**
      * Trigger a demo update and get the new content.
@@ -2763,6 +2822,18 @@ open class VauchiMobile:
     }
 
     /**
+     * Configures Tor bridge addresses.
+     *
+     * Bridges are used when direct Tor connections are blocked.
+     */
+    open func configureTorBridges(bridges: [String]) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_configure_tor_bridges(self.uniffiClonePointer(),
+                                                                              FfiConverterSequenceString.lower(bridges), $0)
+        }
+    }
+
+    /**
      * Get contact count.
      */
     open func contactCount() throws -> UInt32 {
@@ -2909,11 +2980,34 @@ open class VauchiMobile:
     }
 
     /**
+     * Disables Tor.
+     *
+     * Persists the disabled state to storage.
+     */
+    open func disableTor() throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_disable_tor(self.uniffiClonePointer(), $0)
+        }
+    }
+
+    /**
      * Dismiss the demo contact.
      */
     open func dismissDemoContact() throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_mobile_fn_method_vauchimobile_dismiss_demo_contact(self.uniffiClonePointer(), $0)
+        }
+    }
+
+    /**
+     * Enables Tor with the current configuration.
+     *
+     * Persists the enabled state to storage.
+     * Note: Actual Tor bootstrapping requires the `tor` feature in core.
+     */
+    open func enableTor() throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_enable_tor(self.uniffiClonePointer(), $0)
         }
     }
 
@@ -3475,6 +3569,15 @@ open class VauchiMobile:
     }
 
     /**
+     * Returns whether delivery receipts (ReceivedByRecipient ACKs) are enabled.
+     */
+    open func isDeliveryReceiptsEnabled() -> Bool {
+        return try! FfiConverterBool.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_is_delivery_receipts_enabled(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
      * Check if a demo update is available.
      */
     open func isDemoUpdateAvailable() -> Bool {
@@ -3529,6 +3632,15 @@ open class VauchiMobile:
     open func isPrimaryDevice() throws -> Bool {
         return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_mobile_fn_method_vauchimobile_is_primary_device(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Returns whether presence suppression is enabled.
+     */
+    open func isSuppressPresenceEnabled() -> Bool {
+        return try! FfiConverterBool.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_is_suppress_presence_enabled(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -3611,6 +3723,15 @@ open class VauchiMobile:
         return try FfiConverterTypeMobileDeviceLinkRequest.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_mobile_fn_method_vauchimobile_listen_for_device_link_request(self.uniffiClonePointer(),
                                                                                        FfiConverterUInt64.lower(timeoutSecs), $0)
+        })
+    }
+
+    /**
+     * Loads the persisted Tor configuration from storage and returns it.
+     */
+    open func loadTorConfig() throws -> MobileTorConfig {
+        return try FfiConverterTypeMobileTorConfig.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_load_tor_config(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -3741,6 +3862,17 @@ open class VauchiMobile:
     }
 
     /**
+     * Requests a new Tor circuit rotation.
+     *
+     * Without the `tor` feature, this is a no-op that returns Ok.
+     */
+    open func requestNewTorCircuit() throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_request_new_tor_circuit(self.uniffiClonePointer(), $0)
+        }
+    }
+
+    /**
      * Reset all aha moments (for testing/debugging).
      */
     open func resetAhaMoments() throws {
@@ -3866,6 +3998,16 @@ open class VauchiMobile:
     }
 
     /**
+     * Sets whether delivery receipts are enabled.
+     */
+    open func setDeliveryReceiptsEnabled(enabled: Bool) {
+        try! rustCall {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_set_delivery_receipts_enabled(self.uniffiClonePointer(),
+                                                                                      FfiConverterBool.lower(enabled), $0)
+        }
+    }
+
+    /**
      * Set display name.
      */
     open func setDisplayName(name: String) throws {
@@ -3911,6 +4053,16 @@ open class VauchiMobile:
         try! rustCall {
             uniffi_vauchi_mobile_fn_method_vauchimobile_set_platform_keychain(self.uniffiClonePointer(),
                                                                               FfiConverterCallbackInterfaceMobilePlatformKeychain.lower(keychain), $0)
+        }
+    }
+
+    /**
+     * Sets whether presence suppression is enabled.
+     */
+    open func setSuppressPresenceEnabled(enabled: Bool) {
+        try! rustCall {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_set_suppress_presence_enabled(self.uniffiClonePointer(),
+                                                                                      FfiConverterBool.lower(enabled), $0)
         }
     }
 
@@ -4031,6 +4183,15 @@ open class VauchiMobile:
                 liftFunc: FfiConverterTypeMobileSyncResult.lift,
                 errorHandler: FfiConverterTypeMobileError.lift
             )
+    }
+
+    /**
+     * Returns the current Tor connection status.
+     */
+    open func torStatus() throws -> MobileTorStatus {
+        return try FfiConverterTypeMobileTorStatus.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_tor_status(self.uniffiClonePointer(), $0)
+        })
     }
 
     /**
@@ -9066,6 +9227,111 @@ public func FfiConverterTypeMobileThemeColors_lower(_ value: MobileThemeColors) 
 }
 
 /**
+ * Tor configuration for mobile platforms.
+ */
+public struct MobileTorConfig {
+    /**
+     * Whether Tor mode is enabled.
+     */
+    public var enabled: Bool
+    /**
+     * Whether to prefer .onion addresses when available.
+     */
+    public var preferOnion: Bool
+    /**
+     * Bridge addresses for censored networks.
+     */
+    public var bridges: [String]
+    /**
+     * Circuit rotation interval in seconds.
+     */
+    public var circuitRotationSecs: UInt64
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(
+        /* 
+         * Whether Tor mode is enabled.
+         */ enabled: Bool,
+        /* 
+            * Whether to prefer .onion addresses when available.
+            */ preferOnion: Bool,
+        /* 
+            * Bridge addresses for censored networks.
+            */ bridges: [String],
+        /* 
+            * Circuit rotation interval in seconds.
+            */ circuitRotationSecs: UInt64
+    ) {
+        self.enabled = enabled
+        self.preferOnion = preferOnion
+        self.bridges = bridges
+        self.circuitRotationSecs = circuitRotationSecs
+    }
+}
+
+extension MobileTorConfig: Equatable, Hashable {
+    public static func == (lhs: MobileTorConfig, rhs: MobileTorConfig) -> Bool {
+        if lhs.enabled != rhs.enabled {
+            return false
+        }
+        if lhs.preferOnion != rhs.preferOnion {
+            return false
+        }
+        if lhs.bridges != rhs.bridges {
+            return false
+        }
+        if lhs.circuitRotationSecs != rhs.circuitRotationSecs {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(enabled)
+        hasher.combine(preferOnion)
+        hasher.combine(bridges)
+        hasher.combine(circuitRotationSecs)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileTorConfig: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileTorConfig {
+        return
+            try MobileTorConfig(
+                enabled: FfiConverterBool.read(from: &buf),
+                preferOnion: FfiConverterBool.read(from: &buf),
+                bridges: FfiConverterSequenceString.read(from: &buf),
+                circuitRotationSecs: FfiConverterUInt64.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileTorConfig, into buf: inout [UInt8]) {
+        FfiConverterBool.write(value.enabled, into: &buf)
+        FfiConverterBool.write(value.preferOnion, into: &buf)
+        FfiConverterSequenceString.write(value.bridges, into: &buf)
+        FfiConverterUInt64.write(value.circuitRotationSecs, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileTorConfig_lift(_ buf: RustBuffer) throws -> MobileTorConfig {
+    return try FfiConverterTypeMobileTorConfig.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileTorConfig_lower(_ value: MobileTorConfig) -> RustBuffer {
+    return FfiConverterTypeMobileTorConfig.lower(value)
+}
+
+/**
  * Validation status for a field.
  */
 public struct MobileValidationStatus {
@@ -10541,6 +10807,7 @@ public enum MobileFieldType {
     case website
     case address
     case social
+    case birthday
     case custom
 }
 
@@ -10563,7 +10830,9 @@ public struct FfiConverterTypeMobileFieldType: FfiConverterRustBuffer {
 
         case 5: return .social
 
-        case 6: return .custom
+        case 6: return .birthday
+
+        case 7: return .custom
 
         default: throw UniffiInternalError.unexpectedEnumCase
         }
@@ -10586,8 +10855,11 @@ public struct FfiConverterTypeMobileFieldType: FfiConverterRustBuffer {
         case .social:
             writeInt(&buf, Int32(5))
 
-        case .custom:
+        case .birthday:
             writeInt(&buf, Int32(6))
+
+        case .custom:
+            writeInt(&buf, Int32(7))
         }
     }
 }
@@ -11023,6 +11295,93 @@ public func FfiConverterTypeMobileThemeMode_lower(_ value: MobileThemeMode) -> R
 }
 
 extension MobileThemeMode: Equatable, Hashable {}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/* 
+ * Current Tor connection status for mobile platforms.
+ *
+ * Simplified from core's `TorStatus` — maps `Bootstrapping` to `Connecting`
+ * since mobile UIs don't need bootstrap percentage detail.
+ */
+
+public enum MobileTorStatus {
+    /**
+     * Tor is not enabled.
+     */
+    case disabled
+    /**
+     * Tor client is connecting or bootstrapping.
+     */
+    case connecting
+    /**
+     * Tor client is connected and ready.
+     */
+    case connected
+    /**
+     * Tor client is disconnected.
+     */
+    case disconnected(
+        /* 
+         * Reason for disconnection.
+         */ reason: String
+    )
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileTorStatus: FfiConverterRustBuffer {
+    typealias SwiftType = MobileTorStatus
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileTorStatus {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return .disabled
+
+        case 2: return .connecting
+
+        case 3: return .connected
+
+        case 4: return try .disconnected(reason: FfiConverterString.read(from: &buf))
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileTorStatus, into buf: inout [UInt8]) {
+        switch value {
+        case .disabled:
+            writeInt(&buf, Int32(1))
+
+        case .connecting:
+            writeInt(&buf, Int32(2))
+
+        case .connected:
+            writeInt(&buf, Int32(3))
+
+        case let .disconnected(reason):
+            writeInt(&buf, Int32(4))
+            FfiConverterString.write(reason, into: &buf)
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileTorStatus_lift(_ buf: RustBuffer) throws -> MobileTorStatus {
+    return try FfiConverterTypeMobileTorStatus.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileTorStatus_lower(_ value: MobileTorStatus) -> RustBuffer {
+    return FfiConverterTypeMobileTorStatus.lower(value)
+}
+
+extension MobileTorStatus: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
@@ -13220,6 +13579,9 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_configure_emergency_broadcast() != 40924 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_configure_tor_bridges() != 44241 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_contact_count() != 30960 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -13262,7 +13624,13 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_disable_emergency_broadcast() != 24366 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_disable_tor() != 47934 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_dismiss_demo_contact() != 52421 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_enable_tor() != 62722 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_encode_multipart_qr() != 29028 {
@@ -13424,6 +13792,9 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_is_content_updates_supported() != 25945 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_is_delivery_receipts_enabled() != 5569 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_is_demo_update_available() != 17863 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -13440,6 +13811,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_is_primary_device() != 55103 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_is_suppress_presence_enabled() != 42693 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_list_contacts() != 21454 {
@@ -13464,6 +13838,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_listen_for_device_link_request() != 59845 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_load_tor_config() != 44102 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_manual_retry() != 42209 {
@@ -13499,6 +13876,9 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_rename_label() != 5503 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_request_new_tor_circuit() != 48653 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_reset_aha_moments() != 24810 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -13532,6 +13912,9 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_set_contact_field_override() != 24591 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_set_delivery_receipts_enabled() != 54854 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_set_display_name() != 21017 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -13542,6 +13925,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_set_platform_keychain() != 45535 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_set_suppress_presence_enabled() != 32876 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_setup_app_password() != 46352 {
@@ -13569,6 +13955,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_sync_async() != 40029 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_tor_status() != 62836 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_trigger_demo_update() != 56863 {

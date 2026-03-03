@@ -9783,6 +9783,18 @@ public enum MobileAhaMomentType {
      * Shown when first outbound update is delivered
      */
     case firstOutboundDelivered
+    /**
+     * Shown when user edits a field for the first time
+     */
+    case firstFieldEdit
+    /**
+     * Shown when user reaches 3 contacts
+     */
+    case threeContactsReached
+    /**
+     * Shown when user links a device
+     */
+    case deviceLinked
 }
 
 #if swift(>=5.8)
@@ -9804,6 +9816,12 @@ public struct FfiConverterTypeMobileAhaMomentType: FfiConverterRustBuffer {
 
         case 5: return .firstOutboundDelivered
 
+        case 6: return .firstFieldEdit
+
+        case 7: return .threeContactsReached
+
+        case 8: return .deviceLinked
+
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
@@ -9824,6 +9842,15 @@ public struct FfiConverterTypeMobileAhaMomentType: FfiConverterRustBuffer {
 
         case .firstOutboundDelivered:
             writeInt(&buf, Int32(5))
+
+        case .firstFieldEdit:
+            writeInt(&buf, Int32(6))
+
+        case .threeContactsReached:
+            writeInt(&buf, Int32(7))
+
+        case .deviceLinked:
+            writeInt(&buf, Int32(8))
         }
     }
 }

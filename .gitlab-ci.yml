@@ -70,7 +70,7 @@ update:version:
       echo "Updating to version $UPSTREAM_VERSION"
 
       # Guard: only accept PROD versions (not dev/rc)
-      if echo "$UPSTREAM_VERSION" | grep -qE '-(dev|rc)\.'; then
+      if echo "$UPSTREAM_VERSION" | grep -qE -- '-(dev|rc)\.'; then
         echo "ERROR: Pre-release version $UPSTREAM_VERSION rejected"
         echo "  Mobile binding updates only accept PROD versions (e.g., v0.2.3)"
         exit 1

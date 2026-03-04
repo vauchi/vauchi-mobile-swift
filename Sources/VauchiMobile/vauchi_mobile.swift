@@ -398,6 +398,22 @@ private class UniffiHandleMap<T> {
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
+private struct FfiConverterUInt8: FfiConverterPrimitive {
+    typealias FfiType = UInt8
+    typealias SwiftType = UInt8
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UInt8 {
+        return try lift(readInt(&buf))
+    }
+
+    static func write(_ value: UInt8, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
 private struct FfiConverterUInt32: FfiConverterPrimitive {
     typealias FfiType = UInt32
     typealias SwiftType = UInt32
@@ -1585,6 +1601,14 @@ public protocol VauchiMobileProtocol: AnyObject {
     func addRecoveryVoucher(voucherB64: String) throws -> MobileRecoveryProgress
 
     /**
+     * Advance onboarding to the next step.
+     *
+     * Marks the current step as completed and moves forward.
+     * Returns the updated progress.
+     */
+    func advanceOnboarding() throws -> MobileOnboardingProgress
+
+    /**
      * Get the count of seen aha moments.
      */
     func ahaMomentsSeenCount() -> UInt32
@@ -1733,6 +1757,11 @@ public protocol VauchiMobileProtocol: AnyObject {
     func createRecoveryVoucher(claimB64: String) throws -> MobileRecoveryVoucher
 
     /**
+     * Get the current onboarding step.
+     */
+    func currentOnboardingStep() throws -> MobileOnboardingStep
+
+    /**
      * Deletes a decoy contact by ID.
      */
     func deleteDecoyContact(id: String) throws
@@ -1775,6 +1804,14 @@ public protocol VauchiMobileProtocol: AnyObject {
      * Dismiss the demo contact.
      */
     func dismissDemoContact() throws
+
+    /**
+     * Get display name suggestions from a full name.
+     *
+     * Given "Alexandra Johnson", returns suggestions like
+     * "Alexandra", "Alex", "A. Johnson".
+     */
+    func displayNameSuggestions(fullName: String) -> [String]
 
     /**
      * Enables Tor with the current configuration.
@@ -1960,6 +1997,11 @@ public protocol VauchiMobileProtocol: AnyObject {
     func getOfflineQueueCapacity() throws -> UInt32
 
     /**
+     * Get the current onboarding progress.
+     */
+    func getOnboardingProgress() throws -> MobileOnboardingProgress
+
+    /**
      * Get own contact card.
      */
     func getOwnCard() throws -> MobileContactCard
@@ -2127,6 +2169,11 @@ public protocol VauchiMobileProtocol: AnyObject {
     func isOfflineQueueFull() throws -> Bool
 
     /**
+     * Check if onboarding has been completed.
+     */
+    func isOnboardingComplete() throws -> Bool
+
+    /**
      * Returns whether an app password has been configured.
      */
     func isPasswordEnabled() throws -> Bool
@@ -2277,6 +2324,13 @@ public protocol VauchiMobileProtocol: AnyObject {
     func resetAhaMoments() throws
 
     /**
+     * Reset onboarding to the beginning.
+     *
+     * Useful for "replay onboarding" from settings.
+     */
+    func resetOnboarding() throws
+
+    /**
      * Restore the demo contact from Settings.
      */
     func restoreDemoContact() throws -> MobileDemoContact?
@@ -2401,6 +2455,14 @@ public protocol VauchiMobileProtocol: AnyObject {
      * time), or has been executed.
      */
     func shredStatus() throws -> MobileShredStatus
+
+    /**
+     * Skip the current onboarding step without marking it completed.
+     *
+     * If the current step is BackupPrompt, records that backup was skipped.
+     * Returns the updated progress.
+     */
+    func skipOnboardingStep() throws -> MobileOnboardingProgress
 
     /**
      * Schedule crypto-shredding with 7-day grace period (Soft Shred).
@@ -2669,6 +2731,18 @@ open class VauchiMobile:
     }
 
     /**
+     * Advance onboarding to the next step.
+     *
+     * Marks the current step as completed and moves forward.
+     * Returns the updated progress.
+     */
+    open func advanceOnboarding() throws -> MobileOnboardingProgress {
+        return try FfiConverterTypeMobileOnboardingProgress.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_advance_onboarding(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
      * Get the count of seen aha moments.
      */
     open func ahaMomentsSeenCount() -> UInt32 {
@@ -2921,6 +2995,15 @@ open class VauchiMobile:
     }
 
     /**
+     * Get the current onboarding step.
+     */
+    open func currentOnboardingStep() throws -> MobileOnboardingStep {
+        return try FfiConverterTypeMobileOnboardingStep.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_current_onboarding_step(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
      * Deletes a decoy contact by ID.
      */
     open func deleteDecoyContact(id: String) throws {
@@ -2997,6 +3080,19 @@ open class VauchiMobile:
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_mobile_fn_method_vauchimobile_dismiss_demo_contact(self.uniffiClonePointer(), $0)
         }
+    }
+
+    /**
+     * Get display name suggestions from a full name.
+     *
+     * Given "Alexandra Johnson", returns suggestions like
+     * "Alexandra", "Alex", "A. Johnson".
+     */
+    open func displayNameSuggestions(fullName: String) -> [String] {
+        return try! FfiConverterSequenceString.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_display_name_suggestions(self.uniffiClonePointer(),
+                                                                                 FfiConverterString.lower(fullName), $0)
+        })
     }
 
     /**
@@ -3320,6 +3416,15 @@ open class VauchiMobile:
     }
 
     /**
+     * Get the current onboarding progress.
+     */
+    open func getOnboardingProgress() throws -> MobileOnboardingProgress {
+        return try FfiConverterTypeMobileOnboardingProgress.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_get_onboarding_progress(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
      * Get own contact card.
      */
     open func getOwnCard() throws -> MobileContactCard {
@@ -3618,6 +3723,15 @@ open class VauchiMobile:
     }
 
     /**
+     * Check if onboarding has been completed.
+     */
+    open func isOnboardingComplete() throws -> Bool {
+        return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_is_onboarding_complete(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
      * Returns whether an app password has been configured.
      */
     open func isPasswordEnabled() throws -> Bool {
@@ -3882,6 +3996,17 @@ open class VauchiMobile:
     }
 
     /**
+     * Reset onboarding to the beginning.
+     *
+     * Useful for "replay onboarding" from settings.
+     */
+    open func resetOnboarding() throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_reset_onboarding(self.uniffiClonePointer(), $0)
+        }
+    }
+
+    /**
      * Restore the demo contact from Settings.
      */
     open func restoreDemoContact() throws -> MobileDemoContact? {
@@ -4110,6 +4235,18 @@ open class VauchiMobile:
     open func shredStatus() throws -> MobileShredStatus {
         return try FfiConverterTypeMobileShredStatus.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_mobile_fn_method_vauchimobile_shred_status(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Skip the current onboarding step without marking it completed.
+     *
+     * If the current step is BackupPrompt, records that backup was skipped.
+     * Returns the updated progress.
+     */
+    open func skipOnboardingStep() throws -> MobileOnboardingProgress {
+        return try FfiConverterTypeMobileOnboardingProgress.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_skip_onboarding_step(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -7521,6 +7658,153 @@ public func FfiConverterTypeMobileLocaleInfo_lift(_ buf: RustBuffer) throws -> M
 #endif
 public func FfiConverterTypeMobileLocaleInfo_lower(_ value: MobileLocaleInfo) -> RustBuffer {
     return FfiConverterTypeMobileLocaleInfo.lower(value)
+}
+
+/**
+ * Onboarding progress state (UniFFI-compatible).
+ */
+public struct MobileOnboardingProgress {
+    /**
+     * The step the user is currently on
+     */
+    public var currentStep: MobileOnboardingStep
+    /**
+     * Steps that have been completed
+     */
+    public var completedSteps: [MobileOnboardingStep]
+    /**
+     * Timestamp when onboarding was started (Unix epoch seconds)
+     */
+    public var startedAt: UInt64?
+    /**
+     * Timestamp when onboarding was completed (Unix epoch seconds)
+     */
+    public var completedAt: UInt64?
+    /**
+     * Whether the user skipped the backup step
+     */
+    public var skippedBackup: Bool
+    /**
+     * Completion percentage (0-100)
+     */
+    public var completionPercentage: UInt8
+    /**
+     * Whether onboarding is complete
+     */
+    public var isComplete: Bool
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(
+        /* 
+         * The step the user is currently on
+         */ currentStep: MobileOnboardingStep,
+        /* 
+            * Steps that have been completed
+            */ completedSteps: [MobileOnboardingStep],
+        /* 
+            * Timestamp when onboarding was started (Unix epoch seconds)
+            */ startedAt: UInt64?,
+        /* 
+            * Timestamp when onboarding was completed (Unix epoch seconds)
+            */ completedAt: UInt64?,
+        /* 
+            * Whether the user skipped the backup step
+            */ skippedBackup: Bool,
+        /* 
+            * Completion percentage (0-100)
+            */ completionPercentage: UInt8,
+        /* 
+            * Whether onboarding is complete
+            */ isComplete: Bool
+    ) {
+        self.currentStep = currentStep
+        self.completedSteps = completedSteps
+        self.startedAt = startedAt
+        self.completedAt = completedAt
+        self.skippedBackup = skippedBackup
+        self.completionPercentage = completionPercentage
+        self.isComplete = isComplete
+    }
+}
+
+extension MobileOnboardingProgress: Equatable, Hashable {
+    public static func == (lhs: MobileOnboardingProgress, rhs: MobileOnboardingProgress) -> Bool {
+        if lhs.currentStep != rhs.currentStep {
+            return false
+        }
+        if lhs.completedSteps != rhs.completedSteps {
+            return false
+        }
+        if lhs.startedAt != rhs.startedAt {
+            return false
+        }
+        if lhs.completedAt != rhs.completedAt {
+            return false
+        }
+        if lhs.skippedBackup != rhs.skippedBackup {
+            return false
+        }
+        if lhs.completionPercentage != rhs.completionPercentage {
+            return false
+        }
+        if lhs.isComplete != rhs.isComplete {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(currentStep)
+        hasher.combine(completedSteps)
+        hasher.combine(startedAt)
+        hasher.combine(completedAt)
+        hasher.combine(skippedBackup)
+        hasher.combine(completionPercentage)
+        hasher.combine(isComplete)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileOnboardingProgress: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileOnboardingProgress {
+        return
+            try MobileOnboardingProgress(
+                currentStep: FfiConverterTypeMobileOnboardingStep.read(from: &buf),
+                completedSteps: FfiConverterSequenceTypeMobileOnboardingStep.read(from: &buf),
+                startedAt: FfiConverterOptionUInt64.read(from: &buf),
+                completedAt: FfiConverterOptionUInt64.read(from: &buf),
+                skippedBackup: FfiConverterBool.read(from: &buf),
+                completionPercentage: FfiConverterUInt8.read(from: &buf),
+                isComplete: FfiConverterBool.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileOnboardingProgress, into buf: inout [UInt8]) {
+        FfiConverterTypeMobileOnboardingStep.write(value.currentStep, into: &buf)
+        FfiConverterSequenceTypeMobileOnboardingStep.write(value.completedSteps, into: &buf)
+        FfiConverterOptionUInt64.write(value.startedAt, into: &buf)
+        FfiConverterOptionUInt64.write(value.completedAt, into: &buf)
+        FfiConverterBool.write(value.skippedBackup, into: &buf)
+        FfiConverterUInt8.write(value.completionPercentage, into: &buf)
+        FfiConverterBool.write(value.isComplete, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileOnboardingProgress_lift(_ buf: RustBuffer) throws -> MobileOnboardingProgress {
+    return try FfiConverterTypeMobileOnboardingProgress.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileOnboardingProgress_lower(_ value: MobileOnboardingProgress) -> RustBuffer {
+    return FfiConverterTypeMobileOnboardingProgress.lower(value)
 }
 
 /**
@@ -11056,6 +11340,112 @@ extension MobileLocale: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /* 
+ * Steps in the onboarding wizard (UniFFI-compatible).
+ */
+
+public enum MobileOnboardingStep {
+    /**
+     * Welcome screen showing value proposition
+     */
+    case welcome
+    /**
+     * Identity creation (display name entry)
+     */
+    case createIdentity
+    /**
+     * Add optional contact fields (phone, email)
+     */
+    case addFields
+    /**
+     * Preview the contact card before continuing
+     */
+    case previewCard
+    /**
+     * Security explanation screen
+     */
+    case securityExplanation
+    /**
+     * Prompt to set up backup
+     */
+    case backupPrompt
+    /**
+     * Onboarding complete, ready to use
+     */
+    case ready
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileOnboardingStep: FfiConverterRustBuffer {
+    typealias SwiftType = MobileOnboardingStep
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileOnboardingStep {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return .welcome
+
+        case 2: return .createIdentity
+
+        case 3: return .addFields
+
+        case 4: return .previewCard
+
+        case 5: return .securityExplanation
+
+        case 6: return .backupPrompt
+
+        case 7: return .ready
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileOnboardingStep, into buf: inout [UInt8]) {
+        switch value {
+        case .welcome:
+            writeInt(&buf, Int32(1))
+
+        case .createIdentity:
+            writeInt(&buf, Int32(2))
+
+        case .addFields:
+            writeInt(&buf, Int32(3))
+
+        case .previewCard:
+            writeInt(&buf, Int32(4))
+
+        case .securityExplanation:
+            writeInt(&buf, Int32(5))
+
+        case .backupPrompt:
+            writeInt(&buf, Int32(6))
+
+        case .ready:
+            writeInt(&buf, Int32(7))
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileOnboardingStep_lift(_ buf: RustBuffer) throws -> MobileOnboardingStep {
+    return try FfiConverterTypeMobileOnboardingStep.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileOnboardingStep_lower(_ value: MobileOnboardingStep) -> RustBuffer {
+    return FfiConverterTypeMobileOnboardingStep.lower(value)
+}
+
+extension MobileOnboardingStep: Equatable, Hashable {}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/* 
  * Password strength level for display to users.
  */
 
@@ -12953,6 +13343,31 @@ private struct FfiConverterSequenceTypeMobileContentType: FfiConverterRustBuffer
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
+private struct FfiConverterSequenceTypeMobileOnboardingStep: FfiConverterRustBuffer {
+    typealias SwiftType = [MobileOnboardingStep]
+
+    static func write(_ value: [MobileOnboardingStep], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeMobileOnboardingStep.write(item, into: &buf)
+        }
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileOnboardingStep] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [MobileOnboardingStep]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            try seq.append(FfiConverterTypeMobileOnboardingStep.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
 private struct FfiConverterDictionaryStringString: FfiConverterRustBuffer {
     static func write(_ value: [String: String], into buf: inout [UInt8]) {
         let len = Int32(value.count)
@@ -13567,6 +13982,9 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_add_recovery_voucher() != 24135 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_advance_onboarding() != 29187 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_aha_moments_seen_count() != 62433 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -13633,6 +14051,9 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_create_recovery_voucher() != 64336 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_current_onboarding_step() != 54345 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_delete_decoy_contact() != 36941 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -13655,6 +14076,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_dismiss_demo_contact() != 52421 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_display_name_suggestions() != 7155 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_enable_tor() != 62722 {
@@ -13747,6 +14171,9 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_offline_queue_capacity() != 37318 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_onboarding_progress() != 23314 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_own_card() != 41646 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -13834,6 +14261,9 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_is_offline_queue_full() != 65171 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_is_onboarding_complete() != 42583 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_is_password_enabled() != 34976 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -13909,6 +14339,9 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_reset_aha_moments() != 24810 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_reset_onboarding() != 30448 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_restore_demo_contact() != 31302 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -13967,6 +14400,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_shred_status() != 19648 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_skip_onboarding_step() != 3768 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_soft_shred() != 22022 {

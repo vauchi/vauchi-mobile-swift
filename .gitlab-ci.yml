@@ -47,7 +47,7 @@ test:resolve:
   script:
     - swift package resolve
   rules:
-    - if: $CI_COMMIT_TAG =~ /^v/
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
   allow_failure: true  # May fail if binary not yet published
 
 # Triggered by upstream vauchi/core release

@@ -430,6 +430,22 @@ private struct FfiConverterUInt32: FfiConverterPrimitive {
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
+private struct FfiConverterInt32: FfiConverterPrimitive {
+    typealias FfiType = Int32
+    typealias SwiftType = Int32
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Int32 {
+        return try lift(readInt(&buf))
+    }
+
+    static func write(_ value: Int32, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
 private struct FfiConverterUInt64: FfiConverterPrimitive {
     typealias FfiType = UInt64
     typealias SwiftType = UInt64
@@ -5256,6 +5272,131 @@ public func FfiConverterTypeMobileBroadcastResult_lower(_ value: MobileBroadcast
     return FfiConverterTypeMobileBroadcastResult.lower(value)
 }
 
+public struct MobileCameraConfig {
+    public var id: UInt32
+    public var iso: Int32?
+    public var exposureEv: Int32?
+    public var focusMode: String
+    public var whiteBalance: String
+    public var fpsMin: Int32
+    public var fpsMax: Int32
+    public var width: UInt32
+    public var height: UInt32
+    public var screenBrightness: Float
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(id: UInt32, iso: Int32?, exposureEv: Int32?, focusMode: String, whiteBalance: String, fpsMin: Int32, fpsMax: Int32, width: UInt32, height: UInt32, screenBrightness: Float) {
+        self.id = id
+        self.iso = iso
+        self.exposureEv = exposureEv
+        self.focusMode = focusMode
+        self.whiteBalance = whiteBalance
+        self.fpsMin = fpsMin
+        self.fpsMax = fpsMax
+        self.width = width
+        self.height = height
+        self.screenBrightness = screenBrightness
+    }
+}
+
+extension MobileCameraConfig: Equatable, Hashable {
+    public static func == (lhs: MobileCameraConfig, rhs: MobileCameraConfig) -> Bool {
+        if lhs.id != rhs.id {
+            return false
+        }
+        if lhs.iso != rhs.iso {
+            return false
+        }
+        if lhs.exposureEv != rhs.exposureEv {
+            return false
+        }
+        if lhs.focusMode != rhs.focusMode {
+            return false
+        }
+        if lhs.whiteBalance != rhs.whiteBalance {
+            return false
+        }
+        if lhs.fpsMin != rhs.fpsMin {
+            return false
+        }
+        if lhs.fpsMax != rhs.fpsMax {
+            return false
+        }
+        if lhs.width != rhs.width {
+            return false
+        }
+        if lhs.height != rhs.height {
+            return false
+        }
+        if lhs.screenBrightness != rhs.screenBrightness {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+        hasher.combine(iso)
+        hasher.combine(exposureEv)
+        hasher.combine(focusMode)
+        hasher.combine(whiteBalance)
+        hasher.combine(fpsMin)
+        hasher.combine(fpsMax)
+        hasher.combine(width)
+        hasher.combine(height)
+        hasher.combine(screenBrightness)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileCameraConfig: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileCameraConfig {
+        return
+            try MobileCameraConfig(
+                id: FfiConverterUInt32.read(from: &buf),
+                iso: FfiConverterOptionInt32.read(from: &buf),
+                exposureEv: FfiConverterOptionInt32.read(from: &buf),
+                focusMode: FfiConverterString.read(from: &buf),
+                whiteBalance: FfiConverterString.read(from: &buf),
+                fpsMin: FfiConverterInt32.read(from: &buf),
+                fpsMax: FfiConverterInt32.read(from: &buf),
+                width: FfiConverterUInt32.read(from: &buf),
+                height: FfiConverterUInt32.read(from: &buf),
+                screenBrightness: FfiConverterFloat.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileCameraConfig, into buf: inout [UInt8]) {
+        FfiConverterUInt32.write(value.id, into: &buf)
+        FfiConverterOptionInt32.write(value.iso, into: &buf)
+        FfiConverterOptionInt32.write(value.exposureEv, into: &buf)
+        FfiConverterString.write(value.focusMode, into: &buf)
+        FfiConverterString.write(value.whiteBalance, into: &buf)
+        FfiConverterInt32.write(value.fpsMin, into: &buf)
+        FfiConverterInt32.write(value.fpsMax, into: &buf)
+        FfiConverterUInt32.write(value.width, into: &buf)
+        FfiConverterUInt32.write(value.height, into: &buf)
+        FfiConverterFloat.write(value.screenBrightness, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileCameraConfig_lift(_ buf: RustBuffer) throws -> MobileCameraConfig {
+    return try FfiConverterTypeMobileCameraConfig.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileCameraConfig_lower(_ value: MobileCameraConfig) -> RustBuffer {
+    return FfiConverterTypeMobileCameraConfig.lower(value)
+}
+
 /**
  * A recorded consent decision.
  */
@@ -6525,6 +6666,147 @@ public func FfiConverterTypeMobileDemoContactState_lift(_ buf: RustBuffer) throw
 #endif
 public func FfiConverterTypeMobileDemoContactState_lower(_ value: MobileDemoContactState) -> RustBuffer {
     return FfiConverterTypeMobileDemoContactState.lower(value)
+}
+
+public struct MobileDeviceCapabilityProfile {
+    public var platform: MobilePlatform
+    public var deviceModel: String
+    public var hardwareLevel: String?
+    public var isoRangeMin: Int32?
+    public var isoRangeMax: Int32?
+    public var exposureEvRangeMin: Int32?
+    public var exposureEvRangeMax: Int32?
+    public var afModes: [String]
+    public var awbModes: [String]
+    public var fpsRanges: [MobileFpsRange]
+    public var maxResolutionWidth: UInt32
+    public var maxResolutionHeight: UInt32
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(platform: MobilePlatform, deviceModel: String, hardwareLevel: String?, isoRangeMin: Int32?, isoRangeMax: Int32?, exposureEvRangeMin: Int32?, exposureEvRangeMax: Int32?, afModes: [String], awbModes: [String], fpsRanges: [MobileFpsRange], maxResolutionWidth: UInt32, maxResolutionHeight: UInt32) {
+        self.platform = platform
+        self.deviceModel = deviceModel
+        self.hardwareLevel = hardwareLevel
+        self.isoRangeMin = isoRangeMin
+        self.isoRangeMax = isoRangeMax
+        self.exposureEvRangeMin = exposureEvRangeMin
+        self.exposureEvRangeMax = exposureEvRangeMax
+        self.afModes = afModes
+        self.awbModes = awbModes
+        self.fpsRanges = fpsRanges
+        self.maxResolutionWidth = maxResolutionWidth
+        self.maxResolutionHeight = maxResolutionHeight
+    }
+}
+
+extension MobileDeviceCapabilityProfile: Equatable, Hashable {
+    public static func == (lhs: MobileDeviceCapabilityProfile, rhs: MobileDeviceCapabilityProfile) -> Bool {
+        if lhs.platform != rhs.platform {
+            return false
+        }
+        if lhs.deviceModel != rhs.deviceModel {
+            return false
+        }
+        if lhs.hardwareLevel != rhs.hardwareLevel {
+            return false
+        }
+        if lhs.isoRangeMin != rhs.isoRangeMin {
+            return false
+        }
+        if lhs.isoRangeMax != rhs.isoRangeMax {
+            return false
+        }
+        if lhs.exposureEvRangeMin != rhs.exposureEvRangeMin {
+            return false
+        }
+        if lhs.exposureEvRangeMax != rhs.exposureEvRangeMax {
+            return false
+        }
+        if lhs.afModes != rhs.afModes {
+            return false
+        }
+        if lhs.awbModes != rhs.awbModes {
+            return false
+        }
+        if lhs.fpsRanges != rhs.fpsRanges {
+            return false
+        }
+        if lhs.maxResolutionWidth != rhs.maxResolutionWidth {
+            return false
+        }
+        if lhs.maxResolutionHeight != rhs.maxResolutionHeight {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(platform)
+        hasher.combine(deviceModel)
+        hasher.combine(hardwareLevel)
+        hasher.combine(isoRangeMin)
+        hasher.combine(isoRangeMax)
+        hasher.combine(exposureEvRangeMin)
+        hasher.combine(exposureEvRangeMax)
+        hasher.combine(afModes)
+        hasher.combine(awbModes)
+        hasher.combine(fpsRanges)
+        hasher.combine(maxResolutionWidth)
+        hasher.combine(maxResolutionHeight)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileDeviceCapabilityProfile: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileDeviceCapabilityProfile {
+        return
+            try MobileDeviceCapabilityProfile(
+                platform: FfiConverterTypeMobilePlatform.read(from: &buf),
+                deviceModel: FfiConverterString.read(from: &buf),
+                hardwareLevel: FfiConverterOptionString.read(from: &buf),
+                isoRangeMin: FfiConverterOptionInt32.read(from: &buf),
+                isoRangeMax: FfiConverterOptionInt32.read(from: &buf),
+                exposureEvRangeMin: FfiConverterOptionInt32.read(from: &buf),
+                exposureEvRangeMax: FfiConverterOptionInt32.read(from: &buf),
+                afModes: FfiConverterSequenceString.read(from: &buf),
+                awbModes: FfiConverterSequenceString.read(from: &buf),
+                fpsRanges: FfiConverterSequenceTypeMobileFpsRange.read(from: &buf),
+                maxResolutionWidth: FfiConverterUInt32.read(from: &buf),
+                maxResolutionHeight: FfiConverterUInt32.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileDeviceCapabilityProfile, into buf: inout [UInt8]) {
+        FfiConverterTypeMobilePlatform.write(value.platform, into: &buf)
+        FfiConverterString.write(value.deviceModel, into: &buf)
+        FfiConverterOptionString.write(value.hardwareLevel, into: &buf)
+        FfiConverterOptionInt32.write(value.isoRangeMin, into: &buf)
+        FfiConverterOptionInt32.write(value.isoRangeMax, into: &buf)
+        FfiConverterOptionInt32.write(value.exposureEvRangeMin, into: &buf)
+        FfiConverterOptionInt32.write(value.exposureEvRangeMax, into: &buf)
+        FfiConverterSequenceString.write(value.afModes, into: &buf)
+        FfiConverterSequenceString.write(value.awbModes, into: &buf)
+        FfiConverterSequenceTypeMobileFpsRange.write(value.fpsRanges, into: &buf)
+        FfiConverterUInt32.write(value.maxResolutionWidth, into: &buf)
+        FfiConverterUInt32.write(value.maxResolutionHeight, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileDeviceCapabilityProfile_lift(_ buf: RustBuffer) throws -> MobileDeviceCapabilityProfile {
+    return try FfiConverterTypeMobileDeviceCapabilityProfile.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileDeviceCapabilityProfile_lower(_ value: MobileDeviceCapabilityProfile) -> RustBuffer {
+    return FfiConverterTypeMobileDeviceCapabilityProfile.lower(value)
 }
 
 /**
@@ -7855,6 +8137,67 @@ public func FfiConverterTypeMobileFieldValidation_lower(_ value: MobileFieldVali
     return FfiConverterTypeMobileFieldValidation.lower(value)
 }
 
+public struct MobileFpsRange {
+    public var min: Int32
+    public var max: Int32
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(min: Int32, max: Int32) {
+        self.min = min
+        self.max = max
+    }
+}
+
+extension MobileFpsRange: Equatable, Hashable {
+    public static func == (lhs: MobileFpsRange, rhs: MobileFpsRange) -> Bool {
+        if lhs.min != rhs.min {
+            return false
+        }
+        if lhs.max != rhs.max {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(min)
+        hasher.combine(max)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileFpsRange: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileFpsRange {
+        return
+            try MobileFpsRange(
+                min: FfiConverterInt32.read(from: &buf),
+                max: FfiConverterInt32.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileFpsRange, into buf: inout [UInt8]) {
+        FfiConverterInt32.write(value.min, into: &buf)
+        FfiConverterInt32.write(value.max, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileFpsRange_lift(_ buf: RustBuffer) throws -> MobileFpsRange {
+    return try FfiConverterTypeMobileFpsRange.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileFpsRange_lower(_ value: MobileFpsRange) -> RustBuffer {
+    return FfiConverterTypeMobileFpsRange.lower(value)
+}
+
 /**
  * GDPR data export result.
  */
@@ -8601,6 +8944,75 @@ public func FfiConverterTypeMobileProximityResult_lower(_ value: MobileProximity
     return FfiConverterTypeMobileProximityResult.lower(value)
 }
 
+public struct MobileQrConfig {
+    public var errorCorrection: MobileErrorCorrectionLevel
+    public var payloadSizeBytes: UInt32
+    public var moduleSizePx: UInt32
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(errorCorrection: MobileErrorCorrectionLevel, payloadSizeBytes: UInt32, moduleSizePx: UInt32) {
+        self.errorCorrection = errorCorrection
+        self.payloadSizeBytes = payloadSizeBytes
+        self.moduleSizePx = moduleSizePx
+    }
+}
+
+extension MobileQrConfig: Equatable, Hashable {
+    public static func == (lhs: MobileQrConfig, rhs: MobileQrConfig) -> Bool {
+        if lhs.errorCorrection != rhs.errorCorrection {
+            return false
+        }
+        if lhs.payloadSizeBytes != rhs.payloadSizeBytes {
+            return false
+        }
+        if lhs.moduleSizePx != rhs.moduleSizePx {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(errorCorrection)
+        hasher.combine(payloadSizeBytes)
+        hasher.combine(moduleSizePx)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileQrConfig: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileQrConfig {
+        return
+            try MobileQrConfig(
+                errorCorrection: FfiConverterTypeMobileErrorCorrectionLevel.read(from: &buf),
+                payloadSizeBytes: FfiConverterUInt32.read(from: &buf),
+                moduleSizePx: FfiConverterUInt32.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileQrConfig, into buf: inout [UInt8]) {
+        FfiConverterTypeMobileErrorCorrectionLevel.write(value.errorCorrection, into: &buf)
+        FfiConverterUInt32.write(value.payloadSizeBytes, into: &buf)
+        FfiConverterUInt32.write(value.moduleSizePx, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileQrConfig_lift(_ buf: RustBuffer) throws -> MobileQrConfig {
+    return try FfiConverterTypeMobileQrConfig.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileQrConfig_lower(_ value: MobileQrConfig) -> RustBuffer {
+    return FfiConverterTypeMobileQrConfig.lower(value)
+}
+
 /**
  * QR payload for mobile display.
  */
@@ -8671,6 +9083,67 @@ public func FfiConverterTypeMobileQrPayload_lift(_ buf: RustBuffer) throws -> Mo
 #endif
 public func FfiConverterTypeMobileQrPayload_lower(_ value: MobileQrPayload) -> RustBuffer {
     return FfiConverterTypeMobileQrPayload.lower(value)
+}
+
+public struct MobileQrTestPattern {
+    public var config: MobileQrConfig
+    public var data: String
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(config: MobileQrConfig, data: String) {
+        self.config = config
+        self.data = data
+    }
+}
+
+extension MobileQrTestPattern: Equatable, Hashable {
+    public static func == (lhs: MobileQrTestPattern, rhs: MobileQrTestPattern) -> Bool {
+        if lhs.config != rhs.config {
+            return false
+        }
+        if lhs.data != rhs.data {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(config)
+        hasher.combine(data)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileQrTestPattern: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileQrTestPattern {
+        return
+            try MobileQrTestPattern(
+                config: FfiConverterTypeMobileQrConfig.read(from: &buf),
+                data: FfiConverterString.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileQrTestPattern, into buf: inout [UInt8]) {
+        FfiConverterTypeMobileQrConfig.write(value.config, into: &buf)
+        FfiConverterString.write(value.data, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileQrTestPattern_lift(_ buf: RustBuffer) throws -> MobileQrTestPattern {
+    return try FfiConverterTypeMobileQrTestPattern.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileQrTestPattern_lower(_ value: MobileQrTestPattern) -> RustBuffer {
+    return FfiConverterTypeMobileQrTestPattern.lower(value)
 }
 
 /**
@@ -9254,6 +9727,67 @@ public func FfiConverterTypeMobileRetryEntry_lower(_ value: MobileRetryEntry) ->
     return FfiConverterTypeMobileRetryEntry.lower(value)
 }
 
+public struct MobileScoredConfig {
+    public var configId: UInt32
+    public var score: Float
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(configId: UInt32, score: Float) {
+        self.configId = configId
+        self.score = score
+    }
+}
+
+extension MobileScoredConfig: Equatable, Hashable {
+    public static func == (lhs: MobileScoredConfig, rhs: MobileScoredConfig) -> Bool {
+        if lhs.configId != rhs.configId {
+            return false
+        }
+        if lhs.score != rhs.score {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(configId)
+        hasher.combine(score)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileScoredConfig: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileScoredConfig {
+        return
+            try MobileScoredConfig(
+                configId: FfiConverterUInt32.read(from: &buf),
+                score: FfiConverterFloat.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileScoredConfig, into buf: inout [UInt8]) {
+        FfiConverterUInt32.write(value.configId, into: &buf)
+        FfiConverterFloat.write(value.score, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileScoredConfig_lift(_ buf: RustBuffer) throws -> MobileScoredConfig {
+    return try FfiConverterTypeMobileScoredConfig.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileScoredConfig_lower(_ value: MobileScoredConfig) -> RustBuffer {
+    return FfiConverterTypeMobileScoredConfig.lower(value)
+}
+
 /**
  * Report of shred operations performed.
  */
@@ -9709,6 +10243,67 @@ public func FfiConverterTypeMobileSocialNetwork_lift(_ buf: RustBuffer) throws -
 #endif
 public func FfiConverterTypeMobileSocialNetwork_lower(_ value: MobileSocialNetwork) -> RustBuffer {
     return FfiConverterTypeMobileSocialNetwork.lower(value)
+}
+
+public struct MobileSweepMatrix {
+    public var cameraConfigs: [MobileCameraConfig]
+    public var qrConfigs: [MobileQrConfig]
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(cameraConfigs: [MobileCameraConfig], qrConfigs: [MobileQrConfig]) {
+        self.cameraConfigs = cameraConfigs
+        self.qrConfigs = qrConfigs
+    }
+}
+
+extension MobileSweepMatrix: Equatable, Hashable {
+    public static func == (lhs: MobileSweepMatrix, rhs: MobileSweepMatrix) -> Bool {
+        if lhs.cameraConfigs != rhs.cameraConfigs {
+            return false
+        }
+        if lhs.qrConfigs != rhs.qrConfigs {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(cameraConfigs)
+        hasher.combine(qrConfigs)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileSweepMatrix: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileSweepMatrix {
+        return
+            try MobileSweepMatrix(
+                cameraConfigs: FfiConverterSequenceTypeMobileCameraConfig.read(from: &buf),
+                qrConfigs: FfiConverterSequenceTypeMobileQrConfig.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileSweepMatrix, into buf: inout [UInt8]) {
+        FfiConverterSequenceTypeMobileCameraConfig.write(value.cameraConfigs, into: &buf)
+        FfiConverterSequenceTypeMobileQrConfig.write(value.qrConfigs, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileSweepMatrix_lift(_ buf: RustBuffer) throws -> MobileSweepMatrix {
+    return try FfiConverterTypeMobileSweepMatrix.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileSweepMatrix_lower(_ value: MobileSweepMatrix) -> RustBuffer {
+    return FfiConverterTypeMobileSweepMatrix.lower(value)
 }
 
 /**
@@ -10297,6 +10892,147 @@ public func FfiConverterTypeMobileTorConfig_lift(_ buf: RustBuffer) throws -> Mo
 #endif
 public func FfiConverterTypeMobileTorConfig_lower(_ value: MobileTorConfig) -> RustBuffer {
     return FfiConverterTypeMobileTorConfig.lower(value)
+}
+
+public struct MobileTuningResult {
+    public var cameraConfigId: UInt32
+    public var qrErrorCorrection: MobileErrorCorrectionLevel
+    public var qrPayloadSizeBytes: UInt32
+    public var qrModuleSizePx: UInt32
+    public var decodeRate: Float
+    public var avgLatencyMs: Float
+    public var jitterMs: Float
+    public var thermalEvents: UInt32
+    public var framesTotal: UInt32
+    public var framesDecoded: UInt32
+    public var actualIso: Int32?
+    public var actualExposureEv: Int32?
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(cameraConfigId: UInt32, qrErrorCorrection: MobileErrorCorrectionLevel, qrPayloadSizeBytes: UInt32, qrModuleSizePx: UInt32, decodeRate: Float, avgLatencyMs: Float, jitterMs: Float, thermalEvents: UInt32, framesTotal: UInt32, framesDecoded: UInt32, actualIso: Int32?, actualExposureEv: Int32?) {
+        self.cameraConfigId = cameraConfigId
+        self.qrErrorCorrection = qrErrorCorrection
+        self.qrPayloadSizeBytes = qrPayloadSizeBytes
+        self.qrModuleSizePx = qrModuleSizePx
+        self.decodeRate = decodeRate
+        self.avgLatencyMs = avgLatencyMs
+        self.jitterMs = jitterMs
+        self.thermalEvents = thermalEvents
+        self.framesTotal = framesTotal
+        self.framesDecoded = framesDecoded
+        self.actualIso = actualIso
+        self.actualExposureEv = actualExposureEv
+    }
+}
+
+extension MobileTuningResult: Equatable, Hashable {
+    public static func == (lhs: MobileTuningResult, rhs: MobileTuningResult) -> Bool {
+        if lhs.cameraConfigId != rhs.cameraConfigId {
+            return false
+        }
+        if lhs.qrErrorCorrection != rhs.qrErrorCorrection {
+            return false
+        }
+        if lhs.qrPayloadSizeBytes != rhs.qrPayloadSizeBytes {
+            return false
+        }
+        if lhs.qrModuleSizePx != rhs.qrModuleSizePx {
+            return false
+        }
+        if lhs.decodeRate != rhs.decodeRate {
+            return false
+        }
+        if lhs.avgLatencyMs != rhs.avgLatencyMs {
+            return false
+        }
+        if lhs.jitterMs != rhs.jitterMs {
+            return false
+        }
+        if lhs.thermalEvents != rhs.thermalEvents {
+            return false
+        }
+        if lhs.framesTotal != rhs.framesTotal {
+            return false
+        }
+        if lhs.framesDecoded != rhs.framesDecoded {
+            return false
+        }
+        if lhs.actualIso != rhs.actualIso {
+            return false
+        }
+        if lhs.actualExposureEv != rhs.actualExposureEv {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(cameraConfigId)
+        hasher.combine(qrErrorCorrection)
+        hasher.combine(qrPayloadSizeBytes)
+        hasher.combine(qrModuleSizePx)
+        hasher.combine(decodeRate)
+        hasher.combine(avgLatencyMs)
+        hasher.combine(jitterMs)
+        hasher.combine(thermalEvents)
+        hasher.combine(framesTotal)
+        hasher.combine(framesDecoded)
+        hasher.combine(actualIso)
+        hasher.combine(actualExposureEv)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileTuningResult: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileTuningResult {
+        return
+            try MobileTuningResult(
+                cameraConfigId: FfiConverterUInt32.read(from: &buf),
+                qrErrorCorrection: FfiConverterTypeMobileErrorCorrectionLevel.read(from: &buf),
+                qrPayloadSizeBytes: FfiConverterUInt32.read(from: &buf),
+                qrModuleSizePx: FfiConverterUInt32.read(from: &buf),
+                decodeRate: FfiConverterFloat.read(from: &buf),
+                avgLatencyMs: FfiConverterFloat.read(from: &buf),
+                jitterMs: FfiConverterFloat.read(from: &buf),
+                thermalEvents: FfiConverterUInt32.read(from: &buf),
+                framesTotal: FfiConverterUInt32.read(from: &buf),
+                framesDecoded: FfiConverterUInt32.read(from: &buf),
+                actualIso: FfiConverterOptionInt32.read(from: &buf),
+                actualExposureEv: FfiConverterOptionInt32.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileTuningResult, into buf: inout [UInt8]) {
+        FfiConverterUInt32.write(value.cameraConfigId, into: &buf)
+        FfiConverterTypeMobileErrorCorrectionLevel.write(value.qrErrorCorrection, into: &buf)
+        FfiConverterUInt32.write(value.qrPayloadSizeBytes, into: &buf)
+        FfiConverterUInt32.write(value.qrModuleSizePx, into: &buf)
+        FfiConverterFloat.write(value.decodeRate, into: &buf)
+        FfiConverterFloat.write(value.avgLatencyMs, into: &buf)
+        FfiConverterFloat.write(value.jitterMs, into: &buf)
+        FfiConverterUInt32.write(value.thermalEvents, into: &buf)
+        FfiConverterUInt32.write(value.framesTotal, into: &buf)
+        FfiConverterUInt32.write(value.framesDecoded, into: &buf)
+        FfiConverterOptionInt32.write(value.actualIso, into: &buf)
+        FfiConverterOptionInt32.write(value.actualExposureEv, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileTuningResult_lift(_ buf: RustBuffer) throws -> MobileTuningResult {
+    return try FfiConverterTypeMobileTuningResult.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileTuningResult_lower(_ value: MobileTuningResult) -> RustBuffer {
+    return FfiConverterTypeMobileTuningResult.lower(value)
 }
 
 /**
@@ -11703,6 +12439,70 @@ extension MobileError: Foundation.LocalizedError {
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
+public enum MobileErrorCorrectionLevel {
+    case l
+    case m
+    case q
+    case h
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileErrorCorrectionLevel: FfiConverterRustBuffer {
+    typealias SwiftType = MobileErrorCorrectionLevel
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileErrorCorrectionLevel {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return .l
+
+        case 2: return .m
+
+        case 3: return .q
+
+        case 4: return .h
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileErrorCorrectionLevel, into buf: inout [UInt8]) {
+        switch value {
+        case .l:
+            writeInt(&buf, Int32(1))
+
+        case .m:
+            writeInt(&buf, Int32(2))
+
+        case .q:
+            writeInt(&buf, Int32(3))
+
+        case .h:
+            writeInt(&buf, Int32(4))
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileErrorCorrectionLevel_lift(_ buf: RustBuffer) throws -> MobileErrorCorrectionLevel {
+    return try FfiConverterTypeMobileErrorCorrectionLevel.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileErrorCorrectionLevel_lower(_ value: MobileErrorCorrectionLevel) -> RustBuffer {
+    return FfiConverterTypeMobileErrorCorrectionLevel.lower(value)
+}
+
+extension MobileErrorCorrectionLevel: Equatable, Hashable {}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /* 
  * Mobile-friendly exchange state (no raw bytes or core types).
  */
@@ -12340,6 +13140,58 @@ public func FfiConverterTypeMobilePasswordStrength_lower(_ value: MobilePassword
 }
 
 extension MobilePasswordStrength: Equatable, Hashable {}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
+public enum MobilePlatform {
+    case android
+    case ios
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobilePlatform: FfiConverterRustBuffer {
+    typealias SwiftType = MobilePlatform
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobilePlatform {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return .android
+
+        case 2: return .ios
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobilePlatform, into buf: inout [UInt8]) {
+        switch value {
+        case .android:
+            writeInt(&buf, Int32(1))
+
+        case .ios:
+            writeInt(&buf, Int32(2))
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobilePlatform_lift(_ buf: RustBuffer) throws -> MobilePlatform {
+    return try FfiConverterTypeMobilePlatform.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobilePlatform_lower(_ value: MobilePlatform) -> RustBuffer {
+    return FfiConverterTypeMobilePlatform.lower(value)
+}
+
+extension MobilePlatform: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
@@ -13632,6 +14484,30 @@ private struct FfiConverterOptionUInt32: FfiConverterRustBuffer {
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
+private struct FfiConverterOptionInt32: FfiConverterRustBuffer {
+    typealias SwiftType = Int32?
+
+    static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterInt32.write(value, into: &buf)
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterInt32.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
 private struct FfiConverterOptionUInt64: FfiConverterRustBuffer {
     typealias SwiftType = UInt64?
 
@@ -14043,6 +14919,31 @@ private struct FfiConverterSequenceTypeMobileApplyFailure: FfiConverterRustBuffe
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
+private struct FfiConverterSequenceTypeMobileCameraConfig: FfiConverterRustBuffer {
+    typealias SwiftType = [MobileCameraConfig]
+
+    static func write(_ value: [MobileCameraConfig], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeMobileCameraConfig.write(item, into: &buf)
+        }
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileCameraConfig] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [MobileCameraConfig]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            try seq.append(FfiConverterTypeMobileCameraConfig.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
 private struct FfiConverterSequenceTypeMobileConsentRecord: FfiConverterRustBuffer {
     typealias SwiftType = [MobileConsentRecord]
 
@@ -14268,6 +15169,31 @@ private struct FfiConverterSequenceTypeMobileFieldValidation: FfiConverterRustBu
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
+private struct FfiConverterSequenceTypeMobileFpsRange: FfiConverterRustBuffer {
+    typealias SwiftType = [MobileFpsRange]
+
+    static func write(_ value: [MobileFpsRange], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeMobileFpsRange.write(item, into: &buf)
+        }
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileFpsRange] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [MobileFpsRange]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            try seq.append(FfiConverterTypeMobileFpsRange.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
 private struct FfiConverterSequenceTypeMobileHelpCategoryInfo: FfiConverterRustBuffer {
     typealias SwiftType = [MobileHelpCategoryInfo]
 
@@ -14318,6 +15244,56 @@ private struct FfiConverterSequenceTypeMobileLocaleInfo: FfiConverterRustBuffer 
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
+private struct FfiConverterSequenceTypeMobileQrConfig: FfiConverterRustBuffer {
+    typealias SwiftType = [MobileQrConfig]
+
+    static func write(_ value: [MobileQrConfig], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeMobileQrConfig.write(item, into: &buf)
+        }
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileQrConfig] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [MobileQrConfig]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            try seq.append(FfiConverterTypeMobileQrConfig.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+private struct FfiConverterSequenceTypeMobileQrTestPattern: FfiConverterRustBuffer {
+    typealias SwiftType = [MobileQrTestPattern]
+
+    static func write(_ value: [MobileQrTestPattern], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeMobileQrTestPattern.write(item, into: &buf)
+        }
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileQrTestPattern] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [MobileQrTestPattern]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            try seq.append(FfiConverterTypeMobileQrTestPattern.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
 private struct FfiConverterSequenceTypeMobileRetryEntry: FfiConverterRustBuffer {
     typealias SwiftType = [MobileRetryEntry]
 
@@ -14335,6 +15311,31 @@ private struct FfiConverterSequenceTypeMobileRetryEntry: FfiConverterRustBuffer 
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
             try seq.append(FfiConverterTypeMobileRetryEntry.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+private struct FfiConverterSequenceTypeMobileScoredConfig: FfiConverterRustBuffer {
+    typealias SwiftType = [MobileScoredConfig]
+
+    static func write(_ value: [MobileScoredConfig], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeMobileScoredConfig.write(item, into: &buf)
+        }
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileScoredConfig] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [MobileScoredConfig]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            try seq.append(FfiConverterTypeMobileScoredConfig.read(from: &buf))
         }
         return seq
     }
@@ -14385,6 +15386,31 @@ private struct FfiConverterSequenceTypeMobileTheme: FfiConverterRustBuffer {
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
             try seq.append(FfiConverterTypeMobileTheme.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+private struct FfiConverterSequenceTypeMobileTuningResult: FfiConverterRustBuffer {
+    typealias SwiftType = [MobileTuningResult]
+
+    static func write(_ value: [MobileTuningResult], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeMobileTuningResult.write(item, into: &buf)
+        }
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileTuningResult] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [MobileTuningResult]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            try seq.append(FfiConverterTypeMobileTuningResult.read(from: &buf))
         }
         return seq
     }
@@ -14585,6 +15611,36 @@ public func classifyDeviceType(name: String) -> MobileDeviceType {
 public func coreVersion() -> String {
     return try! FfiConverterString.lift(try! rustCall {
         uniffi_vauchi_mobile_fn_func_core_version($0)
+    })
+}
+
+public func diagnosticGenerateQrTestPatterns() -> [MobileQrTestPattern] {
+    return try! FfiConverterSequenceTypeMobileQrTestPattern.lift(try! rustCall {
+        uniffi_vauchi_mobile_fn_func_diagnostic_generate_qr_test_patterns($0)
+    })
+}
+
+public func diagnosticGenerateSweepMatrix(profile: MobileDeviceCapabilityProfile) -> MobileSweepMatrix {
+    return try! FfiConverterTypeMobileSweepMatrix.lift(try! rustCall {
+        uniffi_vauchi_mobile_fn_func_diagnostic_generate_sweep_matrix(
+            FfiConverterTypeMobileDeviceCapabilityProfile.lower(profile), $0
+        )
+    })
+}
+
+public func diagnosticRankConfigs(results: [MobileTuningResult]) -> [MobileScoredConfig] {
+    return try! FfiConverterSequenceTypeMobileScoredConfig.lift(try! rustCall {
+        uniffi_vauchi_mobile_fn_func_diagnostic_rank_configs(
+            FfiConverterSequenceTypeMobileTuningResult.lower(results), $0
+        )
+    })
+}
+
+public func diagnosticScoreConfig(result: MobileTuningResult) -> Float {
+    return try! FfiConverterFloat.lift(try! rustCall {
+        uniffi_vauchi_mobile_fn_func_diagnostic_score_config(
+            FfiConverterTypeMobileTuningResult.lower(result), $0
+        )
     })
 }
 
@@ -14929,6 +15985,18 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_func_core_version() != 62674 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_func_diagnostic_generate_qr_test_patterns() != 63563 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_func_diagnostic_generate_sweep_matrix() != 62874 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_func_diagnostic_rank_configs() != 36893 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_func_diagnostic_score_config() != 52231 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_func_generate_storage_key() != 24673 {

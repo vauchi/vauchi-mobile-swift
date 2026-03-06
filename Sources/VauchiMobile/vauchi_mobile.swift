@@ -956,6 +956,13 @@ public protocol MobileExchangeSessionProtocol: AnyObject {
     func isTimedOut() -> Bool
 
     /**
+     * Returns the peer's display name extracted from their QR code.
+     *
+     * Available after `process_qr()` has been called successfully.
+     */
+    func peerDisplayName() -> String?
+
+    /**
      * Perform key agreement. Transitions AwaitingKeyAgreement -> AwaitingCardExchange.
      */
     func performKeyAgreement() throws
@@ -1077,6 +1084,17 @@ open class MobileExchangeSession:
     }
 
     /**
+     * Returns the peer's display name extracted from their QR code.
+     *
+     * Available after `process_qr()` has been called successfully.
+     */
+    open func peerDisplayName() -> String? {
+        return try! FfiConverterOptionString.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_mobileexchangesession_peer_display_name(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
      * Perform key agreement. Transitions AwaitingKeyAgreement -> AwaitingCardExchange.
      */
     open func performKeyAgreement() throws {
@@ -1159,6 +1177,193 @@ public func FfiConverterTypeMobileExchangeSession_lift(_ pointer: UnsafeMutableR
 #endif
 public func FfiConverterTypeMobileExchangeSession_lower(_ value: MobileExchangeSession) -> UnsafeMutableRawPointer {
     return FfiConverterTypeMobileExchangeSession.lower(value)
+}
+
+/**
+ * Multi-stage exchange session handle for mobile platforms.
+ */
+public protocol MobileMultiStageSessionProtocol: AnyObject {
+    /**
+     * Abort and wipe session.
+     */
+    func cancel()
+
+    /**
+     * Get the QR payload the app should display right now.
+     */
+    func getDisplayQr() -> MobileQrPayload?
+
+    /**
+     * On Complete: retrieve the peer's decrypted contact card.
+     */
+    func getReceivedData() -> Data?
+
+    /**
+     * Poll current state.
+     */
+    func getState() -> MobileProtocolState
+
+    /**
+     * Feed a scanned QR string into the protocol engine.
+     */
+    func processScannedQr(raw: String) -> MobileProtocolState
+}
+
+/**
+ * Multi-stage exchange session handle for mobile platforms.
+ */
+open class MobileMultiStageSession:
+    MobileMultiStageSessionProtocol
+{
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    // Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noPointer _: NoPointer) {
+        pointer = nil
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobilemultistagesession(self.pointer, $0) }
+    }
+
+    /**
+     * Create a new session with the local contact card to share.
+     */
+    public convenience init(localCard: Data) {
+        let pointer =
+            try! rustCall {
+                uniffi_vauchi_mobile_fn_constructor_mobilemultistagesession_new(
+                    FfiConverterData.lower(localCard), $0
+                )
+            }
+        self.init(unsafeFromRawPointer: pointer)
+    }
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_vauchi_mobile_fn_free_mobilemultistagesession(pointer, $0) }
+    }
+
+    /**
+     * Abort and wipe session.
+     */
+    open func cancel() {
+        try! rustCall {
+            uniffi_vauchi_mobile_fn_method_mobilemultistagesession_cancel(self.uniffiClonePointer(), $0)
+        }
+    }
+
+    /**
+     * Get the QR payload the app should display right now.
+     */
+    open func getDisplayQr() -> MobileQrPayload? {
+        return try! FfiConverterOptionTypeMobileQrPayload.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_mobilemultistagesession_get_display_qr(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * On Complete: retrieve the peer's decrypted contact card.
+     */
+    open func getReceivedData() -> Data? {
+        return try! FfiConverterOptionData.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_mobilemultistagesession_get_received_data(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Poll current state.
+     */
+    open func getState() -> MobileProtocolState {
+        return try! FfiConverterTypeMobileProtocolState.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_mobilemultistagesession_get_state(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Feed a scanned QR string into the protocol engine.
+     */
+    open func processScannedQr(raw: String) -> MobileProtocolState {
+        return try! FfiConverterTypeMobileProtocolState.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_mobilemultistagesession_process_scanned_qr(self.uniffiClonePointer(),
+                                                                                      FfiConverterString.lower(raw), $0)
+        })
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileMultiStageSession: FfiConverter {
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = MobileMultiStageSession
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileMultiStageSession {
+        return MobileMultiStageSession(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: MobileMultiStageSession) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileMultiStageSession {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if ptr == nil {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: MobileMultiStageSession, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileMultiStageSession_lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileMultiStageSession {
+    return try FfiConverterTypeMobileMultiStageSession.lift(pointer)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileMultiStageSession_lower(_ value: MobileMultiStageSession) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeMobileMultiStageSession.lower(value)
 }
 
 /**
@@ -1858,7 +2063,8 @@ public protocol VauchiMobileProtocol: AnyObject {
      * Finalize a completed exchange session.
      *
      * Extracts the contact from the session's Complete state, saves it to storage,
-     * initializes the double ratchet, and sends the encrypted exchange message via relay.
+     * and initializes the double ratchet. No relay notification is sent — face-to-face
+     * exchange completes locally on both devices.
      *
      * The session must be in the Complete state (i.e., the state machine has been
      * driven through all steps).
@@ -3166,7 +3372,8 @@ open class VauchiMobile:
      * Finalize a completed exchange session.
      *
      * Extracts the contact from the session's Complete state, saves it to storage,
-     * initializes the double ratchet, and sends the encrypted exchange message via relay.
+     * and initializes the double ratchet. No relay notification is sent — face-to-face
+     * exchange completes locally on both devices.
      *
      * The session must be in the Complete state (i.e., the state machine has been
      * driven through all steps).
@@ -7990,6 +8197,78 @@ public func FfiConverterTypeMobileProximityResult_lower(_ value: MobileProximity
 }
 
 /**
+ * QR payload for mobile display.
+ */
+public struct MobileQrPayload {
+    public var data: String
+    public var errorCorrection: String
+    public var displayDurationMs: UInt32
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(data: String, errorCorrection: String, displayDurationMs: UInt32) {
+        self.data = data
+        self.errorCorrection = errorCorrection
+        self.displayDurationMs = displayDurationMs
+    }
+}
+
+extension MobileQrPayload: Equatable, Hashable {
+    public static func == (lhs: MobileQrPayload, rhs: MobileQrPayload) -> Bool {
+        if lhs.data != rhs.data {
+            return false
+        }
+        if lhs.errorCorrection != rhs.errorCorrection {
+            return false
+        }
+        if lhs.displayDurationMs != rhs.displayDurationMs {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(data)
+        hasher.combine(errorCorrection)
+        hasher.combine(displayDurationMs)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileQrPayload: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileQrPayload {
+        return
+            try MobileQrPayload(
+                data: FfiConverterString.read(from: &buf),
+                errorCorrection: FfiConverterString.read(from: &buf),
+                displayDurationMs: FfiConverterUInt32.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileQrPayload, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.data, into: &buf)
+        FfiConverterString.write(value.errorCorrection, into: &buf)
+        FfiConverterUInt32.write(value.displayDurationMs, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileQrPayload_lift(_ buf: RustBuffer) throws -> MobileQrPayload {
+    return try FfiConverterTypeMobileQrPayload.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileQrPayload_lower(_ value: MobileQrPayload) -> RustBuffer {
+    return FfiConverterTypeMobileQrPayload.lower(value)
+}
+
+/**
  * Recovery claim data for mobile.
  */
 public struct MobileRecoveryClaim {
@@ -11525,6 +11804,102 @@ extension MobilePasswordStrength: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /* 
+ * Mobile-friendly protocol state enum (UniFFI-compatible).
+ */
+
+public enum MobileProtocolState {
+    case idle
+    case advertising
+    case discovered
+    case transferring(chunksSent: UInt8, chunksTotal: UInt8, chunksReceived: UInt8, peerChunksTotal: UInt8)
+    case verifying
+    case confirming
+    case complete
+    case failed(reason: String)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileProtocolState: FfiConverterRustBuffer {
+    typealias SwiftType = MobileProtocolState
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileProtocolState {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return .idle
+
+        case 2: return .advertising
+
+        case 3: return .discovered
+
+        case 4: return try .transferring(chunksSent: FfiConverterUInt8.read(from: &buf), chunksTotal: FfiConverterUInt8.read(from: &buf), chunksReceived: FfiConverterUInt8.read(from: &buf), peerChunksTotal: FfiConverterUInt8.read(from: &buf))
+
+        case 5: return .verifying
+
+        case 6: return .confirming
+
+        case 7: return .complete
+
+        case 8: return try .failed(reason: FfiConverterString.read(from: &buf))
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileProtocolState, into buf: inout [UInt8]) {
+        switch value {
+        case .idle:
+            writeInt(&buf, Int32(1))
+
+        case .advertising:
+            writeInt(&buf, Int32(2))
+
+        case .discovered:
+            writeInt(&buf, Int32(3))
+
+        case let .transferring(chunksSent, chunksTotal, chunksReceived, peerChunksTotal):
+            writeInt(&buf, Int32(4))
+            FfiConverterUInt8.write(chunksSent, into: &buf)
+            FfiConverterUInt8.write(chunksTotal, into: &buf)
+            FfiConverterUInt8.write(chunksReceived, into: &buf)
+            FfiConverterUInt8.write(peerChunksTotal, into: &buf)
+
+        case .verifying:
+            writeInt(&buf, Int32(5))
+
+        case .confirming:
+            writeInt(&buf, Int32(6))
+
+        case .complete:
+            writeInt(&buf, Int32(7))
+
+        case let .failed(reason):
+            writeInt(&buf, Int32(8))
+            FfiConverterString.write(reason, into: &buf)
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileProtocolState_lift(_ buf: RustBuffer) throws -> MobileProtocolState {
+    return try FfiConverterTypeMobileProtocolState.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileProtocolState_lower(_ value: MobileProtocolState) -> RustBuffer {
+    return FfiConverterTypeMobileProtocolState.lower(value)
+}
+
+extension MobileProtocolState: Equatable, Hashable {}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/* 
  * Current shred status for the account.
  */
 
@@ -12796,6 +13171,30 @@ private struct FfiConverterOptionTypeMobileFaqItem: FfiConverterRustBuffer {
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
+private struct FfiConverterOptionTypeMobileQrPayload: FfiConverterRustBuffer {
+    typealias SwiftType = MobileQrPayload?
+
+    static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeMobileQrPayload.write(value, into: &buf)
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeMobileQrPayload.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
 private struct FfiConverterOptionTypeMobileRecoveryProgress: FfiConverterRustBuffer {
     typealias SwiftType = MobileRecoveryProgress?
 
@@ -13478,6 +13877,17 @@ public func classifyDeviceType(name: String) -> MobileDeviceType {
 }
 
 /**
+ * Return the Rust core library version (compile-time constant).
+ *
+ * Mobile apps log this at startup to detect mismatched builds.
+ */
+public func coreVersion() -> String {
+    return try! FfiConverterString.lift(try! rustCall {
+        uniffi_vauchi_mobile_fn_func_core_version($0)
+    })
+}
+
+/**
  * Generate a new random storage key.
  *
  * Use this when setting up a new installation with secure storage.
@@ -13817,6 +14227,9 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_func_classify_device_type() != 49202 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_mobile_checksum_func_core_version() != 62674 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_mobile_checksum_func_generate_storage_key() != 24673 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -13928,6 +14341,9 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_method_mobileexchangesession_is_timed_out() != 25990 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_mobile_checksum_method_mobileexchangesession_peer_display_name() != 39346 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_mobile_checksum_method_mobileexchangesession_perform_key_agreement() != 4833 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -13938,6 +14354,21 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_mobileexchangesession_they_scanned_our_qr() != 55148 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilemultistagesession_cancel() != 23709 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilemultistagesession_get_display_qr() != 30530 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilemultistagesession_get_received_data() != 46581 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilemultistagesession_get_state() != 63366 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilemultistagesession_process_scanned_qr() != 30659 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_mobilemultipartdecoder_add_chunk() != 22960 {
@@ -14099,7 +14530,7 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_export_storage_key() != 42895 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_finalize_exchange() != 62679 {
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_finalize_exchange() != 16334 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_generate_device_link_qr() != 28478 {
@@ -14460,6 +14891,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_verify_shred() != 51157 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_constructor_mobilemultistagesession_new() != 16320 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_constructor_mobilemultipartdecoder_new() != 15717 {

@@ -559,6 +559,282 @@ private struct FfiConverterData: FfiConverterRustBuffer {
 }
 
 /**
+ * Mobile BLE exchange session wrapping the core `BleHandshakeSession`.
+ *
+ * Drives the four-phase encrypted BLE exchange:
+ * Phase 1: KeyOffer (initiator → responder)
+ * Phase 2: KeyAck + encrypted card (responder → initiator)
+ * Phase 3: Commitment + encrypted card (initiator → responder)
+ * Phase 4: Reveal + verify (both sides)
+ *
+ * The mobile app feeds BLE events into this session via `on_connected`,
+ * `on_data_received`, etc. The session calls back to the delegate to
+ * send data and report state changes.
+ */
+public protocol MobileBleExchangeSessionProtocol: AnyObject {
+    /**
+     * Cancel the exchange and disconnect.
+     */
+    func cancel()
+
+    /**
+     * Returns the current state of the exchange.
+     */
+    func getState() -> MobileBleState
+
+    /**
+     * Called when the BLE connection is established.
+     *
+     * For the initiator: creates and sends the KeyOffer.
+     * For the responder: subscribes to the handshake write characteristic
+     * and waits for the initiator's KeyOffer.
+     */
+    func onConnected(deviceId: String)
+
+    /**
+     * Called when data is received on a BLE characteristic.
+     *
+     * Routes the data to the appropriate handler based on the characteristic UUID
+     * and current protocol phase.
+     */
+    func onDataReceived(characteristicUuid: String, data: Data)
+
+    /**
+     * Called when the BLE connection is lost.
+     */
+    func onDisconnected()
+
+    /**
+     * Called when MTU is negotiated with the peer.
+     *
+     * The usable payload size is `mtu - 3` (ATT header overhead).
+     */
+    func onMtuNegotiated(mtu: UInt32)
+
+    /**
+     * Switch this session to responder mode.
+     *
+     * Must be called before `on_connected()`. The responder waits for
+     * a KeyOffer from the initiator instead of sending one.
+     */
+    func setResponder()
+}
+
+/**
+ * Mobile BLE exchange session wrapping the core `BleHandshakeSession`.
+ *
+ * Drives the four-phase encrypted BLE exchange:
+ * Phase 1: KeyOffer (initiator → responder)
+ * Phase 2: KeyAck + encrypted card (responder → initiator)
+ * Phase 3: Commitment + encrypted card (initiator → responder)
+ * Phase 4: Reveal + verify (both sides)
+ *
+ * The mobile app feeds BLE events into this session via `on_connected`,
+ * `on_data_received`, etc. The session calls back to the delegate to
+ * send data and report state changes.
+ */
+open class MobileBleExchangeSession:
+    MobileBleExchangeSessionProtocol
+{
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    // Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noPointer _: NoPointer) {
+        pointer = nil
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobilebleexchangesession(self.pointer, $0) }
+    }
+
+    /**
+     * Creates a new BLE exchange session.
+     *
+     * # Arguments
+     *
+     * * `identity_key` - 32-byte Ed25519 signing public key
+     * * `display_name` - User's display name for the contact card
+     * * `exchange_key` - 32-byte X25519 exchange public key
+     * * `fields` - Contact fields as key-value pairs
+     * * `avatar` - Optional avatar image bytes
+     * * `delegate` - Platform BLE transport callback
+     */
+    public convenience init(identityKey: Data, displayName: String, exchangeKey: Data, fields: [MobileBleField], avatar: Data?, delegate: MobileBleDelegate) throws {
+        let pointer =
+            try rustCallWithError(FfiConverterTypeMobileBleError.lift) {
+                uniffi_vauchi_mobile_fn_constructor_mobilebleexchangesession_new(
+                    FfiConverterData.lower(identityKey),
+                    FfiConverterString.lower(displayName),
+                    FfiConverterData.lower(exchangeKey),
+                    FfiConverterSequenceTypeMobileBleField.lower(fields),
+                    FfiConverterOptionData.lower(avatar),
+                    FfiConverterCallbackInterfaceMobileBleDelegate.lower(delegate), $0
+                )
+            }
+        self.init(unsafeFromRawPointer: pointer)
+    }
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_vauchi_mobile_fn_free_mobilebleexchangesession(pointer, $0) }
+    }
+
+    /**
+     * Cancel the exchange and disconnect.
+     */
+    open func cancel() {
+        try! rustCall {
+            uniffi_vauchi_mobile_fn_method_mobilebleexchangesession_cancel(self.uniffiClonePointer(), $0)
+        }
+    }
+
+    /**
+     * Returns the current state of the exchange.
+     */
+    open func getState() -> MobileBleState {
+        return try! FfiConverterTypeMobileBleState.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_mobilebleexchangesession_get_state(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Called when the BLE connection is established.
+     *
+     * For the initiator: creates and sends the KeyOffer.
+     * For the responder: subscribes to the handshake write characteristic
+     * and waits for the initiator's KeyOffer.
+     */
+    open func onConnected(deviceId: String) {
+        try! rustCall {
+            uniffi_vauchi_mobile_fn_method_mobilebleexchangesession_on_connected(self.uniffiClonePointer(),
+                                                                                 FfiConverterString.lower(deviceId), $0)
+        }
+    }
+
+    /**
+     * Called when data is received on a BLE characteristic.
+     *
+     * Routes the data to the appropriate handler based on the characteristic UUID
+     * and current protocol phase.
+     */
+    open func onDataReceived(characteristicUuid: String, data: Data) {
+        try! rustCall {
+            uniffi_vauchi_mobile_fn_method_mobilebleexchangesession_on_data_received(self.uniffiClonePointer(),
+                                                                                     FfiConverterString.lower(characteristicUuid),
+                                                                                     FfiConverterData.lower(data), $0)
+        }
+    }
+
+    /**
+     * Called when the BLE connection is lost.
+     */
+    open func onDisconnected() {
+        try! rustCall {
+            uniffi_vauchi_mobile_fn_method_mobilebleexchangesession_on_disconnected(self.uniffiClonePointer(), $0)
+        }
+    }
+
+    /**
+     * Called when MTU is negotiated with the peer.
+     *
+     * The usable payload size is `mtu - 3` (ATT header overhead).
+     */
+    open func onMtuNegotiated(mtu: UInt32) {
+        try! rustCall {
+            uniffi_vauchi_mobile_fn_method_mobilebleexchangesession_on_mtu_negotiated(self.uniffiClonePointer(),
+                                                                                      FfiConverterUInt32.lower(mtu), $0)
+        }
+    }
+
+    /**
+     * Switch this session to responder mode.
+     *
+     * Must be called before `on_connected()`. The responder waits for
+     * a KeyOffer from the initiator instead of sending one.
+     */
+    open func setResponder() {
+        try! rustCall {
+            uniffi_vauchi_mobile_fn_method_mobilebleexchangesession_set_responder(self.uniffiClonePointer(), $0)
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileBleExchangeSession: FfiConverter {
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = MobileBleExchangeSession
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileBleExchangeSession {
+        return MobileBleExchangeSession(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: MobileBleExchangeSession) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileBleExchangeSession {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if ptr == nil {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: MobileBleExchangeSession, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileBleExchangeSession_lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileBleExchangeSession {
+    return try FfiConverterTypeMobileBleExchangeSession.lift(pointer)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileBleExchangeSession_lower(_ value: MobileBleExchangeSession) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeMobileBleExchangeSession.lower(value)
+}
+
+/**
  * UniFFI-exposed wrapper around DeviceLinkInitiator.
  *
  * Uses Mutex for interior mutability (required by UniFFI's Arc<T>).
@@ -5193,6 +5469,158 @@ public func FfiConverterTypeMobileApplyFailure_lift(_ buf: RustBuffer) throws ->
 #endif
 public func FfiConverterTypeMobileApplyFailure_lower(_ value: MobileApplyFailure) -> RustBuffer {
     return FfiConverterTypeMobileApplyFailure.lower(value)
+}
+
+/**
+ * Result of a completed BLE exchange, exposed to mobile.
+ */
+public struct MobileBleExchangeResult {
+    public var remoteDisplayName: String
+    public var remoteIdentityKey: Data
+    public var remoteExchangeKey: Data
+    public var remoteFields: [MobileBleField]
+    public var remoteAvatar: Data?
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(remoteDisplayName: String, remoteIdentityKey: Data, remoteExchangeKey: Data, remoteFields: [MobileBleField], remoteAvatar: Data?) {
+        self.remoteDisplayName = remoteDisplayName
+        self.remoteIdentityKey = remoteIdentityKey
+        self.remoteExchangeKey = remoteExchangeKey
+        self.remoteFields = remoteFields
+        self.remoteAvatar = remoteAvatar
+    }
+}
+
+extension MobileBleExchangeResult: Equatable, Hashable {
+    public static func == (lhs: MobileBleExchangeResult, rhs: MobileBleExchangeResult) -> Bool {
+        if lhs.remoteDisplayName != rhs.remoteDisplayName {
+            return false
+        }
+        if lhs.remoteIdentityKey != rhs.remoteIdentityKey {
+            return false
+        }
+        if lhs.remoteExchangeKey != rhs.remoteExchangeKey {
+            return false
+        }
+        if lhs.remoteFields != rhs.remoteFields {
+            return false
+        }
+        if lhs.remoteAvatar != rhs.remoteAvatar {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(remoteDisplayName)
+        hasher.combine(remoteIdentityKey)
+        hasher.combine(remoteExchangeKey)
+        hasher.combine(remoteFields)
+        hasher.combine(remoteAvatar)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileBleExchangeResult: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileBleExchangeResult {
+        return
+            try MobileBleExchangeResult(
+                remoteDisplayName: FfiConverterString.read(from: &buf),
+                remoteIdentityKey: FfiConverterData.read(from: &buf),
+                remoteExchangeKey: FfiConverterData.read(from: &buf),
+                remoteFields: FfiConverterSequenceTypeMobileBleField.read(from: &buf),
+                remoteAvatar: FfiConverterOptionData.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileBleExchangeResult, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.remoteDisplayName, into: &buf)
+        FfiConverterData.write(value.remoteIdentityKey, into: &buf)
+        FfiConverterData.write(value.remoteExchangeKey, into: &buf)
+        FfiConverterSequenceTypeMobileBleField.write(value.remoteFields, into: &buf)
+        FfiConverterOptionData.write(value.remoteAvatar, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileBleExchangeResult_lift(_ buf: RustBuffer) throws -> MobileBleExchangeResult {
+    return try FfiConverterTypeMobileBleExchangeResult.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileBleExchangeResult_lower(_ value: MobileBleExchangeResult) -> RustBuffer {
+    return FfiConverterTypeMobileBleExchangeResult.lower(value)
+}
+
+/**
+ * A single contact field (key-value pair).
+ */
+public struct MobileBleField {
+    public var key: String
+    public var value: String
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(key: String, value: String) {
+        self.key = key
+        self.value = value
+    }
+}
+
+extension MobileBleField: Equatable, Hashable {
+    public static func == (lhs: MobileBleField, rhs: MobileBleField) -> Bool {
+        if lhs.key != rhs.key {
+            return false
+        }
+        if lhs.value != rhs.value {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(key)
+        hasher.combine(value)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileBleField: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileBleField {
+        return
+            try MobileBleField(
+                key: FfiConverterString.read(from: &buf),
+                value: FfiConverterString.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileBleField, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.key, into: &buf)
+        FfiConverterString.write(value.value, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileBleField_lift(_ buf: RustBuffer) throws -> MobileBleField {
+    return try FfiConverterTypeMobileBleField.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileBleField_lower(_ value: MobileBleField) -> RustBuffer {
+    return FfiConverterTypeMobileBleField.lower(value)
 }
 
 /**
@@ -11725,6 +12153,53 @@ public func FfiConverterTypeMobileAuthMode_lower(_ value: MobileAuthMode) -> Rus
 
 extension MobileAuthMode: Equatable, Hashable {}
 
+/**
+ * Error type for BLE exchange operations.
+ */
+public enum MobileBleError {
+    case ExchangeFailed(msg: String)
+    case InvalidState
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileBleError: FfiConverterRustBuffer {
+    typealias SwiftType = MobileBleError
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileBleError {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return try .ExchangeFailed(
+                msg: FfiConverterString.read(from: &buf)
+            )
+
+        case 2: return .InvalidState
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileBleError, into buf: inout [UInt8]) {
+        switch value {
+        case let .ExchangeFailed(msg):
+            writeInt(&buf, Int32(1))
+            FfiConverterString.write(msg, into: &buf)
+
+        case .InvalidState:
+            writeInt(&buf, Int32(2))
+        }
+    }
+}
+
+extension MobileBleError: Equatable, Hashable {}
+
+extension MobileBleError: Foundation.LocalizedError {
+    public var errorDescription: String? {
+        String(reflecting: self)
+    }
+}
+
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /* 
@@ -11786,6 +12261,133 @@ public func FfiConverterTypeMobileBleExchangeStatus_lower(_ value: MobileBleExch
 }
 
 extension MobileBleExchangeStatus: Equatable, Hashable {}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/* 
+ * Mobile-friendly BLE exchange state.
+ */
+
+public enum MobileBleState {
+    case connecting
+    case handshaking
+    case transferring
+    case verifying
+    case complete
+    case failed(error: String)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileBleState: FfiConverterRustBuffer {
+    typealias SwiftType = MobileBleState
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileBleState {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return .connecting
+
+        case 2: return .handshaking
+
+        case 3: return .transferring
+
+        case 4: return .verifying
+
+        case 5: return .complete
+
+        case 6: return try .failed(error: FfiConverterString.read(from: &buf))
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileBleState, into buf: inout [UInt8]) {
+        switch value {
+        case .connecting:
+            writeInt(&buf, Int32(1))
+
+        case .handshaking:
+            writeInt(&buf, Int32(2))
+
+        case .transferring:
+            writeInt(&buf, Int32(3))
+
+        case .verifying:
+            writeInt(&buf, Int32(4))
+
+        case .complete:
+            writeInt(&buf, Int32(5))
+
+        case let .failed(error):
+            writeInt(&buf, Int32(6))
+            FfiConverterString.write(error, into: &buf)
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileBleState_lift(_ buf: RustBuffer) throws -> MobileBleState {
+    return try FfiConverterTypeMobileBleState.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileBleState_lower(_ value: MobileBleState) -> RustBuffer {
+    return FfiConverterTypeMobileBleState.lower(value)
+}
+
+extension MobileBleState: Equatable, Hashable {}
+
+/**
+ * Error type for BLE transport callback interface.
+ */
+public enum MobileBleTransportError {
+    case TransportFailed(msg: String)
+    case ConnectionLost
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileBleTransportError: FfiConverterRustBuffer {
+    typealias SwiftType = MobileBleTransportError
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileBleTransportError {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return try .TransportFailed(
+                msg: FfiConverterString.read(from: &buf)
+            )
+
+        case 2: return .ConnectionLost
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileBleTransportError, into buf: inout [UInt8]) {
+        switch value {
+        case let .TransportFailed(msg):
+            writeInt(&buf, Int32(1))
+            FfiConverterString.write(msg, into: &buf)
+
+        case .ConnectionLost:
+            writeInt(&buf, Int32(2))
+        }
+    }
+}
+
+extension MobileBleTransportError: Equatable, Hashable {}
+
+extension MobileBleTransportError: Foundation.LocalizedError {
+    public var errorDescription: String? {
+        String(reflecting: self)
+    }
+}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
@@ -13800,6 +14402,264 @@ public func FfiConverterTypeMobileWidgetConfirmationMode_lower(_ value: MobileWi
 extension MobileWidgetConfirmationMode: Equatable, Hashable {}
 
 /**
+ * Callback interface for platform-specific BLE transport.
+ *
+ * iOS implements this with CoreBluetooth.
+ * Android implements this with Android BLE (BluetoothGatt / BluetoothGattServer).
+ *
+ * Core calls these methods to send data and notify the mobile app of state changes.
+ */
+public protocol MobileBleDelegate: AnyObject {
+    /**
+     * Write data to a BLE characteristic.
+     *
+     * The mobile platform sends this data to the connected peer
+     * via the specified GATT characteristic UUID.
+     */
+    func sendData(characteristicUuid: String, data: Data) throws
+
+    /**
+     * Subscribe to notifications on a BLE characteristic.
+     *
+     * The mobile platform enables notifications for the specified
+     * characteristic so incoming data triggers `on_data_received`.
+     */
+    func subscribeNotify(characteristicUuid: String) throws
+
+    /**
+     * Disconnect from the BLE peer.
+     */
+    func disconnect() throws
+
+    /**
+     * Called when the exchange state changes.
+     */
+    func onStateChanged(state: MobileBleState)
+
+    /**
+     * Called when the exchange completes successfully.
+     */
+    func onExchangeComplete(result: MobileBleExchangeResult)
+
+    /**
+     * Called when the exchange fails.
+     */
+    func onExchangeFailed(error: String)
+}
+
+/// Magic number for the Rust proxy to call using the same mechanism as every other method,
+/// to free the callback once it's dropped by Rust.
+private let IDX_CALLBACK_FREE: Int32 = 0
+// Callback return codes
+private let UNIFFI_CALLBACK_SUCCESS: Int32 = 0
+private let UNIFFI_CALLBACK_ERROR: Int32 = 1
+private let UNIFFI_CALLBACK_UNEXPECTED_ERROR: Int32 = 2
+
+/// Put the implementation in a struct so we don't pollute the top-level namespace
+private enum UniffiCallbackInterfaceMobileBleDelegate {
+    /// Create the VTable using a series of closures.
+    /// Swift automatically converts these into C callback functions.
+    static var vtable: UniffiVTableCallbackInterfaceMobileBleDelegate = .init(
+        sendData: { (
+            uniffiHandle: UInt64,
+            characteristicUuid: RustBuffer,
+            data: RustBuffer,
+            _: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceMobileBleDelegate.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return try uniffiObj.sendData(
+                    characteristicUuid: FfiConverterString.lift(characteristicUuid),
+                    data: FfiConverterData.lift(data)
+                )
+            }
+
+            let writeReturn = { () }
+            uniffiTraitInterfaceCallWithError(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn,
+                lowerError: FfiConverterTypeMobileBleTransportError.lower
+            )
+        },
+        subscribeNotify: { (
+            uniffiHandle: UInt64,
+            characteristicUuid: RustBuffer,
+            _: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceMobileBleDelegate.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return try uniffiObj.subscribeNotify(
+                    characteristicUuid: FfiConverterString.lift(characteristicUuid)
+                )
+            }
+
+            let writeReturn = { () }
+            uniffiTraitInterfaceCallWithError(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn,
+                lowerError: FfiConverterTypeMobileBleTransportError.lower
+            )
+        },
+        disconnect: { (
+            uniffiHandle: UInt64,
+            _: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceMobileBleDelegate.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return try uniffiObj.disconnect(
+                )
+            }
+
+            let writeReturn = { () }
+            uniffiTraitInterfaceCallWithError(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn,
+                lowerError: FfiConverterTypeMobileBleTransportError.lower
+            )
+        },
+        onStateChanged: { (
+            uniffiHandle: UInt64,
+            state: RustBuffer,
+            _: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceMobileBleDelegate.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return try uniffiObj.onStateChanged(
+                    state: FfiConverterTypeMobileBleState.lift(state)
+                )
+            }
+
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        onExchangeComplete: { (
+            uniffiHandle: UInt64,
+            result: RustBuffer,
+            _: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceMobileBleDelegate.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return try uniffiObj.onExchangeComplete(
+                    result: FfiConverterTypeMobileBleExchangeResult.lift(result)
+                )
+            }
+
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        onExchangeFailed: { (
+            uniffiHandle: UInt64,
+            error: RustBuffer,
+            _: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceMobileBleDelegate.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return try uniffiObj.onExchangeFailed(
+                    error: FfiConverterString.lift(error)
+                )
+            }
+
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        uniffiFree: { (uniffiHandle: UInt64) in
+            let result = try? FfiConverterCallbackInterfaceMobileBleDelegate.handleMap.remove(handle: uniffiHandle)
+            if result == nil {
+                print("Uniffi callback interface MobileBleDelegate: handle missing in uniffiFree")
+            }
+        }
+    )
+}
+
+private func uniffiCallbackInitMobileBleDelegate() {
+    uniffi_vauchi_mobile_fn_init_callback_vtable_mobilebledelegate(&UniffiCallbackInterfaceMobileBleDelegate.vtable)
+}
+
+// FfiConverter protocol for callback interfaces
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+private enum FfiConverterCallbackInterfaceMobileBleDelegate {
+    fileprivate static var handleMap = UniffiHandleMap<MobileBleDelegate>()
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+extension FfiConverterCallbackInterfaceMobileBleDelegate: FfiConverter {
+    typealias SwiftType = MobileBleDelegate
+    typealias FfiType = UInt64
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public static func lift(_ handle: UInt64) throws -> SwiftType {
+        try handleMap.get(handle: handle)
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public static func lower(_ v: SwiftType) -> UInt64 {
+        return handleMap.insert(obj: v)
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public static func write(_ v: SwiftType, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(v))
+    }
+}
+
+/**
  * Callback interface for platform-specific NFC transport.
  *
  * iOS implements this with CoreNFC (reader-only).
@@ -13827,14 +14687,6 @@ public protocol MobileNfcTransport: AnyObject {
      */
     func isConnected() -> Bool
 }
-
-/// Magic number for the Rust proxy to call using the same mechanism as every other method,
-/// to free the callback once it's dropped by Rust.
-private let IDX_CALLBACK_FREE: Int32 = 0
-// Callback return codes
-private let UNIFFI_CALLBACK_SUCCESS: Int32 = 0
-private let UNIFFI_CALLBACK_ERROR: Int32 = 1
-private let UNIFFI_CALLBACK_UNEXPECTED_ERROR: Int32 = 2
 
 /// Put the implementation in a struct so we don't pollute the top-level namespace
 private enum UniffiCallbackInterfaceMobileNfcTransport {
@@ -14911,6 +15763,31 @@ private struct FfiConverterSequenceTypeMobileApplyFailure: FfiConverterRustBuffe
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
             try seq.append(FfiConverterTypeMobileApplyFailure.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+private struct FfiConverterSequenceTypeMobileBleField: FfiConverterRustBuffer {
+    typealias SwiftType = [MobileBleField]
+
+    static func write(_ value: [MobileBleField], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeMobileBleField.write(item, into: &buf)
+        }
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileBleField] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [MobileBleField]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            try seq.append(FfiConverterTypeMobileBleField.read(from: &buf))
         }
         return seq
     }
@@ -16071,6 +16948,27 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_func_widget_panic_shred() != 35082 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_mobile_checksum_method_mobilebleexchangesession_cancel() != 49514 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilebleexchangesession_get_state() != 30417 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilebleexchangesession_on_connected() != 46285 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilebleexchangesession_on_data_received() != 25938 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilebleexchangesession_on_disconnected() != 45005 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilebleexchangesession_on_mtu_negotiated() != 63992 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilebleexchangesession_set_responder() != 10498 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_mobile_checksum_method_mobiledevicelinkinitiator_confirm_link_manual() != 50570 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -16689,6 +17587,9 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_verify_shred() != 51157 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_mobile_checksum_constructor_mobilebleexchangesession_new() != 44548 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_mobile_checksum_constructor_mobilemultistagesession_new() != 16320 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -16705,6 +17606,24 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_constructor_vauchimobile_new_with_secure_key() != 16278 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilebledelegate_send_data() != 8461 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilebledelegate_subscribe_notify() != 64758 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilebledelegate_disconnect() != 59512 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilebledelegate_on_state_changed() != 57253 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilebledelegate_on_exchange_complete() != 4038 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilebledelegate_on_exchange_failed() != 36511 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_mobilenfctransport_transceive() != 47972 {
@@ -16744,6 +17663,7 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
 
+    uniffiCallbackInitMobileBleDelegate()
     uniffiCallbackInitMobileNfcTransport()
     uniffiCallbackInitMobilePlatformKeychain()
     uniffiCallbackInitMobileProximityHandler()

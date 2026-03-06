@@ -1564,6 +1564,231 @@ public func FfiConverterTypeMobileMultipartDecoder_lower(_ value: MobileMultipar
 }
 
 /**
+ * Mobile NFC handshake session wrapping the core `NfcHandshakeSession`.
+ *
+ * Drives the three-phase encrypted NFC exchange:
+ * Phase 1: create_key_offer / process_key_offer
+ * Phase 2: process_key_ack / process_encrypted_card
+ * Phase 3: confirm_send_success
+ */
+public protocol MobileNfcHandshakeProtocol: AnyObject {
+    /**
+     * Confirm that Phase 3 send succeeded (Initiator).
+     */
+    func confirmSendSuccess() throws -> MobileNfcExchangeResult
+
+    /**
+     * Phase 1 (Initiator): Create key offer APDU payload.
+     */
+    func createKeyOffer() throws -> Data
+
+    /**
+     * Enter relay fallback mode when NFC tap drops mid-exchange.
+     *
+     * Returns the exchange_id bytes (for relay routing).
+     */
+    func enterRelayFallback() throws -> Data
+
+    /**
+     * Phase 3 (Responder): Process encrypted card from initiator.
+     */
+    func processEncryptedCard(theirEncryptedCard: Data) throws -> MobileNfcExchangeResult
+
+    /**
+     * Phase 2 (Initiator): Process key ack + encrypted card from responder.
+     *
+     * Returns our encrypted card bytes for Phase 3.
+     */
+    func processKeyAck(theirAckBytes: Data, theirEncryptedCard: Data) throws -> Data
+
+    /**
+     * Phase 2 (Responder): Process incoming key offer, return ack + encrypted card.
+     */
+    func processKeyOffer(theirOfferBytes: Data) throws -> MobileNfcKeyAckResult
+
+    /**
+     * Get the current state of the handshake.
+     */
+    func state() -> MobileNfcState
+}
+
+/**
+ * Mobile NFC handshake session wrapping the core `NfcHandshakeSession`.
+ *
+ * Drives the three-phase encrypted NFC exchange:
+ * Phase 1: create_key_offer / process_key_offer
+ * Phase 2: process_key_ack / process_encrypted_card
+ * Phase 3: confirm_send_success
+ */
+open class MobileNfcHandshake:
+    MobileNfcHandshakeProtocol
+{
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    // Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noPointer _: NoPointer) {
+        pointer = nil
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobilenfchandshake(self.pointer, $0) }
+    }
+
+    // No primary constructor declared for this class.
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_vauchi_mobile_fn_free_mobilenfchandshake(pointer, $0) }
+    }
+
+    /**
+     * Confirm that Phase 3 send succeeded (Initiator).
+     */
+    open func confirmSendSuccess() throws -> MobileNfcExchangeResult {
+        return try FfiConverterTypeMobileNfcExchangeResult.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobilenfchandshake_confirm_send_success(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Phase 1 (Initiator): Create key offer APDU payload.
+     */
+    open func createKeyOffer() throws -> Data {
+        return try FfiConverterData.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobilenfchandshake_create_key_offer(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Enter relay fallback mode when NFC tap drops mid-exchange.
+     *
+     * Returns the exchange_id bytes (for relay routing).
+     */
+    open func enterRelayFallback() throws -> Data {
+        return try FfiConverterData.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobilenfchandshake_enter_relay_fallback(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Phase 3 (Responder): Process encrypted card from initiator.
+     */
+    open func processEncryptedCard(theirEncryptedCard: Data) throws -> MobileNfcExchangeResult {
+        return try FfiConverterTypeMobileNfcExchangeResult.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobilenfchandshake_process_encrypted_card(self.uniffiClonePointer(),
+                                                                                     FfiConverterData.lower(theirEncryptedCard), $0)
+        })
+    }
+
+    /**
+     * Phase 2 (Initiator): Process key ack + encrypted card from responder.
+     *
+     * Returns our encrypted card bytes for Phase 3.
+     */
+    open func processKeyAck(theirAckBytes: Data, theirEncryptedCard: Data) throws -> Data {
+        return try FfiConverterData.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobilenfchandshake_process_key_ack(self.uniffiClonePointer(),
+                                                                              FfiConverterData.lower(theirAckBytes),
+                                                                              FfiConverterData.lower(theirEncryptedCard), $0)
+        })
+    }
+
+    /**
+     * Phase 2 (Responder): Process incoming key offer, return ack + encrypted card.
+     */
+    open func processKeyOffer(theirOfferBytes: Data) throws -> MobileNfcKeyAckResult {
+        return try FfiConverterTypeMobileNfcKeyAckResult.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobilenfchandshake_process_key_offer(self.uniffiClonePointer(),
+                                                                                FfiConverterData.lower(theirOfferBytes), $0)
+        })
+    }
+
+    /**
+     * Get the current state of the handshake.
+     */
+    open func state() -> MobileNfcState {
+        return try! FfiConverterTypeMobileNfcState.lift(try! rustCall {
+            uniffi_vauchi_mobile_fn_method_mobilenfchandshake_state(self.uniffiClonePointer(), $0)
+        })
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileNfcHandshake: FfiConverter {
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = MobileNfcHandshake
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileNfcHandshake {
+        return MobileNfcHandshake(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: MobileNfcHandshake) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileNfcHandshake {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if ptr == nil {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: MobileNfcHandshake, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileNfcHandshake_lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileNfcHandshake {
+    return try FfiConverterTypeMobileNfcHandshake.lift(pointer)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileNfcHandshake_lower(_ value: MobileNfcHandshake) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeMobileNfcHandshake.lower(value)
+}
+
+/**
  * Mobile-friendly proximity verification API.
  */
 public protocol MobileProximityVerifierProtocol: AnyObject {
@@ -1930,6 +2155,20 @@ public protocol VauchiMobileProtocol: AnyObject {
      * Create a new visibility label.
      */
     func createLabel(name: String) throws -> MobileVisibilityLabel
+
+    /**
+     * Create an NFC exchange session as the initiator (reader side).
+     *
+     * Used by iOS (CoreNFC reader) and Android (NfcAdapter reader).
+     */
+    func createNfcInitiator() throws -> MobileNfcHandshake
+
+    /**
+     * Create an NFC exchange session as the responder (HCE side).
+     *
+     * Used by Android only (HostApduService card emulation).
+     */
+    func createNfcResponder() throws -> MobileNfcHandshake
 
     /**
      * Create a QR exchange session with proximity verification.
@@ -3148,6 +3387,28 @@ open class VauchiMobile:
         return try FfiConverterTypeMobileVisibilityLabel.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_mobile_fn_method_vauchimobile_create_label(self.uniffiClonePointer(),
                                                                      FfiConverterString.lower(name), $0)
+        })
+    }
+
+    /**
+     * Create an NFC exchange session as the initiator (reader side).
+     *
+     * Used by iOS (CoreNFC reader) and Android (NfcAdapter reader).
+     */
+    open func createNfcInitiator() throws -> MobileNfcHandshake {
+        return try FfiConverterTypeMobileNfcHandshake.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_create_nfc_initiator(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Create an NFC exchange session as the responder (HCE side).
+     *
+     * Used by Android only (HostApduService card emulation).
+     */
+    open func createNfcResponder() throws -> MobileNfcHandshake {
+        return try FfiConverterTypeMobileNfcHandshake.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_vauchimobile_create_nfc_responder(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -7868,6 +8129,150 @@ public func FfiConverterTypeMobileLocaleInfo_lower(_ value: MobileLocaleInfo) ->
 }
 
 /**
+ * Result of a completed NFC exchange, exposed to mobile.
+ */
+public struct MobileNfcExchangeResult {
+    public var remoteIdentityKey: Data
+    public var remoteDisplayName: String
+    public var remoteExchangeKey: Data
+    public var localDisplayName: String
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(remoteIdentityKey: Data, remoteDisplayName: String, remoteExchangeKey: Data, localDisplayName: String) {
+        self.remoteIdentityKey = remoteIdentityKey
+        self.remoteDisplayName = remoteDisplayName
+        self.remoteExchangeKey = remoteExchangeKey
+        self.localDisplayName = localDisplayName
+    }
+}
+
+extension MobileNfcExchangeResult: Equatable, Hashable {
+    public static func == (lhs: MobileNfcExchangeResult, rhs: MobileNfcExchangeResult) -> Bool {
+        if lhs.remoteIdentityKey != rhs.remoteIdentityKey {
+            return false
+        }
+        if lhs.remoteDisplayName != rhs.remoteDisplayName {
+            return false
+        }
+        if lhs.remoteExchangeKey != rhs.remoteExchangeKey {
+            return false
+        }
+        if lhs.localDisplayName != rhs.localDisplayName {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(remoteIdentityKey)
+        hasher.combine(remoteDisplayName)
+        hasher.combine(remoteExchangeKey)
+        hasher.combine(localDisplayName)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileNfcExchangeResult: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileNfcExchangeResult {
+        return
+            try MobileNfcExchangeResult(
+                remoteIdentityKey: FfiConverterData.read(from: &buf),
+                remoteDisplayName: FfiConverterString.read(from: &buf),
+                remoteExchangeKey: FfiConverterData.read(from: &buf),
+                localDisplayName: FfiConverterString.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileNfcExchangeResult, into buf: inout [UInt8]) {
+        FfiConverterData.write(value.remoteIdentityKey, into: &buf)
+        FfiConverterString.write(value.remoteDisplayName, into: &buf)
+        FfiConverterData.write(value.remoteExchangeKey, into: &buf)
+        FfiConverterString.write(value.localDisplayName, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileNfcExchangeResult_lift(_ buf: RustBuffer) throws -> MobileNfcExchangeResult {
+    return try FfiConverterTypeMobileNfcExchangeResult.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileNfcExchangeResult_lower(_ value: MobileNfcExchangeResult) -> RustBuffer {
+    return FfiConverterTypeMobileNfcExchangeResult.lower(value)
+}
+
+/**
+ * Result from process_key_offer containing both ack and encrypted card.
+ */
+public struct MobileNfcKeyAckResult {
+    public var keyAckBytes: Data
+    public var encryptedCardBytes: Data
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(keyAckBytes: Data, encryptedCardBytes: Data) {
+        self.keyAckBytes = keyAckBytes
+        self.encryptedCardBytes = encryptedCardBytes
+    }
+}
+
+extension MobileNfcKeyAckResult: Equatable, Hashable {
+    public static func == (lhs: MobileNfcKeyAckResult, rhs: MobileNfcKeyAckResult) -> Bool {
+        if lhs.keyAckBytes != rhs.keyAckBytes {
+            return false
+        }
+        if lhs.encryptedCardBytes != rhs.encryptedCardBytes {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(keyAckBytes)
+        hasher.combine(encryptedCardBytes)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileNfcKeyAckResult: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileNfcKeyAckResult {
+        return
+            try MobileNfcKeyAckResult(
+                keyAckBytes: FfiConverterData.read(from: &buf),
+                encryptedCardBytes: FfiConverterData.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileNfcKeyAckResult, into buf: inout [UInt8]) {
+        FfiConverterData.write(value.keyAckBytes, into: &buf)
+        FfiConverterData.write(value.encryptedCardBytes, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileNfcKeyAckResult_lift(_ buf: RustBuffer) throws -> MobileNfcKeyAckResult {
+    return try FfiConverterTypeMobileNfcKeyAckResult.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileNfcKeyAckResult_lower(_ value: MobileNfcKeyAckResult) -> RustBuffer {
+    return FfiConverterTypeMobileNfcKeyAckResult.lower(value)
+}
+
+/**
  * Onboarding progress state (UniFFI-compatible).
  */
 public struct MobileOnboardingProgress {
@@ -11619,6 +12024,141 @@ extension MobileLocale: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /* 
+ * Mobile-friendly NFC handshake state.
+ */
+
+public enum MobileNfcState {
+    case idle
+    case keyOfferSent
+    case keyAckReceived
+    case payloadSent
+    case complete(localDisplayName: String, remoteDisplayName: String)
+    case failed(error: String)
+    case relayFallback
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileNfcState: FfiConverterRustBuffer {
+    typealias SwiftType = MobileNfcState
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileNfcState {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return .idle
+
+        case 2: return .keyOfferSent
+
+        case 3: return .keyAckReceived
+
+        case 4: return .payloadSent
+
+        case 5: return try .complete(localDisplayName: FfiConverterString.read(from: &buf), remoteDisplayName: FfiConverterString.read(from: &buf))
+
+        case 6: return try .failed(error: FfiConverterString.read(from: &buf))
+
+        case 7: return .relayFallback
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileNfcState, into buf: inout [UInt8]) {
+        switch value {
+        case .idle:
+            writeInt(&buf, Int32(1))
+
+        case .keyOfferSent:
+            writeInt(&buf, Int32(2))
+
+        case .keyAckReceived:
+            writeInt(&buf, Int32(3))
+
+        case .payloadSent:
+            writeInt(&buf, Int32(4))
+
+        case let .complete(localDisplayName, remoteDisplayName):
+            writeInt(&buf, Int32(5))
+            FfiConverterString.write(localDisplayName, into: &buf)
+            FfiConverterString.write(remoteDisplayName, into: &buf)
+
+        case let .failed(error):
+            writeInt(&buf, Int32(6))
+            FfiConverterString.write(error, into: &buf)
+
+        case .relayFallback:
+            writeInt(&buf, Int32(7))
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileNfcState_lift(_ buf: RustBuffer) throws -> MobileNfcState {
+    return try FfiConverterTypeMobileNfcState.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileNfcState_lower(_ value: MobileNfcState) -> RustBuffer {
+    return FfiConverterTypeMobileNfcState.lower(value)
+}
+
+extension MobileNfcState: Equatable, Hashable {}
+
+/**
+ * Error type for NFC transport callback interface.
+ */
+public enum MobileNfcTransportError {
+    case TransportFailed(msg: String)
+    case TagLost
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileNfcTransportError: FfiConverterRustBuffer {
+    typealias SwiftType = MobileNfcTransportError
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileNfcTransportError {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return try .TransportFailed(
+                msg: FfiConverterString.read(from: &buf)
+            )
+
+        case 2: return .TagLost
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileNfcTransportError, into buf: inout [UInt8]) {
+        switch value {
+        case let .TransportFailed(msg):
+            writeInt(&buf, Int32(1))
+            FfiConverterString.write(msg, into: &buf)
+
+        case .TagLost:
+            writeInt(&buf, Int32(2))
+        }
+    }
+}
+
+extension MobileNfcTransportError: Equatable, Hashable {}
+
+extension MobileNfcTransportError: Foundation.LocalizedError {
+    public var errorDescription: String? {
+        String(reflecting: self)
+    }
+}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/* 
  * Steps in the onboarding wizard (UniFFI-compatible).
  */
 
@@ -12408,6 +12948,175 @@ public func FfiConverterTypeMobileWidgetConfirmationMode_lower(_ value: MobileWi
 extension MobileWidgetConfirmationMode: Equatable, Hashable {}
 
 /**
+ * Callback interface for platform-specific NFC transport.
+ *
+ * iOS implements this with CoreNFC (reader-only).
+ * Android implements this with HCE (card emulation) + NfcAdapter (reader).
+ */
+public protocol MobileNfcTransport: AnyObject {
+    /**
+     * Send an APDU command and receive the response.
+     *
+     * Used by the reader side (iOS CoreNFC, Android NfcAdapter).
+     * Returns the response bytes, or an error message.
+     */
+    func transceive(command: Data) throws -> Data
+
+    /**
+     * Send a response to an incoming APDU command.
+     *
+     * Used by the card-emulation side (Android HCE).
+     * Returns an error message if the response could not be sent.
+     */
+    func respond(response: Data) throws
+
+    /**
+     * Check if the NFC session is still active (tag not lost).
+     */
+    func isConnected() -> Bool
+}
+
+/// Magic number for the Rust proxy to call using the same mechanism as every other method,
+/// to free the callback once it's dropped by Rust.
+private let IDX_CALLBACK_FREE: Int32 = 0
+// Callback return codes
+private let UNIFFI_CALLBACK_SUCCESS: Int32 = 0
+private let UNIFFI_CALLBACK_ERROR: Int32 = 1
+private let UNIFFI_CALLBACK_UNEXPECTED_ERROR: Int32 = 2
+
+/// Put the implementation in a struct so we don't pollute the top-level namespace
+private enum UniffiCallbackInterfaceMobileNfcTransport {
+    /// Create the VTable using a series of closures.
+    /// Swift automatically converts these into C callback functions.
+    static var vtable: UniffiVTableCallbackInterfaceMobileNfcTransport = .init(
+        transceive: { (
+            uniffiHandle: UInt64,
+            command: RustBuffer,
+            uniffiOutReturn: UnsafeMutablePointer<RustBuffer>,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> Data in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceMobileNfcTransport.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return try uniffiObj.transceive(
+                    command: FfiConverterData.lift(command)
+                )
+            }
+
+            let writeReturn = { uniffiOutReturn.pointee = FfiConverterData.lower($0) }
+            uniffiTraitInterfaceCallWithError(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn,
+                lowerError: FfiConverterTypeMobileNfcTransportError.lower
+            )
+        },
+        respond: { (
+            uniffiHandle: UInt64,
+            response: RustBuffer,
+            _: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceMobileNfcTransport.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return try uniffiObj.respond(
+                    response: FfiConverterData.lift(response)
+                )
+            }
+
+            let writeReturn = { () }
+            uniffiTraitInterfaceCallWithError(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn,
+                lowerError: FfiConverterTypeMobileNfcTransportError.lower
+            )
+        },
+        isConnected: { (
+            uniffiHandle: UInt64,
+            uniffiOutReturn: UnsafeMutablePointer<Int8>,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> Bool in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceMobileNfcTransport.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.isConnected(
+                )
+            }
+
+            let writeReturn = { uniffiOutReturn.pointee = FfiConverterBool.lower($0) }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        uniffiFree: { (uniffiHandle: UInt64) in
+            let result = try? FfiConverterCallbackInterfaceMobileNfcTransport.handleMap.remove(handle: uniffiHandle)
+            if result == nil {
+                print("Uniffi callback interface MobileNfcTransport: handle missing in uniffiFree")
+            }
+        }
+    )
+}
+
+private func uniffiCallbackInitMobileNfcTransport() {
+    uniffi_vauchi_mobile_fn_init_callback_vtable_mobilenfctransport(&UniffiCallbackInterfaceMobileNfcTransport.vtable)
+}
+
+// FfiConverter protocol for callback interfaces
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+private enum FfiConverterCallbackInterfaceMobileNfcTransport {
+    fileprivate static var handleMap = UniffiHandleMap<MobileNfcTransport>()
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+extension FfiConverterCallbackInterfaceMobileNfcTransport: FfiConverter {
+    typealias SwiftType = MobileNfcTransport
+    typealias FfiType = UInt64
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public static func lift(_ handle: UInt64) throws -> SwiftType {
+        try handleMap.get(handle: handle)
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public static func lower(_ v: SwiftType) -> UInt64 {
+        return handleMap.insert(obj: v)
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public static func write(_ v: SwiftType, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(v))
+    }
+}
+
+/**
  * Callback interface for platform-specific secure key storage.
  *
  * The mobile platform (iOS/Android) implements this interface to provide
@@ -12431,14 +13140,6 @@ public protocol MobilePlatformKeychain: AnyObject {
      */
     func deleteKey(name: String) throws
 }
-
-/// Magic number for the Rust proxy to call using the same mechanism as every other method,
-/// to free the callback once it's dropped by Rust.
-private let IDX_CALLBACK_FREE: Int32 = 0
-// Callback return codes
-private let UNIFFI_CALLBACK_SUCCESS: Int32 = 0
-private let UNIFFI_CALLBACK_ERROR: Int32 = 1
-private let UNIFFI_CALLBACK_UNEXPECTED_ERROR: Int32 = 2
 
 /// Put the implementation in a struct so we don't pollute the top-level namespace
 private enum UniffiCallbackInterfaceMobilePlatformKeychain {
@@ -14386,6 +15087,27 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_method_mobilemultipartdecoder_received() != 14281 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_mobile_checksum_method_mobilenfchandshake_confirm_send_success() != 53830 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilenfchandshake_create_key_offer() != 49498 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilenfchandshake_enter_relay_fallback() != 41353 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilenfchandshake_process_encrypted_card() != 47780 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilenfchandshake_process_key_ack() != 55650 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilenfchandshake_process_key_offer() != 55231 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilenfchandshake_state() != 15976 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_mobile_checksum_method_mobileproximityverifier_emit_challenge() != 35393 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -14468,6 +15190,12 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_create_label() != 53912 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_create_nfc_initiator() != 16353 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_vauchimobile_create_nfc_responder() != 11585 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_create_qr_exchange() != 42535 {
@@ -14911,6 +15639,15 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_constructor_vauchimobile_new_with_secure_key() != 16278 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_mobile_checksum_method_mobilenfctransport_transceive() != 47972 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilenfctransport_respond() != 53494 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilenfctransport_is_connected() != 18117 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_mobile_checksum_method_mobileplatformkeychain_save_key() != 54986 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -14939,6 +15676,7 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
 
+    uniffiCallbackInitMobileNfcTransport()
     uniffiCallbackInitMobilePlatformKeychain()
     uniffiCallbackInitMobileProximityHandler()
     uniffiCallbackInitPlatformAudioHandler()

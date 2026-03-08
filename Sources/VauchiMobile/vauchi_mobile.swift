@@ -14472,6 +14472,14 @@ extension MobileNfcTransportError: Foundation.LocalizedError {
 
 public enum MobileOnboardingStep {
     /**
+     * Identity check gate
+     */
+    case identityCheck
+    /**
+     * Link choice (device link or backup import)
+     */
+    case linkChoice
+    /**
      * Welcome screen showing value proposition
      */
     case welcome
@@ -14518,23 +14526,27 @@ public struct FfiConverterTypeMobileOnboardingStep: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileOnboardingStep {
         let variant: Int32 = try readInt(&buf)
         switch variant {
-        case 1: return .welcome
+        case 1: return .identityCheck
 
-        case 2: return .defaultName
+        case 2: return .linkChoice
 
-        case 3: return .skipGate
+        case 3: return .welcome
 
-        case 4: return .groupsSetup
+        case 4: return .defaultName
 
-        case 5: return .contactInfo
+        case 5: return .skipGate
 
-        case 6: return .previewCard
+        case 6: return .groupsSetup
 
-        case 7: return .securityExplanation
+        case 7: return .contactInfo
 
-        case 8: return .backupPrompt
+        case 8: return .previewCard
 
-        case 9: return .ready
+        case 9: return .securityExplanation
+
+        case 10: return .backupPrompt
+
+        case 11: return .ready
 
         default: throw UniffiInternalError.unexpectedEnumCase
         }
@@ -14542,32 +14554,38 @@ public struct FfiConverterTypeMobileOnboardingStep: FfiConverterRustBuffer {
 
     public static func write(_ value: MobileOnboardingStep, into buf: inout [UInt8]) {
         switch value {
-        case .welcome:
+        case .identityCheck:
             writeInt(&buf, Int32(1))
 
-        case .defaultName:
+        case .linkChoice:
             writeInt(&buf, Int32(2))
 
-        case .skipGate:
+        case .welcome:
             writeInt(&buf, Int32(3))
 
-        case .groupsSetup:
+        case .defaultName:
             writeInt(&buf, Int32(4))
 
-        case .contactInfo:
+        case .skipGate:
             writeInt(&buf, Int32(5))
 
-        case .previewCard:
+        case .groupsSetup:
             writeInt(&buf, Int32(6))
 
-        case .securityExplanation:
+        case .contactInfo:
             writeInt(&buf, Int32(7))
 
-        case .backupPrompt:
+        case .previewCard:
             writeInt(&buf, Int32(8))
 
-        case .ready:
+        case .securityExplanation:
             writeInt(&buf, Int32(9))
+
+        case .backupPrompt:
+            writeInt(&buf, Int32(10))
+
+        case .ready:
+            writeInt(&buf, Int32(11))
         }
     }
 }

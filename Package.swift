@@ -29,10 +29,10 @@ let package = Package(
             path: "Sources/VauchiMobile"
         ),
         // Binary XCFramework containing the native Rust library
-        // For local development, use path; for release, use url+checksum
         .binaryTarget(
             name: "VauchiMobileFFI",
-            path: "VauchiMobileFFI.xcframework"
+            url: "https://gitlab.com/api/v4/projects/vauchi%2Fcore/packages/generic/vauchi-mobile/\(version)/VauchiMobileFFI.xcframework.zip",
+            checksum: checksum
         ),
     ]
 )

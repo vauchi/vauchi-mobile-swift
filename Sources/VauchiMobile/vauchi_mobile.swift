@@ -875,6 +875,158 @@ public func FfiConverterTypeMobileAnimatedQrSender_lower(_ value: MobileAnimated
     return FfiConverterTypeMobileAnimatedQrSender.lower(value)
 }
 
+public protocol MobileBackupRecoveryWorkflowProtocol: AnyObject {
+    func currentScreenJson() throws -> String
+
+    func handleActionJson(actionJson: String) throws -> String
+
+    /**
+     * Signal that async processing completed successfully.
+     */
+    func processingComplete() throws -> String
+
+    /**
+     * Signal that async processing failed.
+     */
+    func processingFailed() throws -> String
+}
+
+open class MobileBackupRecoveryWorkflow:
+    MobileBackupRecoveryWorkflowProtocol
+{
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    // Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noPointer _: NoPointer) {
+        pointer = nil
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobilebackuprecoveryworkflow(self.pointer, $0) }
+    }
+
+    public convenience init(modeJson: String) throws {
+        let pointer =
+            try rustCallWithError(FfiConverterTypeMobileError.lift) {
+                uniffi_vauchi_mobile_fn_constructor_mobilebackuprecoveryworkflow_new(
+                    FfiConverterString.lower(modeJson), $0
+                )
+            }
+        self.init(unsafeFromRawPointer: pointer)
+    }
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_vauchi_mobile_fn_free_mobilebackuprecoveryworkflow(pointer, $0) }
+    }
+
+    open func currentScreenJson() throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobilebackuprecoveryworkflow_current_screen_json(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    open func handleActionJson(actionJson: String) throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobilebackuprecoveryworkflow_handle_action_json(self.uniffiClonePointer(),
+                                                                                           FfiConverterString.lower(actionJson), $0)
+        })
+    }
+
+    /**
+     * Signal that async processing completed successfully.
+     */
+    open func processingComplete() throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobilebackuprecoveryworkflow_processing_complete(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Signal that async processing failed.
+     */
+    open func processingFailed() throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobilebackuprecoveryworkflow_processing_failed(self.uniffiClonePointer(), $0)
+        })
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileBackupRecoveryWorkflow: FfiConverter {
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = MobileBackupRecoveryWorkflow
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileBackupRecoveryWorkflow {
+        return MobileBackupRecoveryWorkflow(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: MobileBackupRecoveryWorkflow) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileBackupRecoveryWorkflow {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if ptr == nil {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: MobileBackupRecoveryWorkflow, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileBackupRecoveryWorkflow_lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileBackupRecoveryWorkflow {
+    return try FfiConverterTypeMobileBackupRecoveryWorkflow.lift(pointer)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileBackupRecoveryWorkflow_lower(_ value: MobileBackupRecoveryWorkflow) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeMobileBackupRecoveryWorkflow.lower(value)
+}
+
 /**
  * Mobile BLE exchange session wrapping the core `BleHandshakeSession`.
  *
@@ -1149,6 +1301,379 @@ public func FfiConverterTypeMobileBleExchangeSession_lift(_ pointer: UnsafeMutab
 #endif
 public func FfiConverterTypeMobileBleExchangeSession_lower(_ value: MobileBleExchangeSession) -> UnsafeMutableRawPointer {
     return FfiConverterTypeMobileBleExchangeSession.lower(value)
+}
+
+public protocol MobileContactEditWorkflowProtocol: AnyObject {
+    func currentScreenJson() throws -> String
+
+    func handleActionJson(actionJson: String) throws -> String
+}
+
+open class MobileContactEditWorkflow:
+    MobileContactEditWorkflowProtocol
+{
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    // Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noPointer _: NoPointer) {
+        pointer = nil
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobilecontacteditworkflow(self.pointer, $0) }
+    }
+
+    public convenience init(contactJson: String, groupsJson: String) throws {
+        let pointer =
+            try rustCallWithError(FfiConverterTypeMobileError.lift) {
+                uniffi_vauchi_mobile_fn_constructor_mobilecontacteditworkflow_new(
+                    FfiConverterString.lower(contactJson),
+                    FfiConverterString.lower(groupsJson), $0
+                )
+            }
+        self.init(unsafeFromRawPointer: pointer)
+    }
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_vauchi_mobile_fn_free_mobilecontacteditworkflow(pointer, $0) }
+    }
+
+    open func currentScreenJson() throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobilecontacteditworkflow_current_screen_json(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    open func handleActionJson(actionJson: String) throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobilecontacteditworkflow_handle_action_json(self.uniffiClonePointer(),
+                                                                                        FfiConverterString.lower(actionJson), $0)
+        })
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileContactEditWorkflow: FfiConverter {
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = MobileContactEditWorkflow
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileContactEditWorkflow {
+        return MobileContactEditWorkflow(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: MobileContactEditWorkflow) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileContactEditWorkflow {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if ptr == nil {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: MobileContactEditWorkflow, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileContactEditWorkflow_lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileContactEditWorkflow {
+    return try FfiConverterTypeMobileContactEditWorkflow.lift(pointer)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileContactEditWorkflow_lower(_ value: MobileContactEditWorkflow) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeMobileContactEditWorkflow.lower(value)
+}
+
+public protocol MobileContactListWorkflowProtocol: AnyObject {
+    func currentScreenJson() throws -> String
+
+    func handleActionJson(actionJson: String) throws -> String
+}
+
+open class MobileContactListWorkflow:
+    MobileContactListWorkflowProtocol
+{
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    // Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noPointer _: NoPointer) {
+        pointer = nil
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobilecontactlistworkflow(self.pointer, $0) }
+    }
+
+    public convenience init(contactsJson: String) throws {
+        let pointer =
+            try rustCallWithError(FfiConverterTypeMobileError.lift) {
+                uniffi_vauchi_mobile_fn_constructor_mobilecontactlistworkflow_new(
+                    FfiConverterString.lower(contactsJson), $0
+                )
+            }
+        self.init(unsafeFromRawPointer: pointer)
+    }
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_vauchi_mobile_fn_free_mobilecontactlistworkflow(pointer, $0) }
+    }
+
+    open func currentScreenJson() throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobilecontactlistworkflow_current_screen_json(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    open func handleActionJson(actionJson: String) throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobilecontactlistworkflow_handle_action_json(self.uniffiClonePointer(),
+                                                                                        FfiConverterString.lower(actionJson), $0)
+        })
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileContactListWorkflow: FfiConverter {
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = MobileContactListWorkflow
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileContactListWorkflow {
+        return MobileContactListWorkflow(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: MobileContactListWorkflow) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileContactListWorkflow {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if ptr == nil {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: MobileContactListWorkflow, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileContactListWorkflow_lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileContactListWorkflow {
+    return try FfiConverterTypeMobileContactListWorkflow.lift(pointer)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileContactListWorkflow_lower(_ value: MobileContactListWorkflow) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeMobileContactListWorkflow.lower(value)
+}
+
+public protocol MobileDeliveryStatusWorkflowProtocol: AnyObject {
+    func currentScreenJson() throws -> String
+
+    func handleActionJson(actionJson: String) throws -> String
+}
+
+open class MobileDeliveryStatusWorkflow:
+    MobileDeliveryStatusWorkflowProtocol
+{
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    // Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noPointer _: NoPointer) {
+        pointer = nil
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobiledeliverystatusworkflow(self.pointer, $0) }
+    }
+
+    public convenience init(itemsJson: String) throws {
+        let pointer =
+            try rustCallWithError(FfiConverterTypeMobileError.lift) {
+                uniffi_vauchi_mobile_fn_constructor_mobiledeliverystatusworkflow_new(
+                    FfiConverterString.lower(itemsJson), $0
+                )
+            }
+        self.init(unsafeFromRawPointer: pointer)
+    }
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_vauchi_mobile_fn_free_mobiledeliverystatusworkflow(pointer, $0) }
+    }
+
+    open func currentScreenJson() throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobiledeliverystatusworkflow_current_screen_json(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    open func handleActionJson(actionJson: String) throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobiledeliverystatusworkflow_handle_action_json(self.uniffiClonePointer(),
+                                                                                           FfiConverterString.lower(actionJson), $0)
+        })
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileDeliveryStatusWorkflow: FfiConverter {
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = MobileDeliveryStatusWorkflow
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileDeliveryStatusWorkflow {
+        return MobileDeliveryStatusWorkflow(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: MobileDeliveryStatusWorkflow) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileDeliveryStatusWorkflow {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if ptr == nil {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: MobileDeliveryStatusWorkflow, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileDeliveryStatusWorkflow_lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileDeliveryStatusWorkflow {
+    return try FfiConverterTypeMobileDeliveryStatusWorkflow.lift(pointer)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileDeliveryStatusWorkflow_lower(_ value: MobileDeliveryStatusWorkflow) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeMobileDeliveryStatusWorkflow.lower(value)
 }
 
 /**
@@ -1529,6 +2054,433 @@ public func FfiConverterTypeMobileDeviceLinkResponder_lower(_ value: MobileDevic
     return FfiConverterTypeMobileDeviceLinkResponder.lower(value)
 }
 
+public protocol MobileDeviceLinkingWorkflowProtocol: AnyObject {
+    func currentScreenJson() throws -> String
+
+    func handleActionJson(actionJson: String) throws -> String
+
+    /**
+     * Signal that a peer device has connected with a verification code.
+     */
+    func peerConnected(verificationCode: String) throws -> String
+
+    /**
+     * Signal that data sync has completed.
+     */
+    func syncComplete() throws -> String
+}
+
+open class MobileDeviceLinkingWorkflow:
+    MobileDeviceLinkingWorkflowProtocol
+{
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    // Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noPointer _: NoPointer) {
+        pointer = nil
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobiledevicelinkingworkflow(self.pointer, $0) }
+    }
+
+    public convenience init(qrData: String) throws {
+        let pointer =
+            try rustCallWithError(FfiConverterTypeMobileError.lift) {
+                uniffi_vauchi_mobile_fn_constructor_mobiledevicelinkingworkflow_new(
+                    FfiConverterString.lower(qrData), $0
+                )
+            }
+        self.init(unsafeFromRawPointer: pointer)
+    }
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_vauchi_mobile_fn_free_mobiledevicelinkingworkflow(pointer, $0) }
+    }
+
+    open func currentScreenJson() throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobiledevicelinkingworkflow_current_screen_json(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    open func handleActionJson(actionJson: String) throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobiledevicelinkingworkflow_handle_action_json(self.uniffiClonePointer(),
+                                                                                          FfiConverterString.lower(actionJson), $0)
+        })
+    }
+
+    /**
+     * Signal that a peer device has connected with a verification code.
+     */
+    open func peerConnected(verificationCode: String) throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobiledevicelinkingworkflow_peer_connected(self.uniffiClonePointer(),
+                                                                                      FfiConverterString.lower(verificationCode), $0)
+        })
+    }
+
+    /**
+     * Signal that data sync has completed.
+     */
+    open func syncComplete() throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobiledevicelinkingworkflow_sync_complete(self.uniffiClonePointer(), $0)
+        })
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileDeviceLinkingWorkflow: FfiConverter {
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = MobileDeviceLinkingWorkflow
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileDeviceLinkingWorkflow {
+        return MobileDeviceLinkingWorkflow(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: MobileDeviceLinkingWorkflow) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileDeviceLinkingWorkflow {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if ptr == nil {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: MobileDeviceLinkingWorkflow, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileDeviceLinkingWorkflow_lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileDeviceLinkingWorkflow {
+    return try FfiConverterTypeMobileDeviceLinkingWorkflow.lift(pointer)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileDeviceLinkingWorkflow_lower(_ value: MobileDeviceLinkingWorkflow) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeMobileDeviceLinkingWorkflow.lower(value)
+}
+
+public protocol MobileDuressPinWorkflowProtocol: AnyObject {
+    /**
+     * Returns the current duress config as JSON.
+     */
+    func configJson() throws -> String
+
+    func currentScreenJson() throws -> String
+
+    func handleActionJson(actionJson: String) throws -> String
+}
+
+open class MobileDuressPinWorkflow:
+    MobileDuressPinWorkflowProtocol
+{
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    // Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noPointer _: NoPointer) {
+        pointer = nil
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobileduresspinworkflow(self.pointer, $0) }
+    }
+
+    public convenience init(configJson: String) throws {
+        let pointer =
+            try rustCallWithError(FfiConverterTypeMobileError.lift) {
+                uniffi_vauchi_mobile_fn_constructor_mobileduresspinworkflow_new(
+                    FfiConverterString.lower(configJson), $0
+                )
+            }
+        self.init(unsafeFromRawPointer: pointer)
+    }
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_vauchi_mobile_fn_free_mobileduresspinworkflow(pointer, $0) }
+    }
+
+    /**
+     * Returns the current duress config as JSON.
+     */
+    open func configJson() throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobileduresspinworkflow_config_json(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    open func currentScreenJson() throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobileduresspinworkflow_current_screen_json(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    open func handleActionJson(actionJson: String) throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobileduresspinworkflow_handle_action_json(self.uniffiClonePointer(),
+                                                                                      FfiConverterString.lower(actionJson), $0)
+        })
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileDuressPinWorkflow: FfiConverter {
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = MobileDuressPinWorkflow
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileDuressPinWorkflow {
+        return MobileDuressPinWorkflow(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: MobileDuressPinWorkflow) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileDuressPinWorkflow {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if ptr == nil {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: MobileDuressPinWorkflow, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileDuressPinWorkflow_lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileDuressPinWorkflow {
+    return try FfiConverterTypeMobileDuressPinWorkflow.lift(pointer)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileDuressPinWorkflow_lower(_ value: MobileDuressPinWorkflow) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeMobileDuressPinWorkflow.lower(value)
+}
+
+public protocol MobileEmergencyShredWorkflowProtocol: AnyObject {
+    func currentScreenJson() throws -> String
+
+    func handleActionJson(actionJson: String) throws -> String
+
+    /**
+     * Signal that the wipe operation has finished.
+     */
+    func wipeComplete() throws -> String
+}
+
+open class MobileEmergencyShredWorkflow:
+    MobileEmergencyShredWorkflowProtocol
+{
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    // Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noPointer _: NoPointer) {
+        pointer = nil
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobileemergencyshredworkflow(self.pointer, $0) }
+    }
+
+    public convenience init() throws {
+        let pointer =
+            try rustCallWithError(FfiConverterTypeMobileError.lift) {
+                uniffi_vauchi_mobile_fn_constructor_mobileemergencyshredworkflow_new($0)
+            }
+        self.init(unsafeFromRawPointer: pointer)
+    }
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_vauchi_mobile_fn_free_mobileemergencyshredworkflow(pointer, $0) }
+    }
+
+    open func currentScreenJson() throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobileemergencyshredworkflow_current_screen_json(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    open func handleActionJson(actionJson: String) throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobileemergencyshredworkflow_handle_action_json(self.uniffiClonePointer(),
+                                                                                           FfiConverterString.lower(actionJson), $0)
+        })
+    }
+
+    /**
+     * Signal that the wipe operation has finished.
+     */
+    open func wipeComplete() throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobileemergencyshredworkflow_wipe_complete(self.uniffiClonePointer(), $0)
+        })
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileEmergencyShredWorkflow: FfiConverter {
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = MobileEmergencyShredWorkflow
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileEmergencyShredWorkflow {
+        return MobileEmergencyShredWorkflow(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: MobileEmergencyShredWorkflow) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileEmergencyShredWorkflow {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if ptr == nil {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: MobileEmergencyShredWorkflow, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileEmergencyShredWorkflow_lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileEmergencyShredWorkflow {
+    return try FfiConverterTypeMobileEmergencyShredWorkflow.lift(pointer)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileEmergencyShredWorkflow_lower(_ value: MobileEmergencyShredWorkflow) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeMobileEmergencyShredWorkflow.lower(value)
+}
+
 /**
  * Mobile exchange session wrapping the core `ExchangeSession` state machine.
  *
@@ -1786,6 +2738,561 @@ public func FfiConverterTypeMobileExchangeSession_lift(_ pointer: UnsafeMutableR
 #endif
 public func FfiConverterTypeMobileExchangeSession_lower(_ value: MobileExchangeSession) -> UnsafeMutableRawPointer {
     return FfiConverterTypeMobileExchangeSession.lower(value)
+}
+
+public protocol MobileExchangeWorkflowProtocol: AnyObject {
+    func currentScreenJson() throws -> String
+
+    func handleActionJson(actionJson: String) throws -> String
+
+    /**
+     * Signal that exchange verification failed.
+     */
+    func markFailed() throws -> String
+
+    /**
+     * Signal that exchange verification succeeded.
+     */
+    func markSuccess() throws -> String
+
+    /**
+     * Returns the scanned QR data, if any.
+     */
+    func scannedData() throws -> String?
+}
+
+open class MobileExchangeWorkflow:
+    MobileExchangeWorkflowProtocol
+{
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    // Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noPointer _: NoPointer) {
+        pointer = nil
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobileexchangeworkflow(self.pointer, $0) }
+    }
+
+    public convenience init(configJson: String) throws {
+        let pointer =
+            try rustCallWithError(FfiConverterTypeMobileError.lift) {
+                uniffi_vauchi_mobile_fn_constructor_mobileexchangeworkflow_new(
+                    FfiConverterString.lower(configJson), $0
+                )
+            }
+        self.init(unsafeFromRawPointer: pointer)
+    }
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_vauchi_mobile_fn_free_mobileexchangeworkflow(pointer, $0) }
+    }
+
+    open func currentScreenJson() throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobileexchangeworkflow_current_screen_json(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    open func handleActionJson(actionJson: String) throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobileexchangeworkflow_handle_action_json(self.uniffiClonePointer(),
+                                                                                     FfiConverterString.lower(actionJson), $0)
+        })
+    }
+
+    /**
+     * Signal that exchange verification failed.
+     */
+    open func markFailed() throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobileexchangeworkflow_mark_failed(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Signal that exchange verification succeeded.
+     */
+    open func markSuccess() throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobileexchangeworkflow_mark_success(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Returns the scanned QR data, if any.
+     */
+    open func scannedData() throws -> String? {
+        return try FfiConverterOptionString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobileexchangeworkflow_scanned_data(self.uniffiClonePointer(), $0)
+        })
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileExchangeWorkflow: FfiConverter {
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = MobileExchangeWorkflow
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileExchangeWorkflow {
+        return MobileExchangeWorkflow(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: MobileExchangeWorkflow) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileExchangeWorkflow {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if ptr == nil {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: MobileExchangeWorkflow, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileExchangeWorkflow_lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileExchangeWorkflow {
+    return try FfiConverterTypeMobileExchangeWorkflow.lift(pointer)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileExchangeWorkflow_lower(_ value: MobileExchangeWorkflow) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeMobileExchangeWorkflow.lower(value)
+}
+
+public protocol MobileHelpWorkflowProtocol: AnyObject {
+    func currentScreenJson() throws -> String
+
+    func handleActionJson(actionJson: String) throws -> String
+}
+
+open class MobileHelpWorkflow:
+    MobileHelpWorkflowProtocol
+{
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    // Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noPointer _: NoPointer) {
+        pointer = nil
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobilehelpworkflow(self.pointer, $0) }
+    }
+
+    public convenience init(itemsJson: String) throws {
+        let pointer =
+            try rustCallWithError(FfiConverterTypeMobileError.lift) {
+                uniffi_vauchi_mobile_fn_constructor_mobilehelpworkflow_new(
+                    FfiConverterString.lower(itemsJson), $0
+                )
+            }
+        self.init(unsafeFromRawPointer: pointer)
+    }
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_vauchi_mobile_fn_free_mobilehelpworkflow(pointer, $0) }
+    }
+
+    open func currentScreenJson() throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobilehelpworkflow_current_screen_json(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    open func handleActionJson(actionJson: String) throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobilehelpworkflow_handle_action_json(self.uniffiClonePointer(),
+                                                                                 FfiConverterString.lower(actionJson), $0)
+        })
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileHelpWorkflow: FfiConverter {
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = MobileHelpWorkflow
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileHelpWorkflow {
+        return MobileHelpWorkflow(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: MobileHelpWorkflow) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileHelpWorkflow {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if ptr == nil {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: MobileHelpWorkflow, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileHelpWorkflow_lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileHelpWorkflow {
+    return try FfiConverterTypeMobileHelpWorkflow.lift(pointer)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileHelpWorkflow_lower(_ value: MobileHelpWorkflow) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeMobileHelpWorkflow.lower(value)
+}
+
+public protocol MobileHomeWorkflowProtocol: AnyObject {
+    func currentScreenJson() throws -> String
+
+    func handleActionJson(actionJson: String) throws -> String
+}
+
+open class MobileHomeWorkflow:
+    MobileHomeWorkflowProtocol
+{
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    // Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noPointer _: NoPointer) {
+        pointer = nil
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobilehomeworkflow(self.pointer, $0) }
+    }
+
+    public convenience init(contactsJson: String, progressJson: String) throws {
+        let pointer =
+            try rustCallWithError(FfiConverterTypeMobileError.lift) {
+                uniffi_vauchi_mobile_fn_constructor_mobilehomeworkflow_new(
+                    FfiConverterString.lower(contactsJson),
+                    FfiConverterString.lower(progressJson), $0
+                )
+            }
+        self.init(unsafeFromRawPointer: pointer)
+    }
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_vauchi_mobile_fn_free_mobilehomeworkflow(pointer, $0) }
+    }
+
+    open func currentScreenJson() throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobilehomeworkflow_current_screen_json(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    open func handleActionJson(actionJson: String) throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobilehomeworkflow_handle_action_json(self.uniffiClonePointer(),
+                                                                                 FfiConverterString.lower(actionJson), $0)
+        })
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileHomeWorkflow: FfiConverter {
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = MobileHomeWorkflow
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileHomeWorkflow {
+        return MobileHomeWorkflow(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: MobileHomeWorkflow) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileHomeWorkflow {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if ptr == nil {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: MobileHomeWorkflow, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileHomeWorkflow_lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileHomeWorkflow {
+    return try FfiConverterTypeMobileHomeWorkflow.lift(pointer)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileHomeWorkflow_lower(_ value: MobileHomeWorkflow) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeMobileHomeWorkflow.lower(value)
+}
+
+public protocol MobileLockScreenWorkflowProtocol: AnyObject {
+    func currentScreenJson() throws -> String
+
+    func handleActionJson(actionJson: String) throws -> String
+
+    /**
+     * Record a failed unlock attempt. Returns the updated screen JSON.
+     * Check the response for lockout state.
+     */
+    func recordFailedAttempt() throws -> String
+}
+
+open class MobileLockScreenWorkflow:
+    MobileLockScreenWorkflowProtocol
+{
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    // Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noPointer _: NoPointer) {
+        pointer = nil
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobilelockscreenworkflow(self.pointer, $0) }
+    }
+
+    public convenience init(maxAttempts: UInt32) throws {
+        let pointer =
+            try rustCallWithError(FfiConverterTypeMobileError.lift) {
+                uniffi_vauchi_mobile_fn_constructor_mobilelockscreenworkflow_new(
+                    FfiConverterUInt32.lower(maxAttempts), $0
+                )
+            }
+        self.init(unsafeFromRawPointer: pointer)
+    }
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_vauchi_mobile_fn_free_mobilelockscreenworkflow(pointer, $0) }
+    }
+
+    open func currentScreenJson() throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobilelockscreenworkflow_current_screen_json(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    open func handleActionJson(actionJson: String) throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobilelockscreenworkflow_handle_action_json(self.uniffiClonePointer(),
+                                                                                       FfiConverterString.lower(actionJson), $0)
+        })
+    }
+
+    /**
+     * Record a failed unlock attempt. Returns the updated screen JSON.
+     * Check the response for lockout state.
+     */
+    open func recordFailedAttempt() throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobilelockscreenworkflow_record_failed_attempt(self.uniffiClonePointer(), $0)
+        })
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileLockScreenWorkflow: FfiConverter {
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = MobileLockScreenWorkflow
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileLockScreenWorkflow {
+        return MobileLockScreenWorkflow(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: MobileLockScreenWorkflow) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileLockScreenWorkflow {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if ptr == nil {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: MobileLockScreenWorkflow, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileLockScreenWorkflow_lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileLockScreenWorkflow {
+    return try FfiConverterTypeMobileLockScreenWorkflow.lift(pointer)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileLockScreenWorkflow_lower(_ value: MobileLockScreenWorkflow) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeMobileLockScreenWorkflow.lower(value)
 }
 
 /**
@@ -2883,6 +4390,130 @@ public func FfiConverterTypeMobileProximityVerifier_lift(_ pointer: UnsafeMutabl
 #endif
 public func FfiConverterTypeMobileProximityVerifier_lower(_ value: MobileProximityVerifier) -> UnsafeMutableRawPointer {
     return FfiConverterTypeMobileProximityVerifier.lower(value)
+}
+
+public protocol MobileSettingsWorkflowProtocol: AnyObject {
+    func currentScreenJson() throws -> String
+
+    func handleActionJson(actionJson: String) throws -> String
+}
+
+open class MobileSettingsWorkflow:
+    MobileSettingsWorkflowProtocol
+{
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    // Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noPointer _: NoPointer) {
+        pointer = nil
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobilesettingsworkflow(self.pointer, $0) }
+    }
+
+    public convenience init(configJson: String) throws {
+        let pointer =
+            try rustCallWithError(FfiConverterTypeMobileError.lift) {
+                uniffi_vauchi_mobile_fn_constructor_mobilesettingsworkflow_new(
+                    FfiConverterString.lower(configJson), $0
+                )
+            }
+        self.init(unsafeFromRawPointer: pointer)
+    }
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_vauchi_mobile_fn_free_mobilesettingsworkflow(pointer, $0) }
+    }
+
+    open func currentScreenJson() throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobilesettingsworkflow_current_screen_json(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    open func handleActionJson(actionJson: String) throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_mobile_fn_method_mobilesettingsworkflow_handle_action_json(self.uniffiClonePointer(),
+                                                                                     FfiConverterString.lower(actionJson), $0)
+        })
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileSettingsWorkflow: FfiConverter {
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = MobileSettingsWorkflow
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileSettingsWorkflow {
+        return MobileSettingsWorkflow(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: MobileSettingsWorkflow) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileSettingsWorkflow {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if ptr == nil {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: MobileSettingsWorkflow, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileSettingsWorkflow_lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileSettingsWorkflow {
+    return try FfiConverterTypeMobileSettingsWorkflow.lift(pointer)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileSettingsWorkflow_lower(_ value: MobileSettingsWorkflow) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeMobileSettingsWorkflow.lower(value)
 }
 
 /**
@@ -18124,6 +19755,18 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_method_mobileanimatedqrsender_next_frame() != 8939 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_mobile_checksum_method_mobilebackuprecoveryworkflow_current_screen_json() != 10233 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilebackuprecoveryworkflow_handle_action_json() != 10693 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilebackuprecoveryworkflow_processing_complete() != 51223 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilebackuprecoveryworkflow_processing_failed() != 57204 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_mobile_checksum_method_mobilebleexchangesession_cancel() != 49514 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -18143,6 +19786,24 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_mobilebleexchangesession_set_responder() != 10498 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilecontacteditworkflow_current_screen_json() != 47574 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilecontacteditworkflow_handle_action_json() != 33662 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilecontactlistworkflow_current_screen_json() != 45244 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilecontactlistworkflow_handle_action_json() != 55628 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobiledeliverystatusworkflow_current_screen_json() != 2086 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobiledeliverystatusworkflow_handle_action_json() != 5868 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_mobiledevicelinkinitiator_confirm_link_manual() != 50570 {
@@ -18172,6 +19833,36 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_method_mobiledevicelinkresponder_identity_fingerprint() != 55591 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_mobile_checksum_method_mobiledevicelinkingworkflow_current_screen_json() != 25510 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobiledevicelinkingworkflow_handle_action_json() != 13287 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobiledevicelinkingworkflow_peer_connected() != 13620 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobiledevicelinkingworkflow_sync_complete() != 40606 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobileduresspinworkflow_config_json() != 22541 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobileduresspinworkflow_current_screen_json() != 27154 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobileduresspinworkflow_handle_action_json() != 2656 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobileemergencyshredworkflow_current_screen_json() != 25285 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobileemergencyshredworkflow_handle_action_json() != 60932 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobileemergencyshredworkflow_wipe_complete() != 53262 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_mobile_checksum_method_mobileexchangesession_complete_card_exchange() != 64003 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -18197,6 +19888,42 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_mobileexchangesession_they_scanned_our_qr() != 55148 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobileexchangeworkflow_current_screen_json() != 64252 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobileexchangeworkflow_handle_action_json() != 27566 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobileexchangeworkflow_mark_failed() != 50510 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobileexchangeworkflow_mark_success() != 1056 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobileexchangeworkflow_scanned_data() != 23274 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilehelpworkflow_current_screen_json() != 49159 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilehelpworkflow_handle_action_json() != 22231 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilehomeworkflow_current_screen_json() != 22544 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilehomeworkflow_handle_action_json() != 52431 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilelockscreenworkflow_current_screen_json() != 47885 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilelockscreenworkflow_handle_action_json() != 47000 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilelockscreenworkflow_record_failed_attempt() != 45864 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_mobilemultistagesession_cancel() != 23709 {
@@ -18275,6 +20002,12 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_mobileproximityverifier_stop() != 48109 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilesettingsworkflow_current_screen_json() != 52730 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_method_mobilesettingsworkflow_handle_action_json() != 55717 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_method_vauchimobile_add_contact_to_label() != 6394 {
@@ -18790,7 +20523,40 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_mobile_checksum_constructor_mobileanimatedqrsender_new() != 57286 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_mobile_checksum_constructor_mobilebackuprecoveryworkflow_new() != 1920 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_mobile_checksum_constructor_mobilebleexchangesession_new() != 44548 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_constructor_mobilecontacteditworkflow_new() != 4830 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_constructor_mobilecontactlistworkflow_new() != 27183 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_constructor_mobiledeliverystatusworkflow_new() != 17068 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_constructor_mobiledevicelinkingworkflow_new() != 34397 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_constructor_mobileduresspinworkflow_new() != 7590 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_constructor_mobileemergencyshredworkflow_new() != 33212 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_constructor_mobileexchangeworkflow_new() != 44694 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_constructor_mobilehelpworkflow_new() != 24347 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_constructor_mobilehomeworkflow_new() != 63759 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_constructor_mobilelockscreenworkflow_new() != 12086 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_constructor_mobilemultistagesession_new() != 16320 {
@@ -18806,6 +20572,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_constructor_mobileproximityverifier_without_handler() != 27250 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_mobile_checksum_constructor_mobilesettingsworkflow_new() != 27829 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_mobile_checksum_constructor_vauchimobile_new() != 54148 {

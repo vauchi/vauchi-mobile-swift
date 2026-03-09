@@ -6,7 +6,7 @@
 
 import PackageDescription
 
-let version = "0.6.2"
+let version = "0.1.0"
 let checksum = "889fdafb2beaeaddc3da01d1926da2ab657c79277b1faa06f29d9f3a31548b0b" // Updated by CI on release
 
 let package = Package(

@@ -29,10 +29,16 @@ let package = Package(
             path: "Sources/VauchiMobile"
         ),
         // Binary XCFramework containing the native Rust library
+        // REMOTE (original, restored by wire-bindings-remote.sh):
+        // .binaryTarget(
+        //     name: "VauchiMobileFFI",
+        //     url: "...",
+        //     checksum: checksum
+        // ),
+        // LOCAL (set by wire-bindings-local.sh):
         .binaryTarget(
             name: "VauchiMobileFFI",
-            url: "https://gitlab.com/api/v4/projects/vauchi%2Fcore/packages/generic/vauchi-mobile/\(version)/VauchiMobileFFI.xcframework.zip",
-            checksum: checksum
+            path: "VauchiMobileFFI.xcframework"
         ),
     ]
 )

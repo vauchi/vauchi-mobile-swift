@@ -145,3 +145,17 @@ trigger:ios-app:
     strategy: depend
   rules:
     - if: ($CI_PIPELINE_SOURCE == "trigger" || $CI_PIPELINE_SOURCE == "pipeline" || $CI_PIPELINE_SOURCE == "api") && $UPSTREAM_VERSION
+
+# Trigger vauchi/macos to create an MR bumping the dependency.
+trigger:macos-app:
+  stage: notify
+  needs:
+    - update:version
+  variables:
+    BINDINGS_VERSION: $UPSTREAM_VERSION
+  trigger:
+    project: vauchi/macos
+    branch: main
+    strategy: depend
+  rules:
+    - if: ($CI_PIPELINE_SOURCE == "trigger" || $CI_PIPELINE_SOURCE == "pipeline" || $CI_PIPELINE_SOURCE == "api") && $UPSTREAM_VERSION

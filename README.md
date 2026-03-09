@@ -1,9 +1,9 @@
 <!-- SPDX-FileCopyrightText: 2026 Mattia Egloff <mattia.egloff@pm.me> -->
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 
-# VauchiMobile Swift Package
+# VauchiPlatform Swift Package
 
-Swift Package Manager distribution for VauchiMobile iOS/macOS bindings.
+Swift Package Manager distribution for VauchiPlatform iOS/macOS bindings.
 
 ## Installation
 
@@ -13,7 +13,7 @@ Add to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://gitlab.com/vauchi/vauchi-mobile-swift.git", from: "0.1.0")
+    .package(url: "https://gitlab.com/vauchi/vauchi-platform-swift.git", from: "0.1.0")
 ]
 ```
 
@@ -22,19 +22,19 @@ Or in Xcode: File → Add Package Dependencies → Enter the repository URL.
 ### Manual Installation
 
 1. Download the XCFramework from [Releases](https://gitlab.com/vauchi/core/-/releases)
-2. Drag `VauchiMobileFFI.xcframework` into your Xcode project
-3. Copy the Swift bindings from `Sources/VauchiMobile/`
+2. Drag `VauchiPlatformFFI.xcframework` into your Xcode project
+3. Copy the Swift bindings from `Sources/VauchiPlatform/`
 
 ## Usage
 
 ```swift
-import VauchiMobile
+import VauchiPlatform
 
 // Initialize with documents storage
-let vauchi = try VauchiMobile.withDocumentsStorage()
+let vauchi = try VauchiPlatform.withDocumentsStorage()
 
 // Or specify a custom path
-let vauchi = try VauchiMobile(storagePath: "/path/to/database.db")
+let vauchi = try VauchiPlatform(storagePath: "/path/to/database.db")
 
 // Create identity
 try vauchi.createIdentity(password: "secure-password")

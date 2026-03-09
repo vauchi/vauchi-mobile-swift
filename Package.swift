@@ -10,35 +10,29 @@ let version = "0.5.0-rc.0"
 let checksum = "572446320e8a1d032e4755e2bf0e59638d69e1611d0808496c402b646e037036" // Updated by CI on release
 
 let package = Package(
-    name: "VauchiMobile",
+    name: "VauchiPlatform",
     platforms: [
         .iOS(.v15),
         .macOS(.v12),
     ],
     products: [
         .library(
-            name: "VauchiMobile",
-            targets: ["VauchiMobile", "VauchiMobileFFI"]
+            name: "VauchiPlatform",
+            targets: ["VauchiPlatform", "VauchiPlatformFFI"]
         ),
     ],
     targets: [
         // Swift bindings that wrap the FFI layer
         .target(
-            name: "VauchiMobile",
-            dependencies: ["VauchiMobileFFI"],
-            path: "Sources/VauchiMobile"
+            name: "VauchiPlatform",
+            dependencies: ["VauchiPlatformFFI"],
+            path: "Sources/VauchiPlatform"
         ),
         // Binary XCFramework containing the native Rust library
-        // REMOTE (original, restored by wire-bindings-remote.sh):
-        // .binaryTarget(
-        //     name: "VauchiMobileFFI",
-        //     url: "...",
-        //     checksum: checksum
-        // ),
-        // LOCAL (set by wire-bindings-local.sh):
         .binaryTarget(
-            name: "VauchiMobileFFI",
-            path: "VauchiMobileFFI.xcframework"
+            name: "VauchiPlatformFFI",
+            url: "https://gitlab.com/api/v4/projects/vauchi%2Fcore/packages/generic/vauchi-platform/\(version)/VauchiPlatformFFI.xcframework.zip",
+            checksum: checksum
         ),
     ]
 )

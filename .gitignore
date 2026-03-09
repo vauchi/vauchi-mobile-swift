@@ -9,4 +9,4 @@
 .build/
 
 # Local xcframework builds (produced by prepare-device-test)
-VauchiMobileFFI.xcframework/
+VauchiPlatformFFI.xcframework/

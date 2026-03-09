@@ -1,8 +1,8 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: vauchi-mobile-swift
+Upstream-Name: vauchi-platform-swift
 Upstream-Contact: Mattia Egloff <mattia.egloff@pm.me>
 
-Files: Sources/VauchiMobile/vauchi_mobile.swift
+Files: Sources/VauchiPlatform/vauchi_platform.swift
 Copyright: 2024-2026 Vauchi Contributors
 License: GPL-3.0-or-later
 

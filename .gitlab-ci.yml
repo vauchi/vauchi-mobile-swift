@@ -2,9 +2,9 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-# GitLab CI for vauchi-mobile-swift
+# GitLab CI for vauchi-platform-swift
 #
-# Swift Package distribution for VauchiMobile
+# Swift Package distribution for VauchiPlatform
 #
 # This pipeline:
 # - Validates Package.swift syntax
@@ -73,7 +73,7 @@ update:version:
       CLEAN_VERSION="${UPSTREAM_VERSION#v}"
 
       # Download checksum from upstream
-      CHECKSUM_URL="https://gitlab.com/api/v4/projects/vauchi%2Fcore/packages/generic/vauchi-mobile/$CLEAN_VERSION/VauchiMobileFFI.xcframework.zip.sha256"
+      CHECKSUM_URL="https://gitlab.com/api/v4/projects/vauchi%2Fcore/packages/generic/vauchi-platform/$CLEAN_VERSION/VauchiPlatformFFI.xcframework.zip.sha256"
       echo "Fetching checksum from: $CHECKSUM_URL"
       CHECKSUM=$(curl -sf "$CHECKSUM_URL" || true)
 
@@ -101,10 +101,10 @@ update:version:
       fi
 
       # Download generated Swift bindings from upstream full package
-      BINDINGS_URL="https://gitlab.com/api/v4/projects/vauchi%2Fcore/packages/generic/vauchi-mobile/$CLEAN_VERSION/VauchiMobile-$CLEAN_VERSION.zip"
+      BINDINGS_URL="https://gitlab.com/api/v4/projects/vauchi%2Fcore/packages/generic/vauchi-platform/$CLEAN_VERSION/VauchiPlatform-$CLEAN_VERSION.zip"
       echo "Fetching Swift bindings from: $BINDINGS_URL"
-      curl -sfL -o VauchiMobile.zip "$BINDINGS_URL"
-      unzip -o -j VauchiMobile.zip "VauchiMobile-$CLEAN_VERSION/Sources/vauchi_mobile.swift" -d Sources/VauchiMobile/
+      curl -sfL -o VauchiPlatform.zip "$BINDINGS_URL"
+      unzip -o -j VauchiPlatform.zip "VauchiPlatform-$CLEAN_VERSION/Sources/vauchi_platform.swift" -d Sources/VauchiPlatform/
 
       # Update Package.swift
       sed -i "s/let version = \".*\"/let version = \"$CLEAN_VERSION\"/" Package.swift
@@ -121,7 +121,7 @@ update:version:
       # GitLab clones in detached HEAD — checkout main so we can commit and push
       git checkout -B main
 
-      git add Package.swift Sources/VauchiMobile/vauchi_mobile.swift
+      git add Package.swift Sources/VauchiPlatform/vauchi_platform.swift
       if git diff --cached --quiet; then
         echo "No changes to commit — bindings already up to date"
         exit 0

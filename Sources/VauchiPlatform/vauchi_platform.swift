@@ -7,8 +7,8 @@ import Foundation
 // Depending on the consumer's build setup, the low-level FFI code
 // might be in a separate module, or it might be compiled inline into
 // this module. This is a bit of light hackery to work with both.
-#if canImport(vauchi_mobileFFI)
-    import vauchi_mobileFFI
+#if canImport(vauchi_platformFFI)
+    import vauchi_platformFFI
 #endif
 
 private extension RustBuffer {
@@ -25,13 +25,13 @@ private extension RustBuffer {
     }
 
     static func from(_ ptr: UnsafeBufferPointer<UInt8>) -> RustBuffer {
-        try! rustCall { ffi_vauchi_mobile_rustbuffer_from_bytes(ForeignBytes(bufferPointer: ptr), $0) }
+        try! rustCall { ffi_vauchi_platform_rustbuffer_from_bytes(ForeignBytes(bufferPointer: ptr), $0) }
     }
 
     /// Frees the buffer in place.
     /// The buffer must not be used after this is called.
     func deallocate() {
-        try! rustCall { ffi_vauchi_mobile_rustbuffer_free(self, $0) }
+        try! rustCall { ffi_vauchi_platform_rustbuffer_free(self, $0) }
     }
 }
 
@@ -628,13 +628,13 @@ open class MobileAnimatedQrReceiver:
         @_documentation(visibility: private)
     #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
-        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobileanimatedqrreceiver(self.pointer, $0) }
+        return try! rustCall { uniffi_vauchi_platform_fn_clone_mobileanimatedqrreceiver(self.pointer, $0) }
     }
 
     public convenience init(config: MobileAnimatedQrConfig) {
         let pointer =
             try! rustCall {
-                uniffi_vauchi_mobile_fn_constructor_mobileanimatedqrreceiver_new(
+                uniffi_vauchi_platform_fn_constructor_mobileanimatedqrreceiver_new(
                     FfiConverterTypeMobileAnimatedQrConfig.lower(config), $0
                 )
             }
@@ -646,7 +646,7 @@ open class MobileAnimatedQrReceiver:
             return
         }
 
-        try! rustCall { uniffi_vauchi_mobile_fn_free_mobileanimatedqrreceiver(pointer, $0) }
+        try! rustCall { uniffi_vauchi_platform_fn_free_mobileanimatedqrreceiver(pointer, $0) }
     }
 
     /**
@@ -654,7 +654,7 @@ open class MobileAnimatedQrReceiver:
      */
     open func processFrame(frame: String) throws -> MobileAnimatedQrProgress {
         return try FfiConverterTypeMobileAnimatedQrProgress.lift(rustCallWithError(FfiConverterTypeMobileAnimatedQrError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobileanimatedqrreceiver_process_frame(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_mobileanimatedqrreceiver_process_frame(self.uniffiClonePointer(),
                                                                                   FfiConverterString.lower(frame), $0)
         })
     }
@@ -664,7 +664,7 @@ open class MobileAnimatedQrReceiver:
      */
     open func reassemble() throws -> Data {
         return try FfiConverterData.lift(rustCallWithError(FfiConverterTypeMobileAnimatedQrError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobileanimatedqrreceiver_reassemble(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobileanimatedqrreceiver_reassemble(self.uniffiClonePointer(), $0)
         })
     }
 }
@@ -776,13 +776,13 @@ open class MobileAnimatedQrSender:
         @_documentation(visibility: private)
     #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
-        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobileanimatedqrsender(self.pointer, $0) }
+        return try! rustCall { uniffi_vauchi_platform_fn_clone_mobileanimatedqrsender(self.pointer, $0) }
     }
 
     public convenience init(payload: Data, config: MobileAnimatedQrConfig) {
         let pointer =
             try! rustCall {
-                uniffi_vauchi_mobile_fn_constructor_mobileanimatedqrsender_new(
+                uniffi_vauchi_platform_fn_constructor_mobileanimatedqrsender_new(
                     FfiConverterData.lower(payload),
                     FfiConverterTypeMobileAnimatedQrConfig.lower(config), $0
                 )
@@ -795,7 +795,7 @@ open class MobileAnimatedQrSender:
             return
         }
 
-        try! rustCall { uniffi_vauchi_mobile_fn_free_mobileanimatedqrsender(pointer, $0) }
+        try! rustCall { uniffi_vauchi_platform_fn_free_mobileanimatedqrsender(pointer, $0) }
     }
 
     /**
@@ -803,7 +803,7 @@ open class MobileAnimatedQrSender:
      */
     open func frameAt(index: UInt32) throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileAnimatedQrError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobileanimatedqrsender_frame_at(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_mobileanimatedqrsender_frame_at(self.uniffiClonePointer(),
                                                                            FfiConverterUInt32.lower(index), $0)
         })
     }
@@ -813,7 +813,7 @@ open class MobileAnimatedQrSender:
      */
     open func frameCount() -> UInt32 {
         return try! FfiConverterUInt32.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_mobileanimatedqrsender_frame_count(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobileanimatedqrsender_frame_count(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -823,7 +823,7 @@ open class MobileAnimatedQrSender:
      */
     open func nextFrame() -> String? {
         return try! FfiConverterOptionString.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_mobileanimatedqrsender_next_frame(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobileanimatedqrsender_next_frame(self.uniffiClonePointer(), $0)
         })
     }
 }
@@ -927,13 +927,13 @@ open class MobileBackupRecoveryWorkflow:
         @_documentation(visibility: private)
     #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
-        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobilebackuprecoveryworkflow(self.pointer, $0) }
+        return try! rustCall { uniffi_vauchi_platform_fn_clone_mobilebackuprecoveryworkflow(self.pointer, $0) }
     }
 
     public convenience init(modeJson: String) throws {
         let pointer =
             try rustCallWithError(FfiConverterTypeMobileError.lift) {
-                uniffi_vauchi_mobile_fn_constructor_mobilebackuprecoveryworkflow_new(
+                uniffi_vauchi_platform_fn_constructor_mobilebackuprecoveryworkflow_new(
                     FfiConverterString.lower(modeJson), $0
                 )
             }
@@ -945,18 +945,18 @@ open class MobileBackupRecoveryWorkflow:
             return
         }
 
-        try! rustCall { uniffi_vauchi_mobile_fn_free_mobilebackuprecoveryworkflow(pointer, $0) }
+        try! rustCall { uniffi_vauchi_platform_fn_free_mobilebackuprecoveryworkflow(pointer, $0) }
     }
 
     open func currentScreenJson() throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobilebackuprecoveryworkflow_current_screen_json(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobilebackuprecoveryworkflow_current_screen_json(self.uniffiClonePointer(), $0)
         })
     }
 
     open func handleActionJson(actionJson: String) throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobilebackuprecoveryworkflow_handle_action_json(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_mobilebackuprecoveryworkflow_handle_action_json(self.uniffiClonePointer(),
                                                                                            FfiConverterString.lower(actionJson), $0)
         })
     }
@@ -966,7 +966,7 @@ open class MobileBackupRecoveryWorkflow:
      */
     open func processingComplete() throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobilebackuprecoveryworkflow_processing_complete(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobilebackuprecoveryworkflow_processing_complete(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -975,7 +975,7 @@ open class MobileBackupRecoveryWorkflow:
      */
     open func processingFailed() throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobilebackuprecoveryworkflow_processing_failed(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobilebackuprecoveryworkflow_processing_failed(self.uniffiClonePointer(), $0)
         })
     }
 }
@@ -1138,7 +1138,7 @@ open class MobileBleExchangeSession:
         @_documentation(visibility: private)
     #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
-        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobilebleexchangesession(self.pointer, $0) }
+        return try! rustCall { uniffi_vauchi_platform_fn_clone_mobilebleexchangesession(self.pointer, $0) }
     }
 
     /**
@@ -1156,7 +1156,7 @@ open class MobileBleExchangeSession:
     public convenience init(identityKey: Data, displayName: String, exchangeKey: Data, fields: [MobileBleField], avatar: Data?, delegate: MobileBleDelegate) throws {
         let pointer =
             try rustCallWithError(FfiConverterTypeMobileBleError.lift) {
-                uniffi_vauchi_mobile_fn_constructor_mobilebleexchangesession_new(
+                uniffi_vauchi_platform_fn_constructor_mobilebleexchangesession_new(
                     FfiConverterData.lower(identityKey),
                     FfiConverterString.lower(displayName),
                     FfiConverterData.lower(exchangeKey),
@@ -1173,7 +1173,7 @@ open class MobileBleExchangeSession:
             return
         }
 
-        try! rustCall { uniffi_vauchi_mobile_fn_free_mobilebleexchangesession(pointer, $0) }
+        try! rustCall { uniffi_vauchi_platform_fn_free_mobilebleexchangesession(pointer, $0) }
     }
 
     /**
@@ -1181,7 +1181,7 @@ open class MobileBleExchangeSession:
      */
     open func cancel() {
         try! rustCall {
-            uniffi_vauchi_mobile_fn_method_mobilebleexchangesession_cancel(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobilebleexchangesession_cancel(self.uniffiClonePointer(), $0)
         }
     }
 
@@ -1190,7 +1190,7 @@ open class MobileBleExchangeSession:
      */
     open func getState() -> MobileBleState {
         return try! FfiConverterTypeMobileBleState.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_mobilebleexchangesession_get_state(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobilebleexchangesession_get_state(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -1203,7 +1203,7 @@ open class MobileBleExchangeSession:
      */
     open func onConnected(deviceId: String) {
         try! rustCall {
-            uniffi_vauchi_mobile_fn_method_mobilebleexchangesession_on_connected(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_mobilebleexchangesession_on_connected(self.uniffiClonePointer(),
                                                                                  FfiConverterString.lower(deviceId), $0)
         }
     }
@@ -1216,7 +1216,7 @@ open class MobileBleExchangeSession:
      */
     open func onDataReceived(characteristicUuid: String, data: Data) {
         try! rustCall {
-            uniffi_vauchi_mobile_fn_method_mobilebleexchangesession_on_data_received(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_mobilebleexchangesession_on_data_received(self.uniffiClonePointer(),
                                                                                      FfiConverterString.lower(characteristicUuid),
                                                                                      FfiConverterData.lower(data), $0)
         }
@@ -1227,7 +1227,7 @@ open class MobileBleExchangeSession:
      */
     open func onDisconnected() {
         try! rustCall {
-            uniffi_vauchi_mobile_fn_method_mobilebleexchangesession_on_disconnected(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobilebleexchangesession_on_disconnected(self.uniffiClonePointer(), $0)
         }
     }
 
@@ -1238,7 +1238,7 @@ open class MobileBleExchangeSession:
      */
     open func onMtuNegotiated(mtu: UInt32) {
         try! rustCall {
-            uniffi_vauchi_mobile_fn_method_mobilebleexchangesession_on_mtu_negotiated(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_mobilebleexchangesession_on_mtu_negotiated(self.uniffiClonePointer(),
                                                                                       FfiConverterUInt32.lower(mtu), $0)
         }
     }
@@ -1251,7 +1251,7 @@ open class MobileBleExchangeSession:
      */
     open func setResponder() {
         try! rustCall {
-            uniffi_vauchi_mobile_fn_method_mobilebleexchangesession_set_responder(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobilebleexchangesession_set_responder(self.uniffiClonePointer(), $0)
         }
     }
 }
@@ -1345,13 +1345,13 @@ open class MobileContactEditWorkflow:
         @_documentation(visibility: private)
     #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
-        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobilecontacteditworkflow(self.pointer, $0) }
+        return try! rustCall { uniffi_vauchi_platform_fn_clone_mobilecontacteditworkflow(self.pointer, $0) }
     }
 
     public convenience init(contactJson: String, groupsJson: String) throws {
         let pointer =
             try rustCallWithError(FfiConverterTypeMobileError.lift) {
-                uniffi_vauchi_mobile_fn_constructor_mobilecontacteditworkflow_new(
+                uniffi_vauchi_platform_fn_constructor_mobilecontacteditworkflow_new(
                     FfiConverterString.lower(contactJson),
                     FfiConverterString.lower(groupsJson), $0
                 )
@@ -1364,18 +1364,18 @@ open class MobileContactEditWorkflow:
             return
         }
 
-        try! rustCall { uniffi_vauchi_mobile_fn_free_mobilecontacteditworkflow(pointer, $0) }
+        try! rustCall { uniffi_vauchi_platform_fn_free_mobilecontacteditworkflow(pointer, $0) }
     }
 
     open func currentScreenJson() throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobilecontacteditworkflow_current_screen_json(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobilecontacteditworkflow_current_screen_json(self.uniffiClonePointer(), $0)
         })
     }
 
     open func handleActionJson(actionJson: String) throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobilecontacteditworkflow_handle_action_json(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_mobilecontacteditworkflow_handle_action_json(self.uniffiClonePointer(),
                                                                                         FfiConverterString.lower(actionJson), $0)
         })
     }
@@ -1470,13 +1470,13 @@ open class MobileContactListWorkflow:
         @_documentation(visibility: private)
     #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
-        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobilecontactlistworkflow(self.pointer, $0) }
+        return try! rustCall { uniffi_vauchi_platform_fn_clone_mobilecontactlistworkflow(self.pointer, $0) }
     }
 
     public convenience init(contactsJson: String) throws {
         let pointer =
             try rustCallWithError(FfiConverterTypeMobileError.lift) {
-                uniffi_vauchi_mobile_fn_constructor_mobilecontactlistworkflow_new(
+                uniffi_vauchi_platform_fn_constructor_mobilecontactlistworkflow_new(
                     FfiConverterString.lower(contactsJson), $0
                 )
             }
@@ -1488,18 +1488,18 @@ open class MobileContactListWorkflow:
             return
         }
 
-        try! rustCall { uniffi_vauchi_mobile_fn_free_mobilecontactlistworkflow(pointer, $0) }
+        try! rustCall { uniffi_vauchi_platform_fn_free_mobilecontactlistworkflow(pointer, $0) }
     }
 
     open func currentScreenJson() throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobilecontactlistworkflow_current_screen_json(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobilecontactlistworkflow_current_screen_json(self.uniffiClonePointer(), $0)
         })
     }
 
     open func handleActionJson(actionJson: String) throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobilecontactlistworkflow_handle_action_json(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_mobilecontactlistworkflow_handle_action_json(self.uniffiClonePointer(),
                                                                                         FfiConverterString.lower(actionJson), $0)
         })
     }
@@ -1594,13 +1594,13 @@ open class MobileDeliveryStatusWorkflow:
         @_documentation(visibility: private)
     #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
-        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobiledeliverystatusworkflow(self.pointer, $0) }
+        return try! rustCall { uniffi_vauchi_platform_fn_clone_mobiledeliverystatusworkflow(self.pointer, $0) }
     }
 
     public convenience init(itemsJson: String) throws {
         let pointer =
             try rustCallWithError(FfiConverterTypeMobileError.lift) {
-                uniffi_vauchi_mobile_fn_constructor_mobiledeliverystatusworkflow_new(
+                uniffi_vauchi_platform_fn_constructor_mobiledeliverystatusworkflow_new(
                     FfiConverterString.lower(itemsJson), $0
                 )
             }
@@ -1612,18 +1612,18 @@ open class MobileDeliveryStatusWorkflow:
             return
         }
 
-        try! rustCall { uniffi_vauchi_mobile_fn_free_mobiledeliverystatusworkflow(pointer, $0) }
+        try! rustCall { uniffi_vauchi_platform_fn_free_mobiledeliverystatusworkflow(pointer, $0) }
     }
 
     open func currentScreenJson() throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobiledeliverystatusworkflow_current_screen_json(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobiledeliverystatusworkflow_current_screen_json(self.uniffiClonePointer(), $0)
         })
     }
 
     open func handleActionJson(actionJson: String) throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobiledeliverystatusworkflow_handle_action_json(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_mobiledeliverystatusworkflow_handle_action_json(self.uniffiClonePointer(),
                                                                                            FfiConverterString.lower(actionJson), $0)
         })
     }
@@ -1767,7 +1767,7 @@ open class MobileDeviceLinkInitiator:
         @_documentation(visibility: private)
     #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
-        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobiledevicelinkinitiator(self.pointer, $0) }
+        return try! rustCall { uniffi_vauchi_platform_fn_clone_mobiledevicelinkinitiator(self.pointer, $0) }
     }
 
     // No primary constructor declared for this class.
@@ -1777,7 +1777,7 @@ open class MobileDeviceLinkInitiator:
             return
         }
 
-        try! rustCall { uniffi_vauchi_mobile_fn_free_mobiledevicelinkinitiator(pointer, $0) }
+        try! rustCall { uniffi_vauchi_platform_fn_free_mobiledevicelinkinitiator(pointer, $0) }
     }
 
     /**
@@ -1793,7 +1793,7 @@ open class MobileDeviceLinkInitiator:
      */
     open func confirmLinkManual(confirmationCode: String, confirmedAt: UInt64) throws -> MobileDeviceLinkResult {
         return try FfiConverterTypeMobileDeviceLinkResult.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobiledevicelinkinitiator_confirm_link_manual(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_mobiledevicelinkinitiator_confirm_link_manual(self.uniffiClonePointer(),
                                                                                          FfiConverterString.lower(confirmationCode),
                                                                                          FfiConverterUInt64.lower(confirmedAt), $0)
         })
@@ -1808,7 +1808,7 @@ open class MobileDeviceLinkInitiator:
      */
     open func confirmLinkUltrasonic(challengeResponse: Data, verifiedAt: UInt64) throws -> MobileDeviceLinkResult {
         return try FfiConverterTypeMobileDeviceLinkResult.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobiledevicelinkinitiator_confirm_link_ultrasonic(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_mobiledevicelinkinitiator_confirm_link_ultrasonic(self.uniffiClonePointer(),
                                                                                              FfiConverterData.lower(challengeResponse),
                                                                                              FfiConverterUInt64.lower(verifiedAt), $0)
         })
@@ -1821,7 +1821,7 @@ open class MobileDeviceLinkInitiator:
      */
     open func prepareConfirmation(encryptedRequest: Data) throws -> MobileDeviceLinkConfirmation {
         return try FfiConverterTypeMobileDeviceLinkConfirmation.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobiledevicelinkinitiator_prepare_confirmation(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_mobiledevicelinkinitiator_prepare_confirmation(self.uniffiClonePointer(),
                                                                                           FfiConverterData.lower(encryptedRequest), $0)
         })
     }
@@ -1831,7 +1831,7 @@ open class MobileDeviceLinkInitiator:
      */
     open func proximityChallenge() -> Data {
         return try! FfiConverterData.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_mobiledevicelinkinitiator_proximity_challenge(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobiledevicelinkinitiator_proximity_challenge(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -1840,7 +1840,7 @@ open class MobileDeviceLinkInitiator:
      */
     open func qrData() -> String {
         return try! FfiConverterString.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_mobiledevicelinkinitiator_qr_data(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobiledevicelinkinitiator_qr_data(self.uniffiClonePointer(), $0)
         })
     }
 }
@@ -1956,7 +1956,7 @@ open class MobileDeviceLinkResponder:
         @_documentation(visibility: private)
     #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
-        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobiledevicelinkresponder(self.pointer, $0) }
+        return try! rustCall { uniffi_vauchi_platform_fn_clone_mobiledevicelinkresponder(self.pointer, $0) }
     }
 
     // No primary constructor declared for this class.
@@ -1966,7 +1966,7 @@ open class MobileDeviceLinkResponder:
             return
         }
 
-        try! rustCall { uniffi_vauchi_mobile_fn_free_mobiledevicelinkresponder(pointer, $0) }
+        try! rustCall { uniffi_vauchi_platform_fn_free_mobiledevicelinkresponder(pointer, $0) }
     }
 
     /**
@@ -1974,7 +1974,7 @@ open class MobileDeviceLinkResponder:
      */
     open func computeConfirmationCode() throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobiledevicelinkresponder_compute_confirmation_code(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobiledevicelinkresponder_compute_confirmation_code(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -1983,7 +1983,7 @@ open class MobileDeviceLinkResponder:
      */
     open func createRequest() throws -> Data {
         return try FfiConverterData.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobiledevicelinkresponder_create_request(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobiledevicelinkresponder_create_request(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -1992,7 +1992,7 @@ open class MobileDeviceLinkResponder:
      */
     open func finishJoin(encryptedResponse: Data) throws -> MobileDeviceJoinResult {
         return try FfiConverterTypeMobileDeviceJoinResult.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobiledevicelinkresponder_finish_join(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_mobiledevicelinkresponder_finish_join(self.uniffiClonePointer(),
                                                                                  FfiConverterData.lower(encryptedResponse), $0)
         })
     }
@@ -2002,7 +2002,7 @@ open class MobileDeviceLinkResponder:
      */
     open func identityFingerprint() -> String {
         return try! FfiConverterString.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_mobiledevicelinkresponder_identity_fingerprint(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobiledevicelinkresponder_identity_fingerprint(self.uniffiClonePointer(), $0)
         })
     }
 }
@@ -2106,13 +2106,13 @@ open class MobileDeviceLinkingWorkflow:
         @_documentation(visibility: private)
     #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
-        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobiledevicelinkingworkflow(self.pointer, $0) }
+        return try! rustCall { uniffi_vauchi_platform_fn_clone_mobiledevicelinkingworkflow(self.pointer, $0) }
     }
 
     public convenience init(qrData: String) throws {
         let pointer =
             try rustCallWithError(FfiConverterTypeMobileError.lift) {
-                uniffi_vauchi_mobile_fn_constructor_mobiledevicelinkingworkflow_new(
+                uniffi_vauchi_platform_fn_constructor_mobiledevicelinkingworkflow_new(
                     FfiConverterString.lower(qrData), $0
                 )
             }
@@ -2124,18 +2124,18 @@ open class MobileDeviceLinkingWorkflow:
             return
         }
 
-        try! rustCall { uniffi_vauchi_mobile_fn_free_mobiledevicelinkingworkflow(pointer, $0) }
+        try! rustCall { uniffi_vauchi_platform_fn_free_mobiledevicelinkingworkflow(pointer, $0) }
     }
 
     open func currentScreenJson() throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobiledevicelinkingworkflow_current_screen_json(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobiledevicelinkingworkflow_current_screen_json(self.uniffiClonePointer(), $0)
         })
     }
 
     open func handleActionJson(actionJson: String) throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobiledevicelinkingworkflow_handle_action_json(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_mobiledevicelinkingworkflow_handle_action_json(self.uniffiClonePointer(),
                                                                                           FfiConverterString.lower(actionJson), $0)
         })
     }
@@ -2145,7 +2145,7 @@ open class MobileDeviceLinkingWorkflow:
      */
     open func peerConnected(verificationCode: String) throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobiledevicelinkingworkflow_peer_connected(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_mobiledevicelinkingworkflow_peer_connected(self.uniffiClonePointer(),
                                                                                       FfiConverterString.lower(verificationCode), $0)
         })
     }
@@ -2155,7 +2155,7 @@ open class MobileDeviceLinkingWorkflow:
      */
     open func syncComplete() throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobiledevicelinkingworkflow_sync_complete(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobiledevicelinkingworkflow_sync_complete(self.uniffiClonePointer(), $0)
         })
     }
 }
@@ -2254,13 +2254,13 @@ open class MobileDuressPinWorkflow:
         @_documentation(visibility: private)
     #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
-        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobileduresspinworkflow(self.pointer, $0) }
+        return try! rustCall { uniffi_vauchi_platform_fn_clone_mobileduresspinworkflow(self.pointer, $0) }
     }
 
     public convenience init(configJson: String) throws {
         let pointer =
             try rustCallWithError(FfiConverterTypeMobileError.lift) {
-                uniffi_vauchi_mobile_fn_constructor_mobileduresspinworkflow_new(
+                uniffi_vauchi_platform_fn_constructor_mobileduresspinworkflow_new(
                     FfiConverterString.lower(configJson), $0
                 )
             }
@@ -2272,7 +2272,7 @@ open class MobileDuressPinWorkflow:
             return
         }
 
-        try! rustCall { uniffi_vauchi_mobile_fn_free_mobileduresspinworkflow(pointer, $0) }
+        try! rustCall { uniffi_vauchi_platform_fn_free_mobileduresspinworkflow(pointer, $0) }
     }
 
     /**
@@ -2280,19 +2280,19 @@ open class MobileDuressPinWorkflow:
      */
     open func configJson() throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobileduresspinworkflow_config_json(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobileduresspinworkflow_config_json(self.uniffiClonePointer(), $0)
         })
     }
 
     open func currentScreenJson() throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobileduresspinworkflow_current_screen_json(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobileduresspinworkflow_current_screen_json(self.uniffiClonePointer(), $0)
         })
     }
 
     open func handleActionJson(actionJson: String) throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobileduresspinworkflow_handle_action_json(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_mobileduresspinworkflow_handle_action_json(self.uniffiClonePointer(),
                                                                                       FfiConverterString.lower(actionJson), $0)
         })
     }
@@ -2392,13 +2392,13 @@ open class MobileEmergencyShredWorkflow:
         @_documentation(visibility: private)
     #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
-        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobileemergencyshredworkflow(self.pointer, $0) }
+        return try! rustCall { uniffi_vauchi_platform_fn_clone_mobileemergencyshredworkflow(self.pointer, $0) }
     }
 
     public convenience init() throws {
         let pointer =
             try rustCallWithError(FfiConverterTypeMobileError.lift) {
-                uniffi_vauchi_mobile_fn_constructor_mobileemergencyshredworkflow_new($0)
+                uniffi_vauchi_platform_fn_constructor_mobileemergencyshredworkflow_new($0)
             }
         self.init(unsafeFromRawPointer: pointer)
     }
@@ -2408,18 +2408,18 @@ open class MobileEmergencyShredWorkflow:
             return
         }
 
-        try! rustCall { uniffi_vauchi_mobile_fn_free_mobileemergencyshredworkflow(pointer, $0) }
+        try! rustCall { uniffi_vauchi_platform_fn_free_mobileemergencyshredworkflow(pointer, $0) }
     }
 
     open func currentScreenJson() throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobileemergencyshredworkflow_current_screen_json(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobileemergencyshredworkflow_current_screen_json(self.uniffiClonePointer(), $0)
         })
     }
 
     open func handleActionJson(actionJson: String) throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobileemergencyshredworkflow_handle_action_json(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_mobileemergencyshredworkflow_handle_action_json(self.uniffiClonePointer(),
                                                                                            FfiConverterString.lower(actionJson), $0)
         })
     }
@@ -2429,7 +2429,7 @@ open class MobileEmergencyShredWorkflow:
      */
     open func wipeComplete() throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobileemergencyshredworkflow_wipe_complete(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobileemergencyshredworkflow_wipe_complete(self.uniffiClonePointer(), $0)
         })
     }
 }
@@ -2585,7 +2585,7 @@ open class MobileExchangeSession:
         @_documentation(visibility: private)
     #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
-        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobileexchangesession(self.pointer, $0) }
+        return try! rustCall { uniffi_vauchi_platform_fn_clone_mobileexchangesession(self.pointer, $0) }
     }
 
     // No primary constructor declared for this class.
@@ -2595,7 +2595,7 @@ open class MobileExchangeSession:
             return
         }
 
-        try! rustCall { uniffi_vauchi_mobile_fn_free_mobileexchangesession(pointer, $0) }
+        try! rustCall { uniffi_vauchi_platform_fn_free_mobileexchangesession(pointer, $0) }
     }
 
     /**
@@ -2606,7 +2606,7 @@ open class MobileExchangeSession:
      */
     open func completeCardExchange(theirCardName: String) throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobileexchangesession_complete_card_exchange(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_mobileexchangesession_complete_card_exchange(self.uniffiClonePointer(),
                                                                                         FfiConverterString.lower(theirCardName), $0)
         }
     }
@@ -2622,7 +2622,7 @@ open class MobileExchangeSession:
      */
     open func confirmProximity() throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobileexchangesession_confirm_proximity(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobileexchangesession_confirm_proximity(self.uniffiClonePointer(), $0)
         }
     }
 
@@ -2631,7 +2631,7 @@ open class MobileExchangeSession:
      */
     open func generateQr() throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobileexchangesession_generate_qr(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobileexchangesession_generate_qr(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -2640,7 +2640,7 @@ open class MobileExchangeSession:
      */
     open func isTimedOut() -> Bool {
         return try! FfiConverterBool.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_mobileexchangesession_is_timed_out(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobileexchangesession_is_timed_out(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -2651,7 +2651,7 @@ open class MobileExchangeSession:
      */
     open func peerDisplayName() -> String? {
         return try! FfiConverterOptionString.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_mobileexchangesession_peer_display_name(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobileexchangesession_peer_display_name(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -2660,7 +2660,7 @@ open class MobileExchangeSession:
      */
     open func performKeyAgreement() throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobileexchangesession_perform_key_agreement(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobileexchangesession_perform_key_agreement(self.uniffiClonePointer(), $0)
         }
     }
 
@@ -2669,7 +2669,7 @@ open class MobileExchangeSession:
      */
     open func processQr(qrData: String) throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobileexchangesession_process_qr(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_mobileexchangesession_process_qr(self.uniffiClonePointer(),
                                                                             FfiConverterString.lower(qrData), $0)
         }
     }
@@ -2679,7 +2679,7 @@ open class MobileExchangeSession:
      */
     open func state() -> MobileExchangeState {
         return try! FfiConverterTypeMobileExchangeState.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_mobileexchangesession_state(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobileexchangesession_state(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -2688,7 +2688,7 @@ open class MobileExchangeSession:
      */
     open func theyScannedOurQr() throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobileexchangesession_they_scanned_our_qr(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobileexchangesession_they_scanned_our_qr(self.uniffiClonePointer(), $0)
         }
     }
 }
@@ -2797,13 +2797,13 @@ open class MobileExchangeWorkflow:
         @_documentation(visibility: private)
     #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
-        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobileexchangeworkflow(self.pointer, $0) }
+        return try! rustCall { uniffi_vauchi_platform_fn_clone_mobileexchangeworkflow(self.pointer, $0) }
     }
 
     public convenience init(configJson: String) throws {
         let pointer =
             try rustCallWithError(FfiConverterTypeMobileError.lift) {
-                uniffi_vauchi_mobile_fn_constructor_mobileexchangeworkflow_new(
+                uniffi_vauchi_platform_fn_constructor_mobileexchangeworkflow_new(
                     FfiConverterString.lower(configJson), $0
                 )
             }
@@ -2815,18 +2815,18 @@ open class MobileExchangeWorkflow:
             return
         }
 
-        try! rustCall { uniffi_vauchi_mobile_fn_free_mobileexchangeworkflow(pointer, $0) }
+        try! rustCall { uniffi_vauchi_platform_fn_free_mobileexchangeworkflow(pointer, $0) }
     }
 
     open func currentScreenJson() throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobileexchangeworkflow_current_screen_json(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobileexchangeworkflow_current_screen_json(self.uniffiClonePointer(), $0)
         })
     }
 
     open func handleActionJson(actionJson: String) throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobileexchangeworkflow_handle_action_json(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_mobileexchangeworkflow_handle_action_json(self.uniffiClonePointer(),
                                                                                      FfiConverterString.lower(actionJson), $0)
         })
     }
@@ -2836,7 +2836,7 @@ open class MobileExchangeWorkflow:
      */
     open func markFailed() throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobileexchangeworkflow_mark_failed(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobileexchangeworkflow_mark_failed(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -2845,7 +2845,7 @@ open class MobileExchangeWorkflow:
      */
     open func markSuccess() throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobileexchangeworkflow_mark_success(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobileexchangeworkflow_mark_success(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -2854,7 +2854,7 @@ open class MobileExchangeWorkflow:
      */
     open func scannedData() throws -> String? {
         return try FfiConverterOptionString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobileexchangeworkflow_scanned_data(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobileexchangeworkflow_scanned_data(self.uniffiClonePointer(), $0)
         })
     }
 }
@@ -2948,13 +2948,13 @@ open class MobileHelpWorkflow:
         @_documentation(visibility: private)
     #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
-        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobilehelpworkflow(self.pointer, $0) }
+        return try! rustCall { uniffi_vauchi_platform_fn_clone_mobilehelpworkflow(self.pointer, $0) }
     }
 
     public convenience init(itemsJson: String) throws {
         let pointer =
             try rustCallWithError(FfiConverterTypeMobileError.lift) {
-                uniffi_vauchi_mobile_fn_constructor_mobilehelpworkflow_new(
+                uniffi_vauchi_platform_fn_constructor_mobilehelpworkflow_new(
                     FfiConverterString.lower(itemsJson), $0
                 )
             }
@@ -2966,18 +2966,18 @@ open class MobileHelpWorkflow:
             return
         }
 
-        try! rustCall { uniffi_vauchi_mobile_fn_free_mobilehelpworkflow(pointer, $0) }
+        try! rustCall { uniffi_vauchi_platform_fn_free_mobilehelpworkflow(pointer, $0) }
     }
 
     open func currentScreenJson() throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobilehelpworkflow_current_screen_json(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobilehelpworkflow_current_screen_json(self.uniffiClonePointer(), $0)
         })
     }
 
     open func handleActionJson(actionJson: String) throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobilehelpworkflow_handle_action_json(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_mobilehelpworkflow_handle_action_json(self.uniffiClonePointer(),
                                                                                  FfiConverterString.lower(actionJson), $0)
         })
     }
@@ -3072,13 +3072,13 @@ open class MobileHomeWorkflow:
         @_documentation(visibility: private)
     #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
-        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobilehomeworkflow(self.pointer, $0) }
+        return try! rustCall { uniffi_vauchi_platform_fn_clone_mobilehomeworkflow(self.pointer, $0) }
     }
 
     public convenience init(contactsJson: String, progressJson: String) throws {
         let pointer =
             try rustCallWithError(FfiConverterTypeMobileError.lift) {
-                uniffi_vauchi_mobile_fn_constructor_mobilehomeworkflow_new(
+                uniffi_vauchi_platform_fn_constructor_mobilehomeworkflow_new(
                     FfiConverterString.lower(contactsJson),
                     FfiConverterString.lower(progressJson), $0
                 )
@@ -3091,18 +3091,18 @@ open class MobileHomeWorkflow:
             return
         }
 
-        try! rustCall { uniffi_vauchi_mobile_fn_free_mobilehomeworkflow(pointer, $0) }
+        try! rustCall { uniffi_vauchi_platform_fn_free_mobilehomeworkflow(pointer, $0) }
     }
 
     open func currentScreenJson() throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobilehomeworkflow_current_screen_json(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobilehomeworkflow_current_screen_json(self.uniffiClonePointer(), $0)
         })
     }
 
     open func handleActionJson(actionJson: String) throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobilehomeworkflow_handle_action_json(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_mobilehomeworkflow_handle_action_json(self.uniffiClonePointer(),
                                                                                  FfiConverterString.lower(actionJson), $0)
         })
     }
@@ -3203,13 +3203,13 @@ open class MobileLockScreenWorkflow:
         @_documentation(visibility: private)
     #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
-        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobilelockscreenworkflow(self.pointer, $0) }
+        return try! rustCall { uniffi_vauchi_platform_fn_clone_mobilelockscreenworkflow(self.pointer, $0) }
     }
 
     public convenience init(maxAttempts: UInt32) throws {
         let pointer =
             try rustCallWithError(FfiConverterTypeMobileError.lift) {
-                uniffi_vauchi_mobile_fn_constructor_mobilelockscreenworkflow_new(
+                uniffi_vauchi_platform_fn_constructor_mobilelockscreenworkflow_new(
                     FfiConverterUInt32.lower(maxAttempts), $0
                 )
             }
@@ -3221,18 +3221,18 @@ open class MobileLockScreenWorkflow:
             return
         }
 
-        try! rustCall { uniffi_vauchi_mobile_fn_free_mobilelockscreenworkflow(pointer, $0) }
+        try! rustCall { uniffi_vauchi_platform_fn_free_mobilelockscreenworkflow(pointer, $0) }
     }
 
     open func currentScreenJson() throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobilelockscreenworkflow_current_screen_json(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobilelockscreenworkflow_current_screen_json(self.uniffiClonePointer(), $0)
         })
     }
 
     open func handleActionJson(actionJson: String) throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobilelockscreenworkflow_handle_action_json(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_mobilelockscreenworkflow_handle_action_json(self.uniffiClonePointer(),
                                                                                        FfiConverterString.lower(actionJson), $0)
         })
     }
@@ -3243,7 +3243,7 @@ open class MobileLockScreenWorkflow:
      */
     open func recordFailedAttempt() throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobilelockscreenworkflow_record_failed_attempt(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobilelockscreenworkflow_record_failed_attempt(self.uniffiClonePointer(), $0)
         })
     }
 }
@@ -3322,7 +3322,7 @@ public protocol MobileMultiStageSessionProtocol: AnyObject {
     /**
      * Returns the ECDH transport key established during the exchange.
      *
-     * Used by `VauchiMobile::finalize_multistage_exchange` to derive
+     * Used by `VauchiPlatform::finalize_multistage_exchange` to derive
      * the shared secret for the double ratchet.
      */
     func getTransportKey() -> Data?
@@ -3372,7 +3372,7 @@ open class MobileMultiStageSession:
         @_documentation(visibility: private)
     #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
-        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobilemultistagesession(self.pointer, $0) }
+        return try! rustCall { uniffi_vauchi_platform_fn_clone_mobilemultistagesession(self.pointer, $0) }
     }
 
     /**
@@ -3381,7 +3381,7 @@ open class MobileMultiStageSession:
     public convenience init(localCard: Data) {
         let pointer =
             try! rustCall {
-                uniffi_vauchi_mobile_fn_constructor_mobilemultistagesession_new(
+                uniffi_vauchi_platform_fn_constructor_mobilemultistagesession_new(
                     FfiConverterData.lower(localCard), $0
                 )
             }
@@ -3393,7 +3393,7 @@ open class MobileMultiStageSession:
             return
         }
 
-        try! rustCall { uniffi_vauchi_mobile_fn_free_mobilemultistagesession(pointer, $0) }
+        try! rustCall { uniffi_vauchi_platform_fn_free_mobilemultistagesession(pointer, $0) }
     }
 
     /**
@@ -3401,7 +3401,7 @@ open class MobileMultiStageSession:
      */
     open func cancel() {
         try! rustCall {
-            uniffi_vauchi_mobile_fn_method_mobilemultistagesession_cancel(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobilemultistagesession_cancel(self.uniffiClonePointer(), $0)
         }
     }
 
@@ -3410,7 +3410,7 @@ open class MobileMultiStageSession:
      */
     open func getDisplayQr() -> MobileQrPayload? {
         return try! FfiConverterOptionTypeMobileQrPayload.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_mobilemultistagesession_get_display_qr(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobilemultistagesession_get_display_qr(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -3419,7 +3419,7 @@ open class MobileMultiStageSession:
      */
     open func getReceivedData() -> Data? {
         return try! FfiConverterOptionData.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_mobilemultistagesession_get_received_data(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobilemultistagesession_get_received_data(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -3428,19 +3428,19 @@ open class MobileMultiStageSession:
      */
     open func getState() -> MobileProtocolState {
         return try! FfiConverterTypeMobileProtocolState.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_mobilemultistagesession_get_state(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobilemultistagesession_get_state(self.uniffiClonePointer(), $0)
         })
     }
 
     /**
      * Returns the ECDH transport key established during the exchange.
      *
-     * Used by `VauchiMobile::finalize_multistage_exchange` to derive
+     * Used by `VauchiPlatform::finalize_multistage_exchange` to derive
      * the shared secret for the double ratchet.
      */
     open func getTransportKey() -> Data? {
         return try! FfiConverterOptionData.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_mobilemultistagesession_get_transport_key(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobilemultistagesession_get_transport_key(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -3449,7 +3449,7 @@ open class MobileMultiStageSession:
      */
     open func processScannedQr(raw: String) -> MobileProtocolState {
         return try! FfiConverterTypeMobileProtocolState.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_mobilemultistagesession_process_scanned_qr(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_mobilemultistagesession_process_scanned_qr(self.uniffiClonePointer(),
                                                                                       FfiConverterString.lower(raw), $0)
         })
     }
@@ -3581,7 +3581,7 @@ open class MobileMultipartDecoder:
         @_documentation(visibility: private)
     #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
-        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobilemultipartdecoder(self.pointer, $0) }
+        return try! rustCall { uniffi_vauchi_platform_fn_clone_mobilemultipartdecoder(self.pointer, $0) }
     }
 
     /**
@@ -3590,7 +3590,7 @@ open class MobileMultipartDecoder:
     public convenience init() {
         let pointer =
             try! rustCall {
-                uniffi_vauchi_mobile_fn_constructor_mobilemultipartdecoder_new($0)
+                uniffi_vauchi_platform_fn_constructor_mobilemultipartdecoder_new($0)
             }
         self.init(unsafeFromRawPointer: pointer)
     }
@@ -3600,7 +3600,7 @@ open class MobileMultipartDecoder:
             return
         }
 
-        try! rustCall { uniffi_vauchi_mobile_fn_free_mobilemultipartdecoder(pointer, $0) }
+        try! rustCall { uniffi_vauchi_platform_fn_free_mobilemultipartdecoder(pointer, $0) }
     }
 
     /**
@@ -3608,7 +3608,7 @@ open class MobileMultipartDecoder:
      */
     open func addChunk(chunk: String) throws -> Bool {
         return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobilemultipartdecoder_add_chunk(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_mobilemultipartdecoder_add_chunk(self.uniffiClonePointer(),
                                                                             FfiConverterString.lower(chunk), $0)
         })
     }
@@ -3620,7 +3620,7 @@ open class MobileMultipartDecoder:
      */
     open func assemble() throws -> Data {
         return try FfiConverterData.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobilemultipartdecoder_assemble(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobilemultipartdecoder_assemble(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -3629,7 +3629,7 @@ open class MobileMultipartDecoder:
      */
     open func expectedTotal() -> UInt32? {
         return try! FfiConverterOptionUInt32.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_mobilemultipartdecoder_expected_total(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobilemultipartdecoder_expected_total(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -3638,7 +3638,7 @@ open class MobileMultipartDecoder:
      */
     open func isComplete() -> Bool {
         return try! FfiConverterBool.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_mobilemultipartdecoder_is_complete(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobilemultipartdecoder_is_complete(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -3647,7 +3647,7 @@ open class MobileMultipartDecoder:
      */
     open func received() -> UInt32 {
         return try! FfiConverterUInt32.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_mobilemultipartdecoder_received(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobilemultipartdecoder_received(self.uniffiClonePointer(), $0)
         })
     }
 }
@@ -3792,7 +3792,7 @@ open class MobileNfcHandshake:
         @_documentation(visibility: private)
     #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
-        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobilenfchandshake(self.pointer, $0) }
+        return try! rustCall { uniffi_vauchi_platform_fn_clone_mobilenfchandshake(self.pointer, $0) }
     }
 
     // No primary constructor declared for this class.
@@ -3802,7 +3802,7 @@ open class MobileNfcHandshake:
             return
         }
 
-        try! rustCall { uniffi_vauchi_mobile_fn_free_mobilenfchandshake(pointer, $0) }
+        try! rustCall { uniffi_vauchi_platform_fn_free_mobilenfchandshake(pointer, $0) }
     }
 
     /**
@@ -3810,7 +3810,7 @@ open class MobileNfcHandshake:
      */
     open func confirmSendSuccess() throws -> MobileNfcExchangeResult {
         return try FfiConverterTypeMobileNfcExchangeResult.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobilenfchandshake_confirm_send_success(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobilenfchandshake_confirm_send_success(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -3819,7 +3819,7 @@ open class MobileNfcHandshake:
      */
     open func createKeyOffer() throws -> Data {
         return try FfiConverterData.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobilenfchandshake_create_key_offer(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobilenfchandshake_create_key_offer(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -3830,7 +3830,7 @@ open class MobileNfcHandshake:
      */
     open func enterRelayFallback() throws -> Data {
         return try FfiConverterData.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobilenfchandshake_enter_relay_fallback(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobilenfchandshake_enter_relay_fallback(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -3839,7 +3839,7 @@ open class MobileNfcHandshake:
      */
     open func processEncryptedCard(theirEncryptedCard: Data) throws -> MobileNfcExchangeResult {
         return try FfiConverterTypeMobileNfcExchangeResult.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobilenfchandshake_process_encrypted_card(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_mobilenfchandshake_process_encrypted_card(self.uniffiClonePointer(),
                                                                                      FfiConverterData.lower(theirEncryptedCard), $0)
         })
     }
@@ -3851,7 +3851,7 @@ open class MobileNfcHandshake:
      */
     open func processKeyAck(theirAckBytes: Data, theirEncryptedCard: Data) throws -> Data {
         return try FfiConverterData.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobilenfchandshake_process_key_ack(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_mobilenfchandshake_process_key_ack(self.uniffiClonePointer(),
                                                                               FfiConverterData.lower(theirAckBytes),
                                                                               FfiConverterData.lower(theirEncryptedCard), $0)
         })
@@ -3862,7 +3862,7 @@ open class MobileNfcHandshake:
      */
     open func processKeyOffer(theirOfferBytes: Data) throws -> MobileNfcKeyAckResult {
         return try FfiConverterTypeMobileNfcKeyAckResult.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobilenfchandshake_process_key_offer(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_mobilenfchandshake_process_key_offer(self.uniffiClonePointer(),
                                                                                 FfiConverterData.lower(theirOfferBytes), $0)
         })
     }
@@ -3872,7 +3872,7 @@ open class MobileNfcHandshake:
      */
     open func state() -> MobileNfcState {
         return try! FfiConverterTypeMobileNfcState.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_mobilenfchandshake_state(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobilenfchandshake_state(self.uniffiClonePointer(), $0)
         })
     }
 }
@@ -4049,7 +4049,7 @@ open class MobileOnboardingWorkflow:
         @_documentation(visibility: private)
     #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
-        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobileonboardingworkflow(self.pointer, $0) }
+        return try! rustCall { uniffi_vauchi_platform_fn_clone_mobileonboardingworkflow(self.pointer, $0) }
     }
 
     /**
@@ -4058,7 +4058,7 @@ open class MobileOnboardingWorkflow:
     public convenience init() {
         let pointer =
             try! rustCall {
-                uniffi_vauchi_mobile_fn_constructor_mobileonboardingworkflow_new($0)
+                uniffi_vauchi_platform_fn_constructor_mobileonboardingworkflow_new($0)
             }
         self.init(unsafeFromRawPointer: pointer)
     }
@@ -4068,7 +4068,7 @@ open class MobileOnboardingWorkflow:
             return
         }
 
-        try! rustCall { uniffi_vauchi_mobile_fn_free_mobileonboardingworkflow(pointer, $0) }
+        try! rustCall { uniffi_vauchi_platform_fn_free_mobileonboardingworkflow(pointer, $0) }
     }
 
     /**
@@ -4088,7 +4088,7 @@ open class MobileOnboardingWorkflow:
      */
     open func currentScreenJson() throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobileonboardingworkflow_current_screen_json(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobileonboardingworkflow_current_screen_json(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -4110,7 +4110,7 @@ open class MobileOnboardingWorkflow:
      */
     open func handleActionJson(actionJson: String) throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobileonboardingworkflow_handle_action_json(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_mobileonboardingworkflow_handle_action_json(self.uniffiClonePointer(),
                                                                                        FfiConverterString.lower(actionJson), $0)
         })
     }
@@ -4129,7 +4129,7 @@ open class MobileOnboardingWorkflow:
      */
     open func onboardingDataJson() throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobileonboardingworkflow_onboarding_data_json(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobileonboardingworkflow_onboarding_data_json(self.uniffiClonePointer(), $0)
         })
     }
 }
@@ -4256,7 +4256,7 @@ open class MobileProximityVerifier:
         @_documentation(visibility: private)
     #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
-        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobileproximityverifier(self.pointer, $0) }
+        return try! rustCall { uniffi_vauchi_platform_fn_clone_mobileproximityverifier(self.pointer, $0) }
     }
 
     /**
@@ -4265,7 +4265,7 @@ open class MobileProximityVerifier:
     public convenience init(handler: PlatformAudioHandler) {
         let pointer =
             try! rustCall {
-                uniffi_vauchi_mobile_fn_constructor_mobileproximityverifier_new(
+                uniffi_vauchi_platform_fn_constructor_mobileproximityverifier_new(
                     FfiConverterCallbackInterfacePlatformAudioHandler.lower(handler), $0
                 )
             }
@@ -4277,7 +4277,7 @@ open class MobileProximityVerifier:
             return
         }
 
-        try! rustCall { uniffi_vauchi_mobile_fn_free_mobileproximityverifier(pointer, $0) }
+        try! rustCall { uniffi_vauchi_platform_fn_free_mobileproximityverifier(pointer, $0) }
     }
 
     /**
@@ -4287,7 +4287,7 @@ open class MobileProximityVerifier:
      */
     public static func withoutHandler() -> MobileProximityVerifier {
         return try! FfiConverterTypeMobileProximityVerifier.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_constructor_mobileproximityverifier_without_handler($0)
+            uniffi_vauchi_platform_fn_constructor_mobileproximityverifier_without_handler($0)
         })
     }
 
@@ -4298,7 +4298,7 @@ open class MobileProximityVerifier:
      */
     open func emitChallenge(challenge: Data) -> MobileProximityResult {
         return try! FfiConverterTypeMobileProximityResult.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_mobileproximityverifier_emit_challenge(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_mobileproximityverifier_emit_challenge(self.uniffiClonePointer(),
                                                                                   FfiConverterData.lower(challenge), $0)
         })
     }
@@ -4310,7 +4310,7 @@ open class MobileProximityVerifier:
      */
     open func getCapability() -> String {
         return try! FfiConverterString.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_mobileproximityverifier_get_capability(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobileproximityverifier_get_capability(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -4319,7 +4319,7 @@ open class MobileProximityVerifier:
      */
     open func isSupported() -> Bool {
         return try! FfiConverterBool.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_mobileproximityverifier_is_supported(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobileproximityverifier_is_supported(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -4330,7 +4330,7 @@ open class MobileProximityVerifier:
      */
     open func listenForResponse(timeoutMs: UInt64) -> Data {
         return try! FfiConverterData.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_mobileproximityverifier_listen_for_response(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_mobileproximityverifier_listen_for_response(self.uniffiClonePointer(),
                                                                                        FfiConverterUInt64.lower(timeoutMs), $0)
         })
     }
@@ -4340,7 +4340,7 @@ open class MobileProximityVerifier:
      */
     open func stop() {
         try! rustCall {
-            uniffi_vauchi_mobile_fn_method_mobileproximityverifier_stop(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobileproximityverifier_stop(self.uniffiClonePointer(), $0)
         }
     }
 }
@@ -4434,13 +4434,13 @@ open class MobileSettingsWorkflow:
         @_documentation(visibility: private)
     #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
-        return try! rustCall { uniffi_vauchi_mobile_fn_clone_mobilesettingsworkflow(self.pointer, $0) }
+        return try! rustCall { uniffi_vauchi_platform_fn_clone_mobilesettingsworkflow(self.pointer, $0) }
     }
 
     public convenience init(configJson: String) throws {
         let pointer =
             try rustCallWithError(FfiConverterTypeMobileError.lift) {
-                uniffi_vauchi_mobile_fn_constructor_mobilesettingsworkflow_new(
+                uniffi_vauchi_platform_fn_constructor_mobilesettingsworkflow_new(
                     FfiConverterString.lower(configJson), $0
                 )
             }
@@ -4452,18 +4452,18 @@ open class MobileSettingsWorkflow:
             return
         }
 
-        try! rustCall { uniffi_vauchi_mobile_fn_free_mobilesettingsworkflow(pointer, $0) }
+        try! rustCall { uniffi_vauchi_platform_fn_free_mobilesettingsworkflow(pointer, $0) }
     }
 
     open func currentScreenJson() throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobilesettingsworkflow_current_screen_json(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_mobilesettingsworkflow_current_screen_json(self.uniffiClonePointer(), $0)
         })
     }
 
     open func handleActionJson(actionJson: String) throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_mobilesettingsworkflow_handle_action_json(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_mobilesettingsworkflow_handle_action_json(self.uniffiClonePointer(),
                                                                                      FfiConverterString.lower(actionJson), $0)
         })
     }
@@ -4521,7 +4521,7 @@ public func FfiConverterTypeMobileSettingsWorkflow_lower(_ value: MobileSettings
  *
  * Uses on-demand storage connections for thread safety.
  */
-public protocol VauchiMobileProtocol: AnyObject {
+public protocol VauchiPlatformProtocol: AnyObject {
     /**
      * Add a contact to a label.
      */
@@ -5589,8 +5589,8 @@ public protocol VauchiMobileProtocol: AnyObject {
  *
  * Uses on-demand storage connections for thread safety.
  */
-open class VauchiMobile:
-    VauchiMobileProtocol
+open class VauchiPlatform:
+    VauchiPlatformProtocol
 {
     fileprivate let pointer: UnsafeMutableRawPointer!
 
@@ -5625,11 +5625,11 @@ open class VauchiMobile:
         @_documentation(visibility: private)
     #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
-        return try! rustCall { uniffi_vauchi_mobile_fn_clone_vauchimobile(self.pointer, $0) }
+        return try! rustCall { uniffi_vauchi_platform_fn_clone_vauchimobile(self.pointer, $0) }
     }
 
     /**
-     * Create a new VauchiMobile instance (legacy constructor).
+     * Create a new VauchiPlatform instance (legacy constructor).
      *
      * WARNING: This constructor stores the encryption key in a plaintext file.
      * Use `new_with_secure_key` instead for production.
@@ -5637,7 +5637,7 @@ open class VauchiMobile:
     public convenience init(dataDir: String, relayUrl: String) throws {
         let pointer =
             try rustCallWithError(FfiConverterTypeMobileError.lift) {
-                uniffi_vauchi_mobile_fn_constructor_vauchimobile_new(
+                uniffi_vauchi_platform_fn_constructor_vauchimobile_new(
                     FfiConverterString.lower(dataDir),
                     FfiConverterString.lower(relayUrl), $0
                 )
@@ -5650,20 +5650,20 @@ open class VauchiMobile:
             return
         }
 
-        try! rustCall { uniffi_vauchi_mobile_fn_free_vauchimobile(pointer, $0) }
+        try! rustCall { uniffi_vauchi_platform_fn_free_vauchimobile(pointer, $0) }
     }
 
     /**
-     * Create a new VauchiMobile instance with a platform-provided secure key.
+     * Create a new VauchiPlatform instance with a platform-provided secure key.
      *
      * This is the recommended constructor. The platform (iOS/Android) should:
      * 1. Generate a 32-byte key if one doesn't exist in secure storage
      * 2. Store it in platform-specific secure storage (Keychain/KeyStore)
      * 3. Pass the key bytes to this constructor
      */
-    public static func newWithSecureKey(dataDir: String, relayUrl: String, storageKeyBytes: Data) throws -> VauchiMobile {
-        return try FfiConverterTypeVauchiMobile.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_constructor_vauchimobile_new_with_secure_key(
+    public static func newWithSecureKey(dataDir: String, relayUrl: String, storageKeyBytes: Data) throws -> VauchiPlatform {
+        return try FfiConverterTypeVauchiPlatform.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_constructor_vauchimobile_new_with_secure_key(
                 FfiConverterString.lower(dataDir),
                 FfiConverterString.lower(relayUrl),
                 FfiConverterData.lower(storageKeyBytes), $0
@@ -5676,7 +5676,7 @@ open class VauchiMobile:
      */
     open func addContactToLabel(labelId: String, contactId: String) throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_add_contact_to_label(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_add_contact_to_label(self.uniffiClonePointer(),
                                                                              FfiConverterString.lower(labelId),
                                                                              FfiConverterString.lower(contactId), $0)
         }
@@ -5690,7 +5690,7 @@ open class VauchiMobile:
      */
     open func addDecoyContact(name: String, cardJson: String) throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_add_decoy_contact(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_add_decoy_contact(self.uniffiClonePointer(),
                                                                           FfiConverterString.lower(name),
                                                                           FfiConverterString.lower(cardJson), $0)
         })
@@ -5701,7 +5701,7 @@ open class VauchiMobile:
      */
     open func addField(fieldType: MobileFieldType, label: String, value: String) throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_add_field(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_add_field(self.uniffiClonePointer(),
                                                                   FfiConverterTypeMobileFieldType.lower(fieldType),
                                                                   FfiConverterString.lower(label),
                                                                   FfiConverterString.lower(value), $0)
@@ -5715,7 +5715,7 @@ open class VauchiMobile:
      */
     open func addRecoveryVoucher(voucherB64: String) throws -> MobileRecoveryProgress {
         return try FfiConverterTypeMobileRecoveryProgress.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_add_recovery_voucher(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_add_recovery_voucher(self.uniffiClonePointer(),
                                                                              FfiConverterString.lower(voucherB64), $0)
         })
     }
@@ -5728,7 +5728,7 @@ open class VauchiMobile:
      */
     open func advanceOnboarding() throws -> MobileOnboardingProgress {
         return try FfiConverterTypeMobileOnboardingProgress.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_advance_onboarding(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_advance_onboarding(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -5737,7 +5737,7 @@ open class VauchiMobile:
      */
     open func ahaMomentsSeenCount() -> UInt32 {
         return try! FfiConverterUInt32.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_aha_moments_seen_count(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_aha_moments_seen_count(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -5746,7 +5746,7 @@ open class VauchiMobile:
      */
     open func ahaMomentsTotalCount() -> UInt32 {
         return try! FfiConverterUInt32.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_aha_moments_total_count(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_aha_moments_total_count(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -5760,7 +5760,7 @@ open class VauchiMobile:
      */
     open func applyContentUpdates() -> MobileApplyResult {
         return try! FfiConverterTypeMobileApplyResult.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_apply_content_updates(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_apply_content_updates(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -5774,7 +5774,7 @@ open class VauchiMobile:
      */
     open func authenticate(password: String) throws -> MobileAuthMode {
         return try FfiConverterTypeMobileAuthMode.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_authenticate(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_authenticate(self.uniffiClonePointer(),
                                                                      FfiConverterString.lower(password), $0)
         })
     }
@@ -5785,7 +5785,7 @@ open class VauchiMobile:
      */
     open func autoRemoveDemoContact() throws -> Bool {
         return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_auto_remove_demo_contact(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_auto_remove_demo_contact(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -5796,7 +5796,7 @@ open class VauchiMobile:
      */
     open func calculateRetryBackoff(attempt: UInt32) -> UInt64 {
         return try! FfiConverterUInt64.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_calculate_retry_backoff(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_calculate_retry_backoff(self.uniffiClonePointer(),
                                                                                 FfiConverterUInt32.lower(attempt), $0)
         })
     }
@@ -5806,7 +5806,7 @@ open class VauchiMobile:
      */
     open func cancelAccountDeletion() throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_cancel_account_deletion(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_cancel_account_deletion(self.uniffiClonePointer(), $0)
         }
     }
 
@@ -5815,7 +5815,7 @@ open class VauchiMobile:
      */
     open func cancelShred(token: MobileShredToken) throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_cancel_shred(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_cancel_shred(self.uniffiClonePointer(),
                                                                      FfiConverterTypeMobileShredToken.lower(token), $0)
         }
     }
@@ -5825,7 +5825,7 @@ open class VauchiMobile:
      */
     open func checkConsent(consentType: MobileConsentType) throws -> Bool {
         return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_check_consent(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_check_consent(self.uniffiClonePointer(),
                                                                       FfiConverterTypeMobileConsentType.lower(consentType), $0)
         })
     }
@@ -5840,7 +5840,7 @@ open class VauchiMobile:
      */
     open func checkContentUpdates() -> MobileUpdateStatus {
         return try! FfiConverterTypeMobileUpdateStatus.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_check_content_updates(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_check_content_updates(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -5851,7 +5851,7 @@ open class VauchiMobile:
      */
     open func clearPendingUpdatesForContact(contactId: String) throws -> UInt32 {
         return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_clear_pending_updates_for_contact(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_clear_pending_updates_for_contact(self.uniffiClonePointer(),
                                                                                           FfiConverterString.lower(contactId), $0)
         })
     }
@@ -5864,7 +5864,7 @@ open class VauchiMobile:
      */
     open func configureDuressAlerts(contactIds: [String], message: String) throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_configure_duress_alerts(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_configure_duress_alerts(self.uniffiClonePointer(),
                                                                                 FfiConverterSequenceString.lower(contactIds),
                                                                                 FfiConverterString.lower(message), $0)
         }
@@ -5878,7 +5878,7 @@ open class VauchiMobile:
      */
     open func configureEmergencyBroadcast(contactIds: [String], message: String, includeLocation: Bool) throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_configure_emergency_broadcast(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_configure_emergency_broadcast(self.uniffiClonePointer(),
                                                                                       FfiConverterSequenceString.lower(contactIds),
                                                                                       FfiConverterString.lower(message),
                                                                                       FfiConverterBool.lower(includeLocation), $0)
@@ -5892,7 +5892,7 @@ open class VauchiMobile:
      */
     open func configureTorBridges(bridges: [String]) throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_configure_tor_bridges(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_configure_tor_bridges(self.uniffiClonePointer(),
                                                                               FfiConverterSequenceString.lower(bridges), $0)
         }
     }
@@ -5902,7 +5902,7 @@ open class VauchiMobile:
      */
     open func contactCount() throws -> UInt32 {
         return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_contact_count(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_contact_count(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -5911,7 +5911,7 @@ open class VauchiMobile:
      */
     open func countFailedDeliveries() throws -> UInt32 {
         return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_count_failed_deliveries(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_count_failed_deliveries(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -5920,7 +5920,7 @@ open class VauchiMobile:
      */
     open func createIdentity(displayName: String) throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_create_identity(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_create_identity(self.uniffiClonePointer(),
                                                                         FfiConverterString.lower(displayName), $0)
         }
     }
@@ -5930,7 +5930,7 @@ open class VauchiMobile:
      */
     open func createLabel(name: String) throws -> MobileVisibilityLabel {
         return try FfiConverterTypeMobileVisibilityLabel.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_create_label(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_create_label(self.uniffiClonePointer(),
                                                                      FfiConverterString.lower(name), $0)
         })
     }
@@ -5943,7 +5943,7 @@ open class VauchiMobile:
      */
     open func createMultistageSession() throws -> MobileMultiStageSession {
         return try FfiConverterTypeMobileMultiStageSession.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_create_multistage_session(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_create_multistage_session(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -5954,7 +5954,7 @@ open class VauchiMobile:
      */
     open func createNfcInitiator() throws -> MobileNfcHandshake {
         return try FfiConverterTypeMobileNfcHandshake.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_create_nfc_initiator(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_create_nfc_initiator(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -5965,7 +5965,7 @@ open class VauchiMobile:
      */
     open func createNfcResponder() throws -> MobileNfcHandshake {
         return try FfiConverterTypeMobileNfcHandshake.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_create_nfc_responder(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_create_nfc_responder(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -5977,7 +5977,7 @@ open class VauchiMobile:
      */
     open func createQrExchange(proximity: MobileProximityHandler) throws -> MobileExchangeSession {
         return try FfiConverterTypeMobileExchangeSession.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_create_qr_exchange(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_create_qr_exchange(self.uniffiClonePointer(),
                                                                            FfiConverterCallbackInterfaceMobileProximityHandler.lower(proximity), $0)
         })
     }
@@ -5987,7 +5987,7 @@ open class VauchiMobile:
      */
     open func createQrExchangeManual() throws -> MobileExchangeSession {
         return try FfiConverterTypeMobileExchangeSession.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_create_qr_exchange_manual(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_create_qr_exchange_manual(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6000,7 +6000,7 @@ open class VauchiMobile:
      */
     open func createRecoveryClaim(oldPkHex: String) throws -> MobileRecoveryClaim {
         return try FfiConverterTypeMobileRecoveryClaim.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_create_recovery_claim(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_create_recovery_claim(self.uniffiClonePointer(),
                                                                               FfiConverterString.lower(oldPkHex), $0)
         })
     }
@@ -6013,7 +6013,7 @@ open class VauchiMobile:
      */
     open func createRecoveryVoucher(claimB64: String) throws -> MobileRecoveryVoucher {
         return try FfiConverterTypeMobileRecoveryVoucher.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_create_recovery_voucher(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_create_recovery_voucher(self.uniffiClonePointer(),
                                                                                 FfiConverterString.lower(claimB64), $0)
         })
     }
@@ -6023,7 +6023,7 @@ open class VauchiMobile:
      */
     open func currentOnboardingStep() throws -> MobileOnboardingStep {
         return try FfiConverterTypeMobileOnboardingStep.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_current_onboarding_step(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_current_onboarding_step(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6032,7 +6032,7 @@ open class VauchiMobile:
      */
     open func deleteDecoyContact(id: String) throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_delete_decoy_contact(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_delete_decoy_contact(self.uniffiClonePointer(),
                                                                              FfiConverterString.lower(id), $0)
         }
     }
@@ -6042,7 +6042,7 @@ open class VauchiMobile:
      */
     open func deleteLabel(labelId: String) throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_delete_label(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_delete_label(self.uniffiClonePointer(),
                                                                      FfiConverterString.lower(labelId), $0)
         }
     }
@@ -6052,7 +6052,7 @@ open class VauchiMobile:
      */
     open func deleteRetry(messageId: String) throws -> Bool {
         return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_delete_retry(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_delete_retry(self.uniffiClonePointer(),
                                                                      FfiConverterString.lower(messageId), $0)
         })
     }
@@ -6064,7 +6064,7 @@ open class VauchiMobile:
      */
     open func deviceCount() throws -> UInt32 {
         return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_device_count(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_device_count(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6073,7 +6073,7 @@ open class VauchiMobile:
      */
     open func disableDuress() throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_disable_duress(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_disable_duress(self.uniffiClonePointer(), $0)
         }
     }
 
@@ -6082,7 +6082,7 @@ open class VauchiMobile:
      */
     open func disableEmergencyBroadcast() throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_disable_emergency_broadcast(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_disable_emergency_broadcast(self.uniffiClonePointer(), $0)
         }
     }
 
@@ -6093,7 +6093,7 @@ open class VauchiMobile:
      */
     open func disableTor() throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_disable_tor(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_disable_tor(self.uniffiClonePointer(), $0)
         }
     }
 
@@ -6102,7 +6102,7 @@ open class VauchiMobile:
      */
     open func dismissDemoContact() throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_dismiss_demo_contact(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_dismiss_demo_contact(self.uniffiClonePointer(), $0)
         }
     }
 
@@ -6114,7 +6114,7 @@ open class VauchiMobile:
      */
     open func displayNameSuggestions(fullName: String) -> [String] {
         return try! FfiConverterSequenceString.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_display_name_suggestions(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_display_name_suggestions(self.uniffiClonePointer(),
                                                                                  FfiConverterString.lower(fullName), $0)
         })
     }
@@ -6127,7 +6127,7 @@ open class VauchiMobile:
      */
     open func enableTor() throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_enable_tor(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_enable_tor(self.uniffiClonePointer(), $0)
         }
     }
 
@@ -6140,7 +6140,7 @@ open class VauchiMobile:
      */
     open func encodeMultipartQr(data: Data) -> [String] {
         return try! FfiConverterSequenceString.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_encode_multipart_qr(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_encode_multipart_qr(self.uniffiClonePointer(),
                                                                             FfiConverterData.lower(data), $0)
         })
     }
@@ -6154,7 +6154,7 @@ open class VauchiMobile:
      */
     open func executeAccountDeletion() throws -> UInt32 {
         return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_execute_account_deletion(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_execute_account_deletion(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6163,7 +6163,7 @@ open class VauchiMobile:
      */
     open func exportBackup(password: String) throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_export_backup(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_export_backup(self.uniffiClonePointer(),
                                                                       FfiConverterString.lower(password), $0)
         })
     }
@@ -6173,7 +6173,7 @@ open class VauchiMobile:
      */
     open func exportGdprData() throws -> MobileGdprExport {
         return try FfiConverterTypeMobileGdprExport.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_export_gdpr_data(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_export_gdpr_data(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6182,7 +6182,7 @@ open class VauchiMobile:
      */
     open func exportStorageKey() -> Data {
         return try! FfiConverterData.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_export_storage_key(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_export_storage_key(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6198,7 +6198,7 @@ open class VauchiMobile:
      */
     open func finalizeExchange(session: MobileExchangeSession) throws -> MobileExchangeResult {
         return try FfiConverterTypeMobileExchangeResult.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_finalize_exchange(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_finalize_exchange(self.uniffiClonePointer(),
                                                                           FfiConverterTypeMobileExchangeSession.lower(session), $0)
         })
     }
@@ -6214,7 +6214,7 @@ open class VauchiMobile:
      */
     open func finalizeMultistageExchange(session: MobileMultiStageSession) throws -> MobileExchangeResult {
         return try FfiConverterTypeMobileExchangeResult.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_finalize_multistage_exchange(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_finalize_multistage_exchange(self.uniffiClonePointer(),
                                                                                      FfiConverterTypeMobileMultiStageSession.lower(session), $0)
         })
     }
@@ -6227,7 +6227,7 @@ open class VauchiMobile:
      */
     open func generateDeviceLinkQr() throws -> MobileDeviceLinkData {
         return try FfiConverterTypeMobileDeviceLinkData.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_generate_device_link_qr(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_generate_device_link_qr(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6236,7 +6236,7 @@ open class VauchiMobile:
      */
     open func getAllDeliveryRecords() throws -> [MobileDeliveryRecord] {
         return try FfiConverterSequenceTypeMobileDeliveryRecord.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_get_all_delivery_records(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_get_all_delivery_records(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6245,7 +6245,7 @@ open class VauchiMobile:
      */
     open func getConsentRecords() throws -> [MobileConsentRecord] {
         return try FfiConverterSequenceTypeMobileConsentRecord.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_get_consent_records(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_get_consent_records(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6257,7 +6257,7 @@ open class VauchiMobile:
      */
     open func getConsentStatus(consentType: MobileConsentType) throws -> MobileConsentStatus {
         return try FfiConverterTypeMobileConsentStatus.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_get_consent_status(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_get_consent_status(self.uniffiClonePointer(),
                                                                            FfiConverterTypeMobileConsentType.lower(consentType), $0)
         })
     }
@@ -6267,7 +6267,7 @@ open class VauchiMobile:
      */
     open func getContact(id: String) throws -> MobileContact? {
         return try FfiConverterOptionTypeMobileContact.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_get_contact(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_get_contact(self.uniffiClonePointer(),
                                                                     FfiConverterString.lower(id), $0)
         })
     }
@@ -6277,7 +6277,7 @@ open class VauchiMobile:
      */
     open func getDeletionState() throws -> MobileDeletionInfo {
         return try FfiConverterTypeMobileDeletionInfo.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_get_deletion_state(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_get_deletion_state(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6286,7 +6286,7 @@ open class VauchiMobile:
      */
     open func getDeliveryCountByStatus(status: MobileDeliveryStatus) throws -> UInt32 {
         return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_get_delivery_count_by_status(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_get_delivery_count_by_status(self.uniffiClonePointer(),
                                                                                      FfiConverterTypeMobileDeliveryStatus.lower(status), $0)
         })
     }
@@ -6296,7 +6296,7 @@ open class VauchiMobile:
      */
     open func getDeliveryRecord(messageId: String) throws -> MobileDeliveryRecord? {
         return try FfiConverterOptionTypeMobileDeliveryRecord.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_get_delivery_record(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_get_delivery_record(self.uniffiClonePointer(),
                                                                             FfiConverterString.lower(messageId), $0)
         })
     }
@@ -6306,7 +6306,7 @@ open class VauchiMobile:
      */
     open func getDeliveryRecordsForContact(recipientId: String) throws -> [MobileDeliveryRecord] {
         return try FfiConverterSequenceTypeMobileDeliveryRecord.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_get_delivery_records_for_contact(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_get_delivery_records_for_contact(self.uniffiClonePointer(),
                                                                                          FfiConverterString.lower(recipientId), $0)
         })
     }
@@ -6316,7 +6316,7 @@ open class VauchiMobile:
      */
     open func getDeliverySummary(messageId: String) throws -> MobileDeliverySummary {
         return try FfiConverterTypeMobileDeliverySummary.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_get_delivery_summary(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_get_delivery_summary(self.uniffiClonePointer(),
                                                                              FfiConverterString.lower(messageId), $0)
         })
     }
@@ -6326,7 +6326,7 @@ open class VauchiMobile:
      */
     open func getDemoContact() throws -> MobileDemoContact? {
         return try FfiConverterOptionTypeMobileDemoContact.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_get_demo_contact(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_get_demo_contact(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6335,7 +6335,7 @@ open class VauchiMobile:
      */
     open func getDemoContactState() -> MobileDemoContactState {
         return try! FfiConverterTypeMobileDemoContactState.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_get_demo_contact_state(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_get_demo_contact_state(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6344,7 +6344,7 @@ open class VauchiMobile:
      */
     open func getDeviceDeliveries(messageId: String) throws -> [MobileDeviceDeliveryRecord] {
         return try FfiConverterSequenceTypeMobileDeviceDeliveryRecord.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_get_device_deliveries(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_get_device_deliveries(self.uniffiClonePointer(),
                                                                               FfiConverterString.lower(messageId), $0)
         })
     }
@@ -6357,7 +6357,7 @@ open class VauchiMobile:
      */
     open func getDevices() throws -> [MobileDeviceInfo] {
         return try FfiConverterSequenceTypeMobileDeviceInfo.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_get_devices(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_get_devices(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6366,7 +6366,7 @@ open class VauchiMobile:
      */
     open func getDisplayName() throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_get_display_name(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_get_display_name(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6375,7 +6375,7 @@ open class VauchiMobile:
      */
     open func getDueRetries() throws -> [MobileRetryEntry] {
         return try FfiConverterSequenceTypeMobileRetryEntry.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_get_due_retries(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_get_due_retries(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6386,7 +6386,7 @@ open class VauchiMobile:
      */
     open func getDuressSettings() throws -> MobileDuressSettings? {
         return try FfiConverterOptionTypeMobileDuressSettings.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_get_duress_settings(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_get_duress_settings(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6397,7 +6397,7 @@ open class VauchiMobile:
      */
     open func getEmergencyConfig() throws -> MobileEmergencyConfig? {
         return try FfiConverterOptionTypeMobileEmergencyConfig.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_get_emergency_config(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_get_emergency_config(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6406,7 +6406,7 @@ open class VauchiMobile:
      */
     open func getFieldValidationCount(contactId: String, fieldId: String) throws -> UInt32 {
         return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_get_field_validation_count(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_get_field_validation_count(self.uniffiClonePointer(),
                                                                                    FfiConverterString.lower(contactId),
                                                                                    FfiConverterString.lower(fieldId), $0)
         })
@@ -6420,7 +6420,7 @@ open class VauchiMobile:
      */
     open func getFieldValidationStatus(contactId: String, fieldId: String, fieldValue: String) throws -> MobileValidationStatus {
         return try FfiConverterTypeMobileValidationStatus.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_get_field_validation_status(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_get_field_validation_status(self.uniffiClonePointer(),
                                                                                     FfiConverterString.lower(contactId),
                                                                                     FfiConverterString.lower(fieldId),
                                                                                     FfiConverterString.lower(fieldValue), $0)
@@ -6432,7 +6432,7 @@ open class VauchiMobile:
      */
     open func getLabel(labelId: String) throws -> MobileVisibilityLabelDetail {
         return try FfiConverterTypeMobileVisibilityLabelDetail.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_get_label(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_get_label(self.uniffiClonePointer(),
                                                                   FfiConverterString.lower(labelId), $0)
         })
     }
@@ -6442,7 +6442,7 @@ open class VauchiMobile:
      */
     open func getLabelsForContact(contactId: String) throws -> [MobileVisibilityLabel] {
         return try FfiConverterSequenceTypeMobileVisibilityLabel.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_get_labels_for_contact(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_get_labels_for_contact(self.uniffiClonePointer(),
                                                                                FfiConverterString.lower(contactId), $0)
         })
     }
@@ -6452,7 +6452,7 @@ open class VauchiMobile:
      */
     open func getOfflineQueueCapacity() throws -> UInt32 {
         return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_get_offline_queue_capacity(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_get_offline_queue_capacity(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6461,7 +6461,7 @@ open class VauchiMobile:
      */
     open func getOnboardingProgress() throws -> MobileOnboardingProgress {
         return try FfiConverterTypeMobileOnboardingProgress.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_get_onboarding_progress(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_get_onboarding_progress(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6470,7 +6470,7 @@ open class VauchiMobile:
      */
     open func getOwnCard() throws -> MobileContactCard {
         return try FfiConverterTypeMobileContactCard.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_get_own_card(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_get_own_card(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6482,7 +6482,7 @@ open class VauchiMobile:
      */
     open func getOwnFingerprint() throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_get_own_fingerprint(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_get_own_fingerprint(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6491,7 +6491,7 @@ open class VauchiMobile:
      */
     open func getPendingDeliveries() throws -> [MobileDeliveryRecord] {
         return try FfiConverterSequenceTypeMobileDeliveryRecord.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_get_pending_deliveries(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_get_pending_deliveries(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6500,7 +6500,7 @@ open class VauchiMobile:
      */
     open func getPendingDeviceDeliveries() throws -> [MobileDeviceDeliveryRecord] {
         return try FfiConverterSequenceTypeMobileDeviceDeliveryRecord.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_get_pending_device_deliveries(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_get_pending_device_deliveries(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6509,7 +6509,7 @@ open class VauchiMobile:
      */
     open func getProfileUrl(networkId: String, username: String) -> String? {
         return try! FfiConverterOptionString.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_get_profile_url(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_get_profile_url(self.uniffiClonePointer(),
                                                                         FfiConverterString.lower(networkId),
                                                                         FfiConverterString.lower(username), $0)
         })
@@ -6520,7 +6520,7 @@ open class VauchiMobile:
      */
     open func getPublicId() throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_get_public_id(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_get_public_id(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6531,7 +6531,7 @@ open class VauchiMobile:
      */
     open func getRecoveryProof() throws -> String? {
         return try FfiConverterOptionString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_get_recovery_proof(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_get_recovery_proof(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6542,7 +6542,7 @@ open class VauchiMobile:
      */
     open func getRecoveryStatus() throws -> MobileRecoveryProgress? {
         return try FfiConverterOptionTypeMobileRecoveryProgress.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_get_recovery_status(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_get_recovery_status(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6551,7 +6551,7 @@ open class VauchiMobile:
      */
     open func getRetriesForContact(contactId: String) throws -> [MobileRetryEntry] {
         return try FfiConverterSequenceTypeMobileRetryEntry.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_get_retries_for_contact(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_get_retries_for_contact(self.uniffiClonePointer(),
                                                                                 FfiConverterString.lower(contactId), $0)
         })
     }
@@ -6561,7 +6561,7 @@ open class VauchiMobile:
      */
     open func getRetryCount() throws -> UInt32 {
         return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_get_retry_count(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_get_retry_count(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6570,7 +6570,7 @@ open class VauchiMobile:
      */
     open func getSuggestedLabels() -> [String] {
         return try! FfiConverterSequenceString.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_get_suggested_labels(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_get_suggested_labels(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6579,7 +6579,7 @@ open class VauchiMobile:
      */
     open func getSyncStatus() -> MobileSyncStatus {
         return try! FfiConverterTypeMobileSyncStatus.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_get_sync_status(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_get_sync_status(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6588,7 +6588,7 @@ open class VauchiMobile:
      */
     open func getTotalPendingCount() throws -> UInt32 {
         return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_get_total_pending_count(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_get_total_pending_count(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6597,7 +6597,7 @@ open class VauchiMobile:
      */
     open func grantConsent(consentType: MobileConsentType) throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_grant_consent(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_grant_consent(self.uniffiClonePointer(),
                                                                       FfiConverterTypeMobileConsentType.lower(consentType), $0)
         }
     }
@@ -6613,7 +6613,7 @@ open class VauchiMobile:
      */
     open func hardShred(token: MobileShredToken) throws -> MobileShredReport {
         return try FfiConverterTypeMobileShredReport.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_hard_shred(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_hard_shred(self.uniffiClonePointer(),
                                                                    FfiConverterTypeMobileShredToken.lower(token), $0)
         })
     }
@@ -6623,7 +6623,7 @@ open class VauchiMobile:
      */
     open func hasIdentity() -> Bool {
         return try! FfiConverterBool.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_has_identity(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_has_identity(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6632,7 +6632,7 @@ open class VauchiMobile:
      */
     open func hasSeenAhaMoment(momentType: MobileAhaMomentType) -> Bool {
         return try! FfiConverterBool.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_has_seen_aha_moment(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_has_seen_aha_moment(self.uniffiClonePointer(),
                                                                             FfiConverterTypeMobileAhaMomentType.lower(momentType), $0)
         })
     }
@@ -6642,7 +6642,7 @@ open class VauchiMobile:
      */
     open func hasValidatedField(contactId: String, fieldId: String) throws -> Bool {
         return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_has_validated_field(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_has_validated_field(self.uniffiClonePointer(),
                                                                             FfiConverterString.lower(contactId),
                                                                             FfiConverterString.lower(fieldId), $0)
         })
@@ -6657,7 +6657,7 @@ open class VauchiMobile:
      */
     open func hideContact(contactId: String) throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_hide_contact(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_hide_contact(self.uniffiClonePointer(),
                                                                      FfiConverterString.lower(contactId), $0)
         }
     }
@@ -6667,7 +6667,7 @@ open class VauchiMobile:
      */
     open func hideFieldFromContact(contactId: String, fieldLabel: String) throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_hide_field_from_contact(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_hide_field_from_contact(self.uniffiClonePointer(),
                                                                                 FfiConverterString.lower(contactId),
                                                                                 FfiConverterString.lower(fieldLabel), $0)
         }
@@ -6678,7 +6678,7 @@ open class VauchiMobile:
      */
     open func importBackup(backupData: String, password: String) throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_import_backup(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_import_backup(self.uniffiClonePointer(),
                                                                       FfiConverterString.lower(backupData),
                                                                       FfiConverterString.lower(password), $0)
         }
@@ -6690,7 +6690,7 @@ open class VauchiMobile:
      */
     open func initDemoContactIfNeeded() throws -> MobileDemoContact? {
         return try FfiConverterOptionTypeMobileDemoContact.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_init_demo_contact_if_needed(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_init_demo_contact_if_needed(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6699,7 +6699,7 @@ open class VauchiMobile:
      */
     open func isCertificatePinningEnabled() -> Bool {
         return try! FfiConverterBool.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_is_certificate_pinning_enabled(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_is_certificate_pinning_enabled(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6710,7 +6710,7 @@ open class VauchiMobile:
      */
     open func isContentUpdatesSupported() -> Bool {
         return try! FfiConverterBool.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_is_content_updates_supported(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_is_content_updates_supported(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6719,7 +6719,7 @@ open class VauchiMobile:
      */
     open func isDeliveryReceiptsEnabled() -> Bool {
         return try! FfiConverterBool.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_is_delivery_receipts_enabled(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_is_delivery_receipts_enabled(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6728,7 +6728,7 @@ open class VauchiMobile:
      */
     open func isDemoUpdateAvailable() -> Bool {
         return try! FfiConverterBool.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_is_demo_update_available(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_is_demo_update_available(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6737,7 +6737,7 @@ open class VauchiMobile:
      */
     open func isDuressEnabled() throws -> Bool {
         return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_is_duress_enabled(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_is_duress_enabled(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6746,7 +6746,7 @@ open class VauchiMobile:
      */
     open func isFieldVisibleToContact(contactId: String, fieldLabel: String) throws -> Bool {
         return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_is_field_visible_to_contact(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_is_field_visible_to_contact(self.uniffiClonePointer(),
                                                                                     FfiConverterString.lower(contactId),
                                                                                     FfiConverterString.lower(fieldLabel), $0)
         })
@@ -6759,7 +6759,7 @@ open class VauchiMobile:
      */
     open func isOfflineQueueFull() throws -> Bool {
         return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_is_offline_queue_full(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_is_offline_queue_full(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6768,7 +6768,7 @@ open class VauchiMobile:
      */
     open func isOnboardingComplete() throws -> Bool {
         return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_is_onboarding_complete(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_is_onboarding_complete(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6777,7 +6777,7 @@ open class VauchiMobile:
      */
     open func isPasswordEnabled() throws -> Bool {
         return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_is_password_enabled(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_is_password_enabled(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6786,7 +6786,7 @@ open class VauchiMobile:
      */
     open func isPrimaryDevice() throws -> Bool {
         return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_is_primary_device(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_is_primary_device(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6795,7 +6795,7 @@ open class VauchiMobile:
      */
     open func isSuppressPresenceEnabled() -> Bool {
         return try! FfiConverterBool.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_is_suppress_presence_enabled(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_is_suppress_presence_enabled(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6804,7 +6804,7 @@ open class VauchiMobile:
      */
     open func listContacts() throws -> [MobileContact] {
         return try FfiConverterSequenceTypeMobileContact.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_list_contacts(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_list_contacts(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6813,7 +6813,7 @@ open class VauchiMobile:
      */
     open func listContactsPaginated(offset: UInt32, limit: UInt32) throws -> [MobileContact] {
         return try FfiConverterSequenceTypeMobileContact.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_list_contacts_paginated(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_list_contacts_paginated(self.uniffiClonePointer(),
                                                                                 FfiConverterUInt32.lower(offset),
                                                                                 FfiConverterUInt32.lower(limit), $0)
         })
@@ -6824,7 +6824,7 @@ open class VauchiMobile:
      */
     open func listDecoyContacts() throws -> [MobileDecoyContact] {
         return try FfiConverterSequenceTypeMobileDecoyContact.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_list_decoy_contacts(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_list_decoy_contacts(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6834,7 +6834,7 @@ open class VauchiMobile:
      */
     open func listHiddenContacts() throws -> [MobileContact] {
         return try FfiConverterSequenceTypeMobileContact.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_list_hidden_contacts(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_list_hidden_contacts(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6843,7 +6843,7 @@ open class VauchiMobile:
      */
     open func listLabels() throws -> [MobileVisibilityLabel] {
         return try FfiConverterSequenceTypeMobileVisibilityLabel.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_list_labels(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_list_labels(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6855,7 +6855,7 @@ open class VauchiMobile:
      */
     open func listMyValidations() throws -> [MobileFieldValidation] {
         return try FfiConverterSequenceTypeMobileFieldValidation.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_list_my_validations(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_list_my_validations(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6864,7 +6864,7 @@ open class VauchiMobile:
      */
     open func listSocialNetworks() -> [MobileSocialNetwork] {
         return try! FfiConverterSequenceTypeMobileSocialNetwork.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_list_social_networks(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_list_social_networks(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6876,7 +6876,7 @@ open class VauchiMobile:
      */
     open func listenForDeviceLinkRequest(timeoutSecs: UInt64) throws -> MobileDeviceLinkRequest {
         return try FfiConverterTypeMobileDeviceLinkRequest.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_listen_for_device_link_request(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_listen_for_device_link_request(self.uniffiClonePointer(),
                                                                                        FfiConverterUInt64.lower(timeoutSecs), $0)
         })
     }
@@ -6886,7 +6886,7 @@ open class VauchiMobile:
      */
     open func loadTorConfig() throws -> MobileTorConfig {
         return try FfiConverterTypeMobileTorConfig.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_load_tor_config(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_load_tor_config(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6897,7 +6897,7 @@ open class VauchiMobile:
      */
     open func manualRetry(messageId: String) throws -> Bool {
         return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_manual_retry(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_manual_retry(self.uniffiClonePointer(),
                                                                      FfiConverterString.lower(messageId), $0)
         })
     }
@@ -6912,7 +6912,7 @@ open class VauchiMobile:
      */
     open func panicShred() throws -> MobileShredReport {
         return try FfiConverterTypeMobileShredReport.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_panic_shred(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_panic_shred(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6925,7 +6925,7 @@ open class VauchiMobile:
      */
     open func parseDeviceLinkQr(qrData: String) throws -> MobileDeviceLinkInfo {
         return try FfiConverterTypeMobileDeviceLinkInfo.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_parse_device_link_qr(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_parse_device_link_qr(self.uniffiClonePointer(),
                                                                              FfiConverterString.lower(qrData), $0)
         })
     }
@@ -6937,7 +6937,7 @@ open class VauchiMobile:
      */
     open func parseRecoveryClaim(claimB64: String) throws -> MobileRecoveryClaim {
         return try FfiConverterTypeMobileRecoveryClaim.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_parse_recovery_claim(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_parse_recovery_claim(self.uniffiClonePointer(),
                                                                              FfiConverterString.lower(claimB64), $0)
         })
     }
@@ -6947,7 +6947,7 @@ open class VauchiMobile:
      */
     open func pendingUpdateCount() throws -> UInt32 {
         return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_pending_update_count(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_pending_update_count(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6959,7 +6959,7 @@ open class VauchiMobile:
      */
     open func reloadSocialNetworks() -> [MobileSocialNetwork] {
         return try! FfiConverterSequenceTypeMobileSocialNetwork.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_reload_social_networks(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_reload_social_networks(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6968,7 +6968,7 @@ open class VauchiMobile:
      */
     open func removeContact(id: String) throws -> Bool {
         return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_remove_contact(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_remove_contact(self.uniffiClonePointer(),
                                                                        FfiConverterString.lower(id), $0)
         })
     }
@@ -6978,7 +6978,7 @@ open class VauchiMobile:
      */
     open func removeContactFieldOverride(contactId: String, fieldLabel: String) throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_remove_contact_field_override(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_remove_contact_field_override(self.uniffiClonePointer(),
                                                                                       FfiConverterString.lower(contactId),
                                                                                       FfiConverterString.lower(fieldLabel), $0)
         }
@@ -6989,7 +6989,7 @@ open class VauchiMobile:
      */
     open func removeContactFromLabel(labelId: String, contactId: String) throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_remove_contact_from_label(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_remove_contact_from_label(self.uniffiClonePointer(),
                                                                                   FfiConverterString.lower(labelId),
                                                                                   FfiConverterString.lower(contactId), $0)
         }
@@ -7000,7 +7000,7 @@ open class VauchiMobile:
      */
     open func removeField(label: String) throws -> Bool {
         return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_remove_field(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_remove_field(self.uniffiClonePointer(),
                                                                      FfiConverterString.lower(label), $0)
         })
     }
@@ -7010,7 +7010,7 @@ open class VauchiMobile:
      */
     open func renameLabel(labelId: String, newName: String) throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_rename_label(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_rename_label(self.uniffiClonePointer(),
                                                                      FfiConverterString.lower(labelId),
                                                                      FfiConverterString.lower(newName), $0)
         }
@@ -7023,7 +7023,7 @@ open class VauchiMobile:
      */
     open func requestNewTorCircuit() throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_request_new_tor_circuit(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_request_new_tor_circuit(self.uniffiClonePointer(), $0)
         }
     }
 
@@ -7032,7 +7032,7 @@ open class VauchiMobile:
      */
     open func resetAhaMoments() throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_reset_aha_moments(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_reset_aha_moments(self.uniffiClonePointer(), $0)
         }
     }
 
@@ -7043,7 +7043,7 @@ open class VauchiMobile:
      */
     open func resetOnboarding() throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_reset_onboarding(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_reset_onboarding(self.uniffiClonePointer(), $0)
         }
     }
 
@@ -7052,7 +7052,7 @@ open class VauchiMobile:
      */
     open func restoreDemoContact() throws -> MobileDemoContact? {
         return try FfiConverterOptionTypeMobileDemoContact.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_restore_demo_contact(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_restore_demo_contact(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -7061,7 +7061,7 @@ open class VauchiMobile:
      */
     open func revokeConsent(consentType: MobileConsentType) throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_revoke_consent(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_revoke_consent(self.uniffiClonePointer(),
                                                                        FfiConverterTypeMobileConsentType.lower(consentType), $0)
         }
     }
@@ -7073,7 +7073,7 @@ open class VauchiMobile:
      */
     open func revokeFieldValidation(contactId: String, fieldId: String) throws -> Bool {
         return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_revoke_field_validation(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_revoke_field_validation(self.uniffiClonePointer(),
                                                                                 FfiConverterString.lower(contactId),
                                                                                 FfiConverterString.lower(fieldId), $0)
         })
@@ -7084,7 +7084,7 @@ open class VauchiMobile:
      */
     open func scheduleAccountDeletion() throws -> MobileDeletionInfo {
         return try FfiConverterTypeMobileDeletionInfo.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_schedule_account_deletion(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_schedule_account_deletion(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -7093,7 +7093,7 @@ open class VauchiMobile:
      */
     open func searchContacts(query: String) throws -> [MobileContact] {
         return try FfiConverterSequenceTypeMobileContact.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_search_contacts(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_search_contacts(self.uniffiClonePointer(),
                                                                         FfiConverterString.lower(query), $0)
         })
     }
@@ -7103,7 +7103,7 @@ open class VauchiMobile:
      */
     open func searchSocialNetworks(query: String) -> [MobileSocialNetwork] {
         return try! FfiConverterSequenceTypeMobileSocialNetwork.lift(try! rustCall {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_search_social_networks(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_search_social_networks(self.uniffiClonePointer(),
                                                                                FfiConverterString.lower(query), $0)
         })
     }
@@ -7116,7 +7116,7 @@ open class VauchiMobile:
      */
     open func sendDeviceLinkRequest(targetIdentity: String, senderToken: String, encryptedRequest: Data, timeoutSecs: UInt64) throws -> Data {
         return try FfiConverterData.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_send_device_link_request(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_send_device_link_request(self.uniffiClonePointer(),
                                                                                  FfiConverterString.lower(targetIdentity),
                                                                                  FfiConverterString.lower(senderToken),
                                                                                  FfiConverterData.lower(encryptedRequest),
@@ -7132,7 +7132,7 @@ open class VauchiMobile:
      */
     open func sendDeviceLinkResponse(senderToken: String, encryptedResponse: Data) throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_send_device_link_response(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_send_device_link_response(self.uniffiClonePointer(),
                                                                                   FfiConverterString.lower(senderToken),
                                                                                   FfiConverterData.lower(encryptedResponse), $0)
         }
@@ -7145,7 +7145,7 @@ open class VauchiMobile:
      */
     open func sendEmergencyBroadcast() throws -> MobileBroadcastResult {
         return try FfiConverterTypeMobileBroadcastResult.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_send_emergency_broadcast(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_send_emergency_broadcast(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -7156,7 +7156,7 @@ open class VauchiMobile:
      */
     open func setContactFieldOverride(contactId: String, fieldLabel: String, isVisible: Bool) throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_set_contact_field_override(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_set_contact_field_override(self.uniffiClonePointer(),
                                                                                    FfiConverterString.lower(contactId),
                                                                                    FfiConverterString.lower(fieldLabel),
                                                                                    FfiConverterBool.lower(isVisible), $0)
@@ -7168,7 +7168,7 @@ open class VauchiMobile:
      */
     open func setDeliveryReceiptsEnabled(enabled: Bool) {
         try! rustCall {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_set_delivery_receipts_enabled(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_set_delivery_receipts_enabled(self.uniffiClonePointer(),
                                                                                       FfiConverterBool.lower(enabled), $0)
         }
     }
@@ -7178,7 +7178,7 @@ open class VauchiMobile:
      */
     open func setDisplayName(name: String) throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_set_display_name(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_set_display_name(self.uniffiClonePointer(),
                                                                          FfiConverterString.lower(name), $0)
         }
     }
@@ -7188,7 +7188,7 @@ open class VauchiMobile:
      */
     open func setLabelFieldVisibility(labelId: String, fieldLabel: String, isVisible: Bool) throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_set_label_field_visibility(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_set_label_field_visibility(self.uniffiClonePointer(),
                                                                                    FfiConverterString.lower(labelId),
                                                                                    FfiConverterString.lower(fieldLabel),
                                                                                    FfiConverterBool.lower(isVisible), $0)
@@ -7203,7 +7203,7 @@ open class VauchiMobile:
      */
     open func setPinnedCertificate(certPem: String) {
         try! rustCall {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_set_pinned_certificate(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_set_pinned_certificate(self.uniffiClonePointer(),
                                                                                FfiConverterString.lower(certPem), $0)
         }
     }
@@ -7217,7 +7217,7 @@ open class VauchiMobile:
      */
     open func setPlatformKeychain(keychain: MobilePlatformKeychain) {
         try! rustCall {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_set_platform_keychain(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_set_platform_keychain(self.uniffiClonePointer(),
                                                                               FfiConverterCallbackInterfaceMobilePlatformKeychain.lower(keychain), $0)
         }
     }
@@ -7227,7 +7227,7 @@ open class VauchiMobile:
      */
     open func setSuppressPresenceEnabled(enabled: Bool) {
         try! rustCall {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_set_suppress_presence_enabled(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_set_suppress_presence_enabled(self.uniffiClonePointer(),
                                                                                       FfiConverterBool.lower(enabled), $0)
         }
     }
@@ -7239,7 +7239,7 @@ open class VauchiMobile:
      */
     open func setupAppPassword(password: String) throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_setup_app_password(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_setup_app_password(self.uniffiClonePointer(),
                                                                            FfiConverterString.lower(password), $0)
         }
     }
@@ -7251,7 +7251,7 @@ open class VauchiMobile:
      */
     open func setupDuressPassword(duressPassword: String) throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_setup_duress_password(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_setup_duress_password(self.uniffiClonePointer(),
                                                                               FfiConverterString.lower(duressPassword), $0)
         }
     }
@@ -7261,7 +7261,7 @@ open class VauchiMobile:
      */
     open func showFieldToContact(contactId: String, fieldLabel: String) throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_show_field_to_contact(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_show_field_to_contact(self.uniffiClonePointer(),
                                                                               FfiConverterString.lower(contactId),
                                                                               FfiConverterString.lower(fieldLabel), $0)
         }
@@ -7275,7 +7275,7 @@ open class VauchiMobile:
      */
     open func shredStatus() throws -> MobileShredStatus {
         return try FfiConverterTypeMobileShredStatus.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_shred_status(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_shred_status(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -7287,7 +7287,7 @@ open class VauchiMobile:
      */
     open func skipOnboardingStep() throws -> MobileOnboardingProgress {
         return try FfiConverterTypeMobileOnboardingProgress.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_skip_onboarding_step(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_skip_onboarding_step(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -7300,7 +7300,7 @@ open class VauchiMobile:
      */
     open func skipOnboardingToFinish() throws -> MobileOnboardingProgress {
         return try FfiConverterTypeMobileOnboardingProgress.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_skip_onboarding_to_finish(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_skip_onboarding_to_finish(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -7314,7 +7314,7 @@ open class VauchiMobile:
      */
     open func softShred() throws -> MobileShredToken {
         return try FfiConverterTypeMobileShredToken.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_soft_shred(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_soft_shred(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -7326,7 +7326,7 @@ open class VauchiMobile:
      */
     open func startDeviceJoin(qrData: String, deviceName: String) throws -> MobileDeviceLinkResponder {
         return try FfiConverterTypeMobileDeviceLinkResponder.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_start_device_join(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_start_device_join(self.uniffiClonePointer(),
                                                                           FfiConverterString.lower(qrData),
                                                                           FfiConverterString.lower(deviceName), $0)
         })
@@ -7340,7 +7340,7 @@ open class VauchiMobile:
      */
     open func startDeviceLink() throws -> MobileDeviceLinkInitiator {
         return try FfiConverterTypeMobileDeviceLinkInitiator.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_start_device_link(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_start_device_link(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -7349,7 +7349,7 @@ open class VauchiMobile:
      */
     open func sync() throws -> MobileSyncResult {
         return try FfiConverterTypeMobileSyncResult.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_sync(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_sync(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -7364,13 +7364,13 @@ open class VauchiMobile:
         return
             try await uniffiRustCallAsync(
                 rustFutureFunc: {
-                    uniffi_vauchi_mobile_fn_method_vauchimobile_sync_async(
+                    uniffi_vauchi_platform_fn_method_vauchimobile_sync_async(
                         self.uniffiClonePointer()
                     )
                 },
-                pollFunc: ffi_vauchi_mobile_rust_future_poll_rust_buffer,
-                completeFunc: ffi_vauchi_mobile_rust_future_complete_rust_buffer,
-                freeFunc: ffi_vauchi_mobile_rust_future_free_rust_buffer,
+                pollFunc: ffi_vauchi_platform_rust_future_poll_rust_buffer,
+                completeFunc: ffi_vauchi_platform_rust_future_complete_rust_buffer,
+                freeFunc: ffi_vauchi_platform_rust_future_free_rust_buffer,
                 liftFunc: FfiConverterTypeMobileSyncResult.lift,
                 errorHandler: FfiConverterTypeMobileError.lift
             )
@@ -7381,7 +7381,7 @@ open class VauchiMobile:
      */
     open func torStatus() throws -> MobileTorStatus {
         return try FfiConverterTypeMobileTorStatus.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_tor_status(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_tor_status(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -7390,7 +7390,7 @@ open class VauchiMobile:
      */
     open func triggerDemoUpdate() throws -> MobileDemoContact? {
         return try FfiConverterOptionTypeMobileDemoContact.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_trigger_demo_update(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_trigger_demo_update(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -7401,7 +7401,7 @@ open class VauchiMobile:
      */
     open func trustContactForRecovery(id: String) throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_trust_contact_for_recovery(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_trust_contact_for_recovery(self.uniffiClonePointer(),
                                                                                    FfiConverterString.lower(id), $0)
         }
     }
@@ -7411,7 +7411,7 @@ open class VauchiMobile:
      */
     open func trustedContactCount() throws -> UInt32 {
         return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_trusted_contact_count(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_trusted_contact_count(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -7420,7 +7420,7 @@ open class VauchiMobile:
      */
     open func tryTriggerAhaMoment(momentType: MobileAhaMomentType) throws -> MobileAhaMoment? {
         return try FfiConverterOptionTypeMobileAhaMoment.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_try_trigger_aha_moment(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_try_trigger_aha_moment(self.uniffiClonePointer(),
                                                                                FfiConverterTypeMobileAhaMomentType.lower(momentType), $0)
         })
     }
@@ -7430,7 +7430,7 @@ open class VauchiMobile:
      */
     open func tryTriggerAhaMomentWithContext(momentType: MobileAhaMomentType, context: String) throws -> MobileAhaMoment? {
         return try FfiConverterOptionTypeMobileAhaMoment.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_try_trigger_aha_moment_with_context(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_try_trigger_aha_moment_with_context(self.uniffiClonePointer(),
                                                                                             FfiConverterTypeMobileAhaMomentType.lower(momentType),
                                                                                             FfiConverterString.lower(context), $0)
         })
@@ -7442,7 +7442,7 @@ open class VauchiMobile:
      */
     open func unhideContact(contactId: String) throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_unhide_contact(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_unhide_contact(self.uniffiClonePointer(),
                                                                        FfiConverterString.lower(contactId), $0)
         }
     }
@@ -7459,7 +7459,7 @@ open class VauchiMobile:
      */
     open func unlinkDevice(deviceIndex: UInt32) throws -> Bool {
         return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_unlink_device(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_unlink_device(self.uniffiClonePointer(),
                                                                       FfiConverterUInt32.lower(deviceIndex), $0)
         })
     }
@@ -7469,7 +7469,7 @@ open class VauchiMobile:
      */
     open func untrustContactForRecovery(id: String) throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_untrust_contact_for_recovery(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_untrust_contact_for_recovery(self.uniffiClonePointer(),
                                                                                      FfiConverterString.lower(id), $0)
         }
     }
@@ -7479,7 +7479,7 @@ open class VauchiMobile:
      */
     open func updateField(label: String, newValue: String) throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_update_field(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_update_field(self.uniffiClonePointer(),
                                                                      FfiConverterString.lower(label),
                                                                      FfiConverterString.lower(newValue), $0)
         }
@@ -7494,7 +7494,7 @@ open class VauchiMobile:
      */
     open func validateField(contactId: String, fieldId: String, fieldValue: String) throws -> MobileFieldValidation {
         return try FfiConverterTypeMobileFieldValidation.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_validate_field(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_validate_field(self.uniffiClonePointer(),
                                                                        FfiConverterString.lower(contactId),
                                                                        FfiConverterString.lower(fieldId),
                                                                        FfiConverterString.lower(fieldValue), $0)
@@ -7506,7 +7506,7 @@ open class VauchiMobile:
      */
     open func verifyContact(id: String) throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_verify_contact(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_verify_contact(self.uniffiClonePointer(),
                                                                        FfiConverterString.lower(id), $0)
         }
     }
@@ -7519,7 +7519,7 @@ open class VauchiMobile:
      */
     open func verifyRecoveryProof(proofB64: String) throws -> MobileRecoveryVerification {
         return try FfiConverterTypeMobileRecoveryVerification.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_verify_recovery_proof(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchimobile_verify_recovery_proof(self.uniffiClonePointer(),
                                                                               FfiConverterString.lower(proofB64), $0)
         })
     }
@@ -7531,7 +7531,7 @@ open class VauchiMobile:
      */
     open func verifyShred() throws -> MobileShredVerification {
         return try FfiConverterTypeMobileShredVerification.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_mobile_fn_method_vauchimobile_verify_shred(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchimobile_verify_shred(self.uniffiClonePointer(), $0)
         })
     }
 }
@@ -7539,19 +7539,19 @@ open class VauchiMobile:
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeVauchiMobile: FfiConverter {
+public struct FfiConverterTypeVauchiPlatform: FfiConverter {
     typealias FfiType = UnsafeMutableRawPointer
-    typealias SwiftType = VauchiMobile
+    typealias SwiftType = VauchiPlatform
 
-    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> VauchiMobile {
-        return VauchiMobile(unsafeFromRawPointer: pointer)
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> VauchiPlatform {
+        return VauchiPlatform(unsafeFromRawPointer: pointer)
     }
 
-    public static func lower(_ value: VauchiMobile) -> UnsafeMutableRawPointer {
+    public static func lower(_ value: VauchiPlatform) -> UnsafeMutableRawPointer {
         return value.uniffiClonePointer()
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> VauchiMobile {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> VauchiPlatform {
         let v: UInt64 = try readInt(&buf)
         // The Rust code won't compile if a pointer won't fit in a UInt64.
         // We have to go via `UInt` because that's the thing that's the size of a pointer.
@@ -7562,7 +7562,7 @@ public struct FfiConverterTypeVauchiMobile: FfiConverter {
         return try lift(ptr!)
     }
 
-    public static func write(_ value: VauchiMobile, into buf: inout [UInt8]) {
+    public static func write(_ value: VauchiPlatform, into buf: inout [UInt8]) {
         // This fiddling is because `Int` is the thing that's the same size as a pointer.
         // The Rust code won't compile if a pointer won't fit in a `UInt64`.
         writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
@@ -7572,15 +7572,15 @@ public struct FfiConverterTypeVauchiMobile: FfiConverter {
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
-public func FfiConverterTypeVauchiMobile_lift(_ pointer: UnsafeMutableRawPointer) throws -> VauchiMobile {
-    return try FfiConverterTypeVauchiMobile.lift(pointer)
+public func FfiConverterTypeVauchiPlatform_lift(_ pointer: UnsafeMutableRawPointer) throws -> VauchiPlatform {
+    return try FfiConverterTypeVauchiPlatform.lift(pointer)
 }
 
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
-public func FfiConverterTypeVauchiMobile_lower(_ value: VauchiMobile) -> UnsafeMutableRawPointer {
-    return FfiConverterTypeVauchiMobile.lower(value)
+public func FfiConverterTypeVauchiPlatform_lower(_ value: VauchiPlatform) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeVauchiPlatform.lower(value)
 }
 
 /**
@@ -17184,7 +17184,7 @@ private enum UniffiCallbackInterfaceMobileBleDelegate {
 }
 
 private func uniffiCallbackInitMobileBleDelegate() {
-    uniffi_vauchi_mobile_fn_init_callback_vtable_mobilebledelegate(&UniffiCallbackInterfaceMobileBleDelegate.vtable)
+    uniffi_vauchi_platform_fn_init_callback_vtable_mobilebledelegate(&UniffiCallbackInterfaceMobileBleDelegate.vtable)
 }
 
 // FfiConverter protocol for callback interfaces
@@ -17345,7 +17345,7 @@ private enum UniffiCallbackInterfaceMobileNfcTransport {
 }
 
 private func uniffiCallbackInitMobileNfcTransport() {
-    uniffi_vauchi_mobile_fn_init_callback_vtable_mobilenfctransport(&UniffiCallbackInterfaceMobileNfcTransport.vtable)
+    uniffi_vauchi_platform_fn_init_callback_vtable_mobilenfctransport(&UniffiCallbackInterfaceMobileNfcTransport.vtable)
 }
 
 // FfiConverter protocol for callback interfaces
@@ -17507,7 +17507,7 @@ private enum UniffiCallbackInterfaceMobilePlatformKeychain {
 }
 
 private func uniffiCallbackInitMobilePlatformKeychain() {
-    uniffi_vauchi_mobile_fn_init_callback_vtable_mobileplatformkeychain(&UniffiCallbackInterfaceMobilePlatformKeychain.vtable)
+    uniffi_vauchi_platform_fn_init_callback_vtable_mobileplatformkeychain(&UniffiCallbackInterfaceMobilePlatformKeychain.vtable)
 }
 
 // FfiConverter protocol for callback interfaces
@@ -17613,7 +17613,7 @@ private enum UniffiCallbackInterfaceMobileProximityHandler {
 }
 
 private func uniffiCallbackInitMobileProximityHandler() {
-    uniffi_vauchi_mobile_fn_init_callback_vtable_mobileproximityhandler(&UniffiCallbackInterfaceMobileProximityHandler.vtable)
+    uniffi_vauchi_platform_fn_init_callback_vtable_mobileproximityhandler(&UniffiCallbackInterfaceMobileProximityHandler.vtable)
 }
 
 // FfiConverter protocol for callback interfaces
@@ -17795,7 +17795,7 @@ private enum UniffiCallbackInterfaceMobileWifiAwareHandler {
 }
 
 private func uniffiCallbackInitMobileWifiAwareHandler() {
-    uniffi_vauchi_mobile_fn_init_callback_vtable_mobilewifiawarehandler(&UniffiCallbackInterfaceMobileWifiAwareHandler.vtable)
+    uniffi_vauchi_platform_fn_init_callback_vtable_mobilewifiawarehandler(&UniffiCallbackInterfaceMobileWifiAwareHandler.vtable)
 }
 
 // FfiConverter protocol for callback interfaces
@@ -18016,7 +18016,7 @@ private enum UniffiCallbackInterfacePlatformAudioHandler {
 }
 
 private func uniffiCallbackInitPlatformAudioHandler() {
-    uniffi_vauchi_mobile_fn_init_callback_vtable_platformaudiohandler(&UniffiCallbackInterfacePlatformAudioHandler.vtable)
+    uniffi_vauchi_platform_fn_init_callback_vtable_platformaudiohandler(&UniffiCallbackInterfacePlatformAudioHandler.vtable)
 }
 
 // FfiConverter protocol for callback interfaces
@@ -19228,7 +19228,7 @@ private func uniffiFutureContinuationCallback(handle: UInt64, pollResult: Int8) 
  */
 public func bleExchangeStatus() -> MobileBleExchangeStatus {
     return try! FfiConverterTypeMobileBleExchangeStatus.lift(try! rustCall {
-        uniffi_vauchi_mobile_fn_func_ble_exchange_status($0)
+        uniffi_vauchi_platform_fn_func_ble_exchange_status($0)
     })
 }
 
@@ -19239,7 +19239,7 @@ public func bleExchangeStatus() -> MobileBleExchangeStatus {
  */
 public func checkPasswordStrength(password: String) -> MobilePasswordCheck {
     return try! FfiConverterTypeMobilePasswordCheck.lift(try! rustCall {
-        uniffi_vauchi_mobile_fn_func_check_password_strength(
+        uniffi_vauchi_platform_fn_func_check_password_strength(
             FfiConverterString.lower(password), $0
         )
     })
@@ -19253,7 +19253,7 @@ public func checkPasswordStrength(password: String) -> MobilePasswordCheck {
  */
 public func classifyDeviceType(name: String) -> MobileDeviceType {
     return try! FfiConverterTypeMobileDeviceType.lift(try! rustCall {
-        uniffi_vauchi_mobile_fn_func_classify_device_type(
+        uniffi_vauchi_platform_fn_func_classify_device_type(
             FfiConverterString.lower(name), $0
         )
     })
@@ -19266,19 +19266,19 @@ public func classifyDeviceType(name: String) -> MobileDeviceType {
  */
 public func coreVersion() -> String {
     return try! FfiConverterString.lift(try! rustCall {
-        uniffi_vauchi_mobile_fn_func_core_version($0)
+        uniffi_vauchi_platform_fn_func_core_version($0)
     })
 }
 
 public func diagnosticGenerateQrTestPatterns() -> [MobileQrTestPattern] {
     return try! FfiConverterSequenceTypeMobileQrTestPattern.lift(try! rustCall {
-        uniffi_vauchi_mobile_fn_func_diagnostic_generate_qr_test_patterns($0)
+        uniffi_vauchi_platform_fn_func_diagnostic_generate_qr_test_patterns($0)
     })
 }
 
 public func diagnosticGenerateSweepMatrix(profile: MobileDeviceCapabilityProfile) -> MobileSweepMatrix {
     return try! FfiConverterTypeMobileSweepMatrix.lift(try! rustCall {
-        uniffi_vauchi_mobile_fn_func_diagnostic_generate_sweep_matrix(
+        uniffi_vauchi_platform_fn_func_diagnostic_generate_sweep_matrix(
             FfiConverterTypeMobileDeviceCapabilityProfile.lower(profile), $0
         )
     })
@@ -19286,7 +19286,7 @@ public func diagnosticGenerateSweepMatrix(profile: MobileDeviceCapabilityProfile
 
 public func diagnosticRankConfigs(results: [MobileTuningResult]) -> [MobileScoredConfig] {
     return try! FfiConverterSequenceTypeMobileScoredConfig.lift(try! rustCall {
-        uniffi_vauchi_mobile_fn_func_diagnostic_rank_configs(
+        uniffi_vauchi_platform_fn_func_diagnostic_rank_configs(
             FfiConverterSequenceTypeMobileTuningResult.lower(results), $0
         )
     })
@@ -19294,7 +19294,7 @@ public func diagnosticRankConfigs(results: [MobileTuningResult]) -> [MobileScore
 
 public func diagnosticScoreConfig(result: MobileTuningResult) -> Float {
     return try! FfiConverterFloat.lift(try! rustCall {
-        uniffi_vauchi_mobile_fn_func_diagnostic_score_config(
+        uniffi_vauchi_platform_fn_func_diagnostic_score_config(
             FfiConverterTypeMobileTuningResult.lower(result), $0
         )
     })
@@ -19309,7 +19309,7 @@ public func diagnosticScoreConfig(result: MobileTuningResult) -> Float {
  */
 public func generateStorageKey() -> Data {
     return try! FfiConverterData.lift(try! rustCall {
-        uniffi_vauchi_mobile_fn_func_generate_storage_key($0)
+        uniffi_vauchi_platform_fn_func_generate_storage_key($0)
     })
 }
 
@@ -19318,12 +19318,12 @@ public func generateStorageKey() -> Data {
  *
  * Returns the title, message, and animation flag for display.
  * This is a stateless helper — it doesn't check whether the moment
- * has been seen. Use `try_trigger_aha_moment` on VauchiMobile for
+ * has been seen. Use `try_trigger_aha_moment` on VauchiPlatform for
  * state-tracked triggering.
  */
 public func getAhaMomentLocalized(momentType: MobileAhaMomentType, locale: MobileLocale) -> MobileAhaMoment {
     return try! FfiConverterTypeMobileAhaMoment.lift(try! rustCall {
-        uniffi_vauchi_mobile_fn_func_get_aha_moment_localized(
+        uniffi_vauchi_platform_fn_func_get_aha_moment_localized(
             FfiConverterTypeMobileAhaMomentType.lower(momentType),
             FfiConverterTypeMobileLocale.lower(locale), $0
         )
@@ -19335,7 +19335,7 @@ public func getAhaMomentLocalized(momentType: MobileAhaMomentType, locale: Mobil
  */
 public func getAvailableLocales() -> [MobileLocaleInfo] {
     return try! FfiConverterSequenceTypeMobileLocaleInfo.lift(try! rustCall {
-        uniffi_vauchi_mobile_fn_func_get_available_locales($0)
+        uniffi_vauchi_platform_fn_func_get_available_locales($0)
     })
 }
 
@@ -19344,7 +19344,7 @@ public func getAvailableLocales() -> [MobileLocaleInfo] {
  */
 public func getAvailableThemes() -> [MobileTheme] {
     return try! FfiConverterSequenceTypeMobileTheme.lift(try! rustCall {
-        uniffi_vauchi_mobile_fn_func_get_available_themes($0)
+        uniffi_vauchi_platform_fn_func_get_available_themes($0)
     })
 }
 
@@ -19355,7 +19355,7 @@ public func getAvailableThemes() -> [MobileTheme] {
  */
 public func getDefaultThemeId(preferDark: Bool) -> String {
     return try! FfiConverterString.lift(try! rustCall {
-        uniffi_vauchi_mobile_fn_func_get_default_theme_id(
+        uniffi_vauchi_platform_fn_func_get_default_theme_id(
             FfiConverterBool.lower(preferDark), $0
         )
     })
@@ -19368,7 +19368,7 @@ public func getDefaultThemeId(preferDark: Bool) -> String {
  */
 public func getFaqById(id: String) -> MobileFaqItem? {
     return try! FfiConverterOptionTypeMobileFaqItem.lift(try! rustCall {
-        uniffi_vauchi_mobile_fn_func_get_faq_by_id(
+        uniffi_vauchi_platform_fn_func_get_faq_by_id(
             FfiConverterString.lower(id), $0
         )
     })
@@ -19381,7 +19381,7 @@ public func getFaqById(id: String) -> MobileFaqItem? {
  */
 public func getFaqByIdLocalized(id: String, locale: MobileLocale) -> MobileFaqItem? {
     return try! FfiConverterOptionTypeMobileFaqItem.lift(try! rustCall {
-        uniffi_vauchi_mobile_fn_func_get_faq_by_id_localized(
+        uniffi_vauchi_platform_fn_func_get_faq_by_id_localized(
             FfiConverterString.lower(id),
             FfiConverterTypeMobileLocale.lower(locale), $0
         )
@@ -19393,7 +19393,7 @@ public func getFaqByIdLocalized(id: String, locale: MobileLocale) -> MobileFaqIt
  */
 public func getFaqs() -> [MobileFaqItem] {
     return try! FfiConverterSequenceTypeMobileFaqItem.lift(try! rustCall {
-        uniffi_vauchi_mobile_fn_func_get_faqs($0)
+        uniffi_vauchi_platform_fn_func_get_faqs($0)
     })
 }
 
@@ -19402,7 +19402,7 @@ public func getFaqs() -> [MobileFaqItem] {
  */
 public func getFaqsByCategory(category: MobileHelpCategory) -> [MobileFaqItem] {
     return try! FfiConverterSequenceTypeMobileFaqItem.lift(try! rustCall {
-        uniffi_vauchi_mobile_fn_func_get_faqs_by_category(
+        uniffi_vauchi_platform_fn_func_get_faqs_by_category(
             FfiConverterTypeMobileHelpCategory.lower(category), $0
         )
     })
@@ -19413,7 +19413,7 @@ public func getFaqsByCategory(category: MobileHelpCategory) -> [MobileFaqItem] {
  */
 public func getFaqsByCategoryLocalized(category: MobileHelpCategory, locale: MobileLocale) -> [MobileFaqItem] {
     return try! FfiConverterSequenceTypeMobileFaqItem.lift(try! rustCall {
-        uniffi_vauchi_mobile_fn_func_get_faqs_by_category_localized(
+        uniffi_vauchi_platform_fn_func_get_faqs_by_category_localized(
             FfiConverterTypeMobileHelpCategory.lower(category),
             FfiConverterTypeMobileLocale.lower(locale), $0
         )
@@ -19425,7 +19425,7 @@ public func getFaqsByCategoryLocalized(category: MobileHelpCategory, locale: Mob
  */
 public func getFaqsLocalized(locale: MobileLocale) -> [MobileFaqItem] {
     return try! FfiConverterSequenceTypeMobileFaqItem.lift(try! rustCall {
-        uniffi_vauchi_mobile_fn_func_get_faqs_localized(
+        uniffi_vauchi_platform_fn_func_get_faqs_localized(
             FfiConverterTypeMobileLocale.lower(locale), $0
         )
     })
@@ -19436,7 +19436,7 @@ public func getFaqsLocalized(locale: MobileLocale) -> [MobileFaqItem] {
  */
 public func getHelpCategories() -> [MobileHelpCategoryInfo] {
     return try! FfiConverterSequenceTypeMobileHelpCategoryInfo.lift(try! rustCall {
-        uniffi_vauchi_mobile_fn_func_get_help_categories($0)
+        uniffi_vauchi_platform_fn_func_get_help_categories($0)
     })
 }
 
@@ -19445,7 +19445,7 @@ public func getHelpCategories() -> [MobileHelpCategoryInfo] {
  */
 public func getLocaleInfo(locale: MobileLocale) -> MobileLocaleInfo {
     return try! FfiConverterTypeMobileLocaleInfo.lift(try! rustCall {
-        uniffi_vauchi_mobile_fn_func_get_locale_info(
+        uniffi_vauchi_platform_fn_func_get_locale_info(
             FfiConverterTypeMobileLocale.lower(locale), $0
         )
     })
@@ -19458,7 +19458,7 @@ public func getLocaleInfo(locale: MobileLocale) -> MobileLocaleInfo {
  */
 public func getString(locale: MobileLocale, key: String) -> String {
     return try! FfiConverterString.lift(try! rustCall {
-        uniffi_vauchi_mobile_fn_func_get_string(
+        uniffi_vauchi_platform_fn_func_get_string(
             FfiConverterTypeMobileLocale.lower(locale),
             FfiConverterString.lower(key), $0
         )
@@ -19473,7 +19473,7 @@ public func getString(locale: MobileLocale, key: String) -> String {
  */
 public func getStringWithArgs(locale: MobileLocale, key: String, args: [String: String]) -> String {
     return try! FfiConverterString.lift(try! rustCall {
-        uniffi_vauchi_mobile_fn_func_get_string_with_args(
+        uniffi_vauchi_platform_fn_func_get_string_with_args(
             FfiConverterTypeMobileLocale.lower(locale),
             FfiConverterString.lower(key),
             FfiConverterDictionaryStringString.lower(args), $0
@@ -19488,7 +19488,7 @@ public func getStringWithArgs(locale: MobileLocale, key: String, args: [String: 
  */
 public func getTheme(themeId: String) -> MobileTheme? {
     return try! FfiConverterOptionTypeMobileTheme.lift(try! rustCall {
-        uniffi_vauchi_mobile_fn_func_get_theme(
+        uniffi_vauchi_platform_fn_func_get_theme(
             FfiConverterString.lower(themeId), $0
         )
     })
@@ -19503,7 +19503,7 @@ public func getTheme(themeId: String) -> MobileTheme? {
  */
 public func initLocales(resourceDir: String) throws {
     try rustCallWithError(FfiConverterTypeMobileError.lift) {
-        uniffi_vauchi_mobile_fn_func_init_locales(
+        uniffi_vauchi_platform_fn_func_init_locales(
             FfiConverterString.lower(resourceDir), $0
         )
     }
@@ -19516,7 +19516,7 @@ public func initLocales(resourceDir: String) throws {
  */
 public func isAllowedScheme(scheme: String) -> Bool {
     return try! FfiConverterBool.lift(try! rustCall {
-        uniffi_vauchi_mobile_fn_func_is_allowed_scheme(
+        uniffi_vauchi_platform_fn_func_is_allowed_scheme(
             FfiConverterString.lower(scheme), $0
         )
     })
@@ -19529,7 +19529,7 @@ public func isAllowedScheme(scheme: String) -> Bool {
  */
 public func isBlockedScheme(scheme: String) -> Bool {
     return try! FfiConverterBool.lift(try! rustCall {
-        uniffi_vauchi_mobile_fn_func_is_blocked_scheme(
+        uniffi_vauchi_platform_fn_func_is_blocked_scheme(
             FfiConverterString.lower(scheme), $0
         )
     })
@@ -19545,7 +19545,7 @@ public func isBlockedScheme(scheme: String) -> Bool {
  */
 public func isSafeUrl(url: String) -> Bool {
     return try! FfiConverterBool.lift(try! rustCall {
-        uniffi_vauchi_mobile_fn_func_is_safe_url(
+        uniffi_vauchi_platform_fn_func_is_safe_url(
             FfiConverterString.lower(url), $0
         )
     })
@@ -19559,7 +19559,7 @@ public func isSafeUrl(url: String) -> Bool {
  */
 public func parseLocaleCode(code: String) -> MobileLocale? {
     return try! FfiConverterOptionTypeMobileLocale.lift(try! rustCall {
-        uniffi_vauchi_mobile_fn_func_parse_locale_code(
+        uniffi_vauchi_platform_fn_func_parse_locale_code(
             FfiConverterString.lower(code), $0
         )
     })
@@ -19572,7 +19572,7 @@ public func parseLocaleCode(code: String) -> MobileLocale? {
  */
 public func searchFaqs(query: String) -> [MobileFaqItem] {
     return try! FfiConverterSequenceTypeMobileFaqItem.lift(try! rustCall {
-        uniffi_vauchi_mobile_fn_func_search_faqs(
+        uniffi_vauchi_platform_fn_func_search_faqs(
             FfiConverterString.lower(query), $0
         )
     })
@@ -19585,7 +19585,7 @@ public func searchFaqs(query: String) -> [MobileFaqItem] {
  */
 public func searchFaqsLocalized(query: String, locale: MobileLocale) -> [MobileFaqItem] {
     return try! FfiConverterSequenceTypeMobileFaqItem.lift(try! rustCall {
-        uniffi_vauchi_mobile_fn_func_search_faqs_localized(
+        uniffi_vauchi_platform_fn_func_search_faqs_localized(
             FfiConverterString.lower(query),
             FfiConverterTypeMobileLocale.lower(locale), $0
         )
@@ -19608,7 +19608,7 @@ public func searchFaqsLocalized(query: String, locale: MobileLocale) -> [MobileF
  */
 public func widgetPanicShred(dataDir: String, keychain: MobilePlatformKeychain) throws -> MobileShredReport {
     return try FfiConverterTypeMobileShredReport.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-        uniffi_vauchi_mobile_fn_func_widget_panic_shred(
+        uniffi_vauchi_platform_fn_func_widget_panic_shred(
             FfiConverterString.lower(dataDir),
             FfiConverterCallbackInterfaceMobilePlatformKeychain.lower(keychain), $0
         )
@@ -19621,7 +19621,7 @@ public func widgetPanicShred(dataDir: String, keychain: MobilePlatformKeychain) 
  */
 public func wifiAwareCheckAvailability() -> MobileWifiAwareStatus {
     return try! FfiConverterTypeMobileWifiAwareStatus.lift(try! rustCall {
-        uniffi_vauchi_mobile_fn_func_wifi_aware_check_availability($0)
+        uniffi_vauchi_platform_fn_func_wifi_aware_check_availability($0)
     })
 }
 
@@ -19637,1016 +19637,1016 @@ private var initializationResult: InitializationResult = {
     // Get the bindings contract version from our ComponentInterface
     let bindings_contract_version = 26
     // Get the scaffolding contract version by calling the into the dylib
-    let scaffolding_contract_version = ffi_vauchi_mobile_uniffi_contract_version()
+    let scaffolding_contract_version = ffi_vauchi_platform_uniffi_contract_version()
     if bindings_contract_version != scaffolding_contract_version {
         return InitializationResult.contractVersionMismatch
     }
-    if uniffi_vauchi_mobile_checksum_func_ble_exchange_status() != 2830 {
+    if uniffi_vauchi_platform_checksum_func_ble_exchange_status() != 2830 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_func_check_password_strength() != 58506 {
+    if uniffi_vauchi_platform_checksum_func_check_password_strength() != 58506 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_func_classify_device_type() != 49202 {
+    if uniffi_vauchi_platform_checksum_func_classify_device_type() != 49202 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_func_core_version() != 62674 {
+    if uniffi_vauchi_platform_checksum_func_core_version() != 62674 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_func_diagnostic_generate_qr_test_patterns() != 63563 {
+    if uniffi_vauchi_platform_checksum_func_diagnostic_generate_qr_test_patterns() != 63563 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_func_diagnostic_generate_sweep_matrix() != 62874 {
+    if uniffi_vauchi_platform_checksum_func_diagnostic_generate_sweep_matrix() != 62874 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_func_diagnostic_rank_configs() != 36893 {
+    if uniffi_vauchi_platform_checksum_func_diagnostic_rank_configs() != 36893 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_func_diagnostic_score_config() != 52231 {
+    if uniffi_vauchi_platform_checksum_func_diagnostic_score_config() != 52231 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_func_generate_storage_key() != 24673 {
+    if uniffi_vauchi_platform_checksum_func_generate_storage_key() != 24673 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_func_get_aha_moment_localized() != 58190 {
+    if uniffi_vauchi_platform_checksum_func_get_aha_moment_localized() != 58190 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_func_get_available_locales() != 16699 {
+    if uniffi_vauchi_platform_checksum_func_get_available_locales() != 16699 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_func_get_available_themes() != 59234 {
+    if uniffi_vauchi_platform_checksum_func_get_available_themes() != 59234 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_func_get_default_theme_id() != 7198 {
+    if uniffi_vauchi_platform_checksum_func_get_default_theme_id() != 7198 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_func_get_faq_by_id() != 53682 {
+    if uniffi_vauchi_platform_checksum_func_get_faq_by_id() != 53682 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_func_get_faq_by_id_localized() != 4391 {
+    if uniffi_vauchi_platform_checksum_func_get_faq_by_id_localized() != 4391 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_func_get_faqs() != 34098 {
+    if uniffi_vauchi_platform_checksum_func_get_faqs() != 34098 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_func_get_faqs_by_category() != 19763 {
+    if uniffi_vauchi_platform_checksum_func_get_faqs_by_category() != 19763 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_func_get_faqs_by_category_localized() != 52283 {
+    if uniffi_vauchi_platform_checksum_func_get_faqs_by_category_localized() != 52283 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_func_get_faqs_localized() != 46848 {
+    if uniffi_vauchi_platform_checksum_func_get_faqs_localized() != 46848 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_func_get_help_categories() != 65096 {
+    if uniffi_vauchi_platform_checksum_func_get_help_categories() != 65096 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_func_get_locale_info() != 48465 {
+    if uniffi_vauchi_platform_checksum_func_get_locale_info() != 48465 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_func_get_string() != 35223 {
+    if uniffi_vauchi_platform_checksum_func_get_string() != 35223 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_func_get_string_with_args() != 45803 {
+    if uniffi_vauchi_platform_checksum_func_get_string_with_args() != 45803 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_func_get_theme() != 36476 {
+    if uniffi_vauchi_platform_checksum_func_get_theme() != 36476 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_func_init_locales() != 4158 {
+    if uniffi_vauchi_platform_checksum_func_init_locales() != 4158 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_func_is_allowed_scheme() != 10327 {
+    if uniffi_vauchi_platform_checksum_func_is_allowed_scheme() != 10327 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_func_is_blocked_scheme() != 1634 {
+    if uniffi_vauchi_platform_checksum_func_is_blocked_scheme() != 1634 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_func_is_safe_url() != 43299 {
+    if uniffi_vauchi_platform_checksum_func_is_safe_url() != 43299 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_func_parse_locale_code() != 51633 {
+    if uniffi_vauchi_platform_checksum_func_parse_locale_code() != 51633 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_func_search_faqs() != 9146 {
+    if uniffi_vauchi_platform_checksum_func_search_faqs() != 9146 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_func_search_faqs_localized() != 57224 {
+    if uniffi_vauchi_platform_checksum_func_search_faqs_localized() != 57224 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_func_widget_panic_shred() != 35082 {
+    if uniffi_vauchi_platform_checksum_func_widget_panic_shred() != 35082 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_func_wifi_aware_check_availability() != 53951 {
+    if uniffi_vauchi_platform_checksum_func_wifi_aware_check_availability() != 53951 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobileanimatedqrreceiver_process_frame() != 41434 {
+    if uniffi_vauchi_platform_checksum_method_mobileanimatedqrreceiver_process_frame() != 41434 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobileanimatedqrreceiver_reassemble() != 19545 {
+    if uniffi_vauchi_platform_checksum_method_mobileanimatedqrreceiver_reassemble() != 19545 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobileanimatedqrsender_frame_at() != 55649 {
+    if uniffi_vauchi_platform_checksum_method_mobileanimatedqrsender_frame_at() != 55649 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobileanimatedqrsender_frame_count() != 555 {
+    if uniffi_vauchi_platform_checksum_method_mobileanimatedqrsender_frame_count() != 555 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobileanimatedqrsender_next_frame() != 8939 {
+    if uniffi_vauchi_platform_checksum_method_mobileanimatedqrsender_next_frame() != 8939 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilebackuprecoveryworkflow_current_screen_json() != 10233 {
+    if uniffi_vauchi_platform_checksum_method_mobilebackuprecoveryworkflow_current_screen_json() != 10233 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilebackuprecoveryworkflow_handle_action_json() != 10693 {
+    if uniffi_vauchi_platform_checksum_method_mobilebackuprecoveryworkflow_handle_action_json() != 10693 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilebackuprecoveryworkflow_processing_complete() != 51223 {
+    if uniffi_vauchi_platform_checksum_method_mobilebackuprecoveryworkflow_processing_complete() != 51223 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilebackuprecoveryworkflow_processing_failed() != 57204 {
+    if uniffi_vauchi_platform_checksum_method_mobilebackuprecoveryworkflow_processing_failed() != 57204 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilebleexchangesession_cancel() != 49514 {
+    if uniffi_vauchi_platform_checksum_method_mobilebleexchangesession_cancel() != 49514 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilebleexchangesession_get_state() != 30417 {
+    if uniffi_vauchi_platform_checksum_method_mobilebleexchangesession_get_state() != 30417 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilebleexchangesession_on_connected() != 46285 {
+    if uniffi_vauchi_platform_checksum_method_mobilebleexchangesession_on_connected() != 46285 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilebleexchangesession_on_data_received() != 25938 {
+    if uniffi_vauchi_platform_checksum_method_mobilebleexchangesession_on_data_received() != 25938 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilebleexchangesession_on_disconnected() != 45005 {
+    if uniffi_vauchi_platform_checksum_method_mobilebleexchangesession_on_disconnected() != 45005 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilebleexchangesession_on_mtu_negotiated() != 63992 {
+    if uniffi_vauchi_platform_checksum_method_mobilebleexchangesession_on_mtu_negotiated() != 63992 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilebleexchangesession_set_responder() != 10498 {
+    if uniffi_vauchi_platform_checksum_method_mobilebleexchangesession_set_responder() != 10498 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilecontacteditworkflow_current_screen_json() != 47574 {
+    if uniffi_vauchi_platform_checksum_method_mobilecontacteditworkflow_current_screen_json() != 47574 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilecontacteditworkflow_handle_action_json() != 33662 {
+    if uniffi_vauchi_platform_checksum_method_mobilecontacteditworkflow_handle_action_json() != 33662 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilecontactlistworkflow_current_screen_json() != 45244 {
+    if uniffi_vauchi_platform_checksum_method_mobilecontactlistworkflow_current_screen_json() != 45244 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilecontactlistworkflow_handle_action_json() != 55628 {
+    if uniffi_vauchi_platform_checksum_method_mobilecontactlistworkflow_handle_action_json() != 55628 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobiledeliverystatusworkflow_current_screen_json() != 2086 {
+    if uniffi_vauchi_platform_checksum_method_mobiledeliverystatusworkflow_current_screen_json() != 2086 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobiledeliverystatusworkflow_handle_action_json() != 5868 {
+    if uniffi_vauchi_platform_checksum_method_mobiledeliverystatusworkflow_handle_action_json() != 5868 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobiledevicelinkinitiator_confirm_link_manual() != 50570 {
+    if uniffi_vauchi_platform_checksum_method_mobiledevicelinkinitiator_confirm_link_manual() != 50570 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobiledevicelinkinitiator_confirm_link_ultrasonic() != 233 {
+    if uniffi_vauchi_platform_checksum_method_mobiledevicelinkinitiator_confirm_link_ultrasonic() != 233 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobiledevicelinkinitiator_prepare_confirmation() != 45542 {
+    if uniffi_vauchi_platform_checksum_method_mobiledevicelinkinitiator_prepare_confirmation() != 45542 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobiledevicelinkinitiator_proximity_challenge() != 64927 {
+    if uniffi_vauchi_platform_checksum_method_mobiledevicelinkinitiator_proximity_challenge() != 64927 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobiledevicelinkinitiator_qr_data() != 669 {
+    if uniffi_vauchi_platform_checksum_method_mobiledevicelinkinitiator_qr_data() != 669 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobiledevicelinkresponder_compute_confirmation_code() != 4477 {
+    if uniffi_vauchi_platform_checksum_method_mobiledevicelinkresponder_compute_confirmation_code() != 4477 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobiledevicelinkresponder_create_request() != 43772 {
+    if uniffi_vauchi_platform_checksum_method_mobiledevicelinkresponder_create_request() != 43772 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobiledevicelinkresponder_finish_join() != 23650 {
+    if uniffi_vauchi_platform_checksum_method_mobiledevicelinkresponder_finish_join() != 23650 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobiledevicelinkresponder_identity_fingerprint() != 55591 {
+    if uniffi_vauchi_platform_checksum_method_mobiledevicelinkresponder_identity_fingerprint() != 55591 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobiledevicelinkingworkflow_current_screen_json() != 25510 {
+    if uniffi_vauchi_platform_checksum_method_mobiledevicelinkingworkflow_current_screen_json() != 25510 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobiledevicelinkingworkflow_handle_action_json() != 13287 {
+    if uniffi_vauchi_platform_checksum_method_mobiledevicelinkingworkflow_handle_action_json() != 13287 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobiledevicelinkingworkflow_peer_connected() != 13620 {
+    if uniffi_vauchi_platform_checksum_method_mobiledevicelinkingworkflow_peer_connected() != 13620 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobiledevicelinkingworkflow_sync_complete() != 40606 {
+    if uniffi_vauchi_platform_checksum_method_mobiledevicelinkingworkflow_sync_complete() != 40606 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobileduresspinworkflow_config_json() != 22541 {
+    if uniffi_vauchi_platform_checksum_method_mobileduresspinworkflow_config_json() != 22541 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobileduresspinworkflow_current_screen_json() != 27154 {
+    if uniffi_vauchi_platform_checksum_method_mobileduresspinworkflow_current_screen_json() != 27154 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobileduresspinworkflow_handle_action_json() != 2656 {
+    if uniffi_vauchi_platform_checksum_method_mobileduresspinworkflow_handle_action_json() != 2656 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobileemergencyshredworkflow_current_screen_json() != 25285 {
+    if uniffi_vauchi_platform_checksum_method_mobileemergencyshredworkflow_current_screen_json() != 25285 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobileemergencyshredworkflow_handle_action_json() != 60932 {
+    if uniffi_vauchi_platform_checksum_method_mobileemergencyshredworkflow_handle_action_json() != 60932 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobileemergencyshredworkflow_wipe_complete() != 53262 {
+    if uniffi_vauchi_platform_checksum_method_mobileemergencyshredworkflow_wipe_complete() != 53262 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobileexchangesession_complete_card_exchange() != 64003 {
+    if uniffi_vauchi_platform_checksum_method_mobileexchangesession_complete_card_exchange() != 64003 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobileexchangesession_confirm_proximity() != 36862 {
+    if uniffi_vauchi_platform_checksum_method_mobileexchangesession_confirm_proximity() != 36862 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobileexchangesession_generate_qr() != 21097 {
+    if uniffi_vauchi_platform_checksum_method_mobileexchangesession_generate_qr() != 21097 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobileexchangesession_is_timed_out() != 25990 {
+    if uniffi_vauchi_platform_checksum_method_mobileexchangesession_is_timed_out() != 25990 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobileexchangesession_peer_display_name() != 39346 {
+    if uniffi_vauchi_platform_checksum_method_mobileexchangesession_peer_display_name() != 39346 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobileexchangesession_perform_key_agreement() != 4833 {
+    if uniffi_vauchi_platform_checksum_method_mobileexchangesession_perform_key_agreement() != 4833 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobileexchangesession_process_qr() != 54960 {
+    if uniffi_vauchi_platform_checksum_method_mobileexchangesession_process_qr() != 54960 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobileexchangesession_state() != 19066 {
+    if uniffi_vauchi_platform_checksum_method_mobileexchangesession_state() != 19066 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobileexchangesession_they_scanned_our_qr() != 55148 {
+    if uniffi_vauchi_platform_checksum_method_mobileexchangesession_they_scanned_our_qr() != 55148 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobileexchangeworkflow_current_screen_json() != 64252 {
+    if uniffi_vauchi_platform_checksum_method_mobileexchangeworkflow_current_screen_json() != 64252 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobileexchangeworkflow_handle_action_json() != 27566 {
+    if uniffi_vauchi_platform_checksum_method_mobileexchangeworkflow_handle_action_json() != 27566 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobileexchangeworkflow_mark_failed() != 50510 {
+    if uniffi_vauchi_platform_checksum_method_mobileexchangeworkflow_mark_failed() != 50510 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobileexchangeworkflow_mark_success() != 1056 {
+    if uniffi_vauchi_platform_checksum_method_mobileexchangeworkflow_mark_success() != 1056 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobileexchangeworkflow_scanned_data() != 23274 {
+    if uniffi_vauchi_platform_checksum_method_mobileexchangeworkflow_scanned_data() != 23274 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilehelpworkflow_current_screen_json() != 49159 {
+    if uniffi_vauchi_platform_checksum_method_mobilehelpworkflow_current_screen_json() != 49159 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilehelpworkflow_handle_action_json() != 22231 {
+    if uniffi_vauchi_platform_checksum_method_mobilehelpworkflow_handle_action_json() != 22231 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilehomeworkflow_current_screen_json() != 22544 {
+    if uniffi_vauchi_platform_checksum_method_mobilehomeworkflow_current_screen_json() != 22544 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilehomeworkflow_handle_action_json() != 52431 {
+    if uniffi_vauchi_platform_checksum_method_mobilehomeworkflow_handle_action_json() != 52431 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilelockscreenworkflow_current_screen_json() != 47885 {
+    if uniffi_vauchi_platform_checksum_method_mobilelockscreenworkflow_current_screen_json() != 47885 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilelockscreenworkflow_handle_action_json() != 47000 {
+    if uniffi_vauchi_platform_checksum_method_mobilelockscreenworkflow_handle_action_json() != 47000 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilelockscreenworkflow_record_failed_attempt() != 45864 {
+    if uniffi_vauchi_platform_checksum_method_mobilelockscreenworkflow_record_failed_attempt() != 45864 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilemultistagesession_cancel() != 23709 {
+    if uniffi_vauchi_platform_checksum_method_mobilemultistagesession_cancel() != 23709 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilemultistagesession_get_display_qr() != 30530 {
+    if uniffi_vauchi_platform_checksum_method_mobilemultistagesession_get_display_qr() != 30530 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilemultistagesession_get_received_data() != 46581 {
+    if uniffi_vauchi_platform_checksum_method_mobilemultistagesession_get_received_data() != 46581 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilemultistagesession_get_state() != 63366 {
+    if uniffi_vauchi_platform_checksum_method_mobilemultistagesession_get_state() != 63366 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilemultistagesession_get_transport_key() != 13868 {
+    if uniffi_vauchi_platform_checksum_method_mobilemultistagesession_get_transport_key() != 13868 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilemultistagesession_process_scanned_qr() != 30659 {
+    if uniffi_vauchi_platform_checksum_method_mobilemultistagesession_process_scanned_qr() != 30659 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilemultipartdecoder_add_chunk() != 22960 {
+    if uniffi_vauchi_platform_checksum_method_mobilemultipartdecoder_add_chunk() != 22960 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilemultipartdecoder_assemble() != 36454 {
+    if uniffi_vauchi_platform_checksum_method_mobilemultipartdecoder_assemble() != 36454 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilemultipartdecoder_expected_total() != 56693 {
+    if uniffi_vauchi_platform_checksum_method_mobilemultipartdecoder_expected_total() != 56693 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilemultipartdecoder_is_complete() != 33003 {
+    if uniffi_vauchi_platform_checksum_method_mobilemultipartdecoder_is_complete() != 33003 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilemultipartdecoder_received() != 14281 {
+    if uniffi_vauchi_platform_checksum_method_mobilemultipartdecoder_received() != 14281 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilenfchandshake_confirm_send_success() != 53830 {
+    if uniffi_vauchi_platform_checksum_method_mobilenfchandshake_confirm_send_success() != 53830 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilenfchandshake_create_key_offer() != 49498 {
+    if uniffi_vauchi_platform_checksum_method_mobilenfchandshake_create_key_offer() != 49498 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilenfchandshake_enter_relay_fallback() != 41353 {
+    if uniffi_vauchi_platform_checksum_method_mobilenfchandshake_enter_relay_fallback() != 41353 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilenfchandshake_process_encrypted_card() != 47780 {
+    if uniffi_vauchi_platform_checksum_method_mobilenfchandshake_process_encrypted_card() != 47780 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilenfchandshake_process_key_ack() != 55650 {
+    if uniffi_vauchi_platform_checksum_method_mobilenfchandshake_process_key_ack() != 55650 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilenfchandshake_process_key_offer() != 55231 {
+    if uniffi_vauchi_platform_checksum_method_mobilenfchandshake_process_key_offer() != 55231 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilenfchandshake_state() != 15976 {
+    if uniffi_vauchi_platform_checksum_method_mobilenfchandshake_state() != 15976 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobileonboardingworkflow_current_screen_json() != 7584 {
+    if uniffi_vauchi_platform_checksum_method_mobileonboardingworkflow_current_screen_json() != 7584 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobileonboardingworkflow_handle_action_json() != 39675 {
+    if uniffi_vauchi_platform_checksum_method_mobileonboardingworkflow_handle_action_json() != 39675 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobileonboardingworkflow_onboarding_data_json() != 11311 {
+    if uniffi_vauchi_platform_checksum_method_mobileonboardingworkflow_onboarding_data_json() != 11311 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobileproximityverifier_emit_challenge() != 35393 {
+    if uniffi_vauchi_platform_checksum_method_mobileproximityverifier_emit_challenge() != 35393 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobileproximityverifier_get_capability() != 11037 {
+    if uniffi_vauchi_platform_checksum_method_mobileproximityverifier_get_capability() != 11037 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobileproximityverifier_is_supported() != 55487 {
+    if uniffi_vauchi_platform_checksum_method_mobileproximityverifier_is_supported() != 55487 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobileproximityverifier_listen_for_response() != 13338 {
+    if uniffi_vauchi_platform_checksum_method_mobileproximityverifier_listen_for_response() != 13338 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobileproximityverifier_stop() != 48109 {
+    if uniffi_vauchi_platform_checksum_method_mobileproximityverifier_stop() != 48109 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilesettingsworkflow_current_screen_json() != 52730 {
+    if uniffi_vauchi_platform_checksum_method_mobilesettingsworkflow_current_screen_json() != 52730 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilesettingsworkflow_handle_action_json() != 55717 {
+    if uniffi_vauchi_platform_checksum_method_mobilesettingsworkflow_handle_action_json() != 55717 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_add_contact_to_label() != 6394 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_add_contact_to_label() != 6394 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_add_decoy_contact() != 30330 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_add_decoy_contact() != 30330 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_add_field() != 50791 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_add_field() != 50791 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_add_recovery_voucher() != 24135 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_add_recovery_voucher() != 24135 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_advance_onboarding() != 29187 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_advance_onboarding() != 29187 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_aha_moments_seen_count() != 62433 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_aha_moments_seen_count() != 62433 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_aha_moments_total_count() != 39450 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_aha_moments_total_count() != 39450 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_apply_content_updates() != 9726 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_apply_content_updates() != 9726 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_authenticate() != 26386 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_authenticate() != 26386 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_auto_remove_demo_contact() != 63912 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_auto_remove_demo_contact() != 63912 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_calculate_retry_backoff() != 60454 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_calculate_retry_backoff() != 60454 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_cancel_account_deletion() != 49743 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_cancel_account_deletion() != 49743 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_cancel_shred() != 45075 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_cancel_shred() != 45075 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_check_consent() != 20830 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_check_consent() != 20830 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_check_content_updates() != 7487 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_check_content_updates() != 7487 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_clear_pending_updates_for_contact() != 25049 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_clear_pending_updates_for_contact() != 25049 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_configure_duress_alerts() != 16570 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_configure_duress_alerts() != 16570 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_configure_emergency_broadcast() != 40924 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_configure_emergency_broadcast() != 40924 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_configure_tor_bridges() != 44241 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_configure_tor_bridges() != 44241 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_contact_count() != 30960 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_contact_count() != 30960 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_count_failed_deliveries() != 59375 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_count_failed_deliveries() != 59375 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_create_identity() != 63328 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_create_identity() != 63328 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_create_label() != 53912 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_create_label() != 53912 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_create_multistage_session() != 27565 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_create_multistage_session() != 27565 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_create_nfc_initiator() != 16353 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_create_nfc_initiator() != 16353 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_create_nfc_responder() != 11585 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_create_nfc_responder() != 11585 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_create_qr_exchange() != 42535 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_create_qr_exchange() != 42535 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_create_qr_exchange_manual() != 25533 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_create_qr_exchange_manual() != 25533 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_create_recovery_claim() != 34741 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_create_recovery_claim() != 34741 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_create_recovery_voucher() != 64336 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_create_recovery_voucher() != 64336 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_current_onboarding_step() != 54345 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_current_onboarding_step() != 54345 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_delete_decoy_contact() != 36941 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_delete_decoy_contact() != 36941 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_delete_label() != 49151 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_delete_label() != 49151 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_delete_retry() != 45088 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_delete_retry() != 45088 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_device_count() != 11012 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_device_count() != 11012 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_disable_duress() != 50779 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_disable_duress() != 50779 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_disable_emergency_broadcast() != 24366 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_disable_emergency_broadcast() != 24366 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_disable_tor() != 47934 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_disable_tor() != 47934 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_dismiss_demo_contact() != 52421 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_dismiss_demo_contact() != 52421 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_display_name_suggestions() != 7155 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_display_name_suggestions() != 7155 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_enable_tor() != 62722 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_enable_tor() != 62722 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_encode_multipart_qr() != 29028 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_encode_multipart_qr() != 29028 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_execute_account_deletion() != 5865 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_execute_account_deletion() != 5865 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_export_backup() != 14975 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_export_backup() != 14975 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_export_gdpr_data() != 23597 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_export_gdpr_data() != 23597 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_export_storage_key() != 42895 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_export_storage_key() != 42895 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_finalize_exchange() != 16334 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_finalize_exchange() != 16334 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_finalize_multistage_exchange() != 21563 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_finalize_multistage_exchange() != 21563 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_generate_device_link_qr() != 28478 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_generate_device_link_qr() != 28478 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_all_delivery_records() != 60693 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_get_all_delivery_records() != 60693 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_consent_records() != 7910 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_get_consent_records() != 7910 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_consent_status() != 15482 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_get_consent_status() != 15482 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_contact() != 17724 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_get_contact() != 17724 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_deletion_state() != 30292 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_get_deletion_state() != 30292 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_delivery_count_by_status() != 25864 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_get_delivery_count_by_status() != 25864 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_delivery_record() != 7344 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_get_delivery_record() != 7344 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_delivery_records_for_contact() != 47399 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_get_delivery_records_for_contact() != 47399 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_delivery_summary() != 26032 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_get_delivery_summary() != 26032 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_demo_contact() != 57328 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_get_demo_contact() != 57328 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_demo_contact_state() != 10277 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_get_demo_contact_state() != 10277 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_device_deliveries() != 13834 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_get_device_deliveries() != 13834 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_devices() != 4284 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_get_devices() != 4284 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_display_name() != 22034 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_get_display_name() != 22034 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_due_retries() != 45644 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_get_due_retries() != 45644 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_duress_settings() != 46277 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_get_duress_settings() != 46277 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_emergency_config() != 46434 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_get_emergency_config() != 46434 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_field_validation_count() != 23050 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_get_field_validation_count() != 23050 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_field_validation_status() != 10695 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_get_field_validation_status() != 10695 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_label() != 23616 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_get_label() != 23616 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_labels_for_contact() != 34054 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_get_labels_for_contact() != 34054 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_offline_queue_capacity() != 37318 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_get_offline_queue_capacity() != 37318 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_onboarding_progress() != 23314 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_get_onboarding_progress() != 23314 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_own_card() != 41646 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_get_own_card() != 41646 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_own_fingerprint() != 60612 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_get_own_fingerprint() != 60612 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_pending_deliveries() != 20816 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_get_pending_deliveries() != 20816 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_pending_device_deliveries() != 59136 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_get_pending_device_deliveries() != 59136 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_profile_url() != 40964 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_get_profile_url() != 40964 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_public_id() != 47690 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_get_public_id() != 47690 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_recovery_proof() != 53462 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_get_recovery_proof() != 53462 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_recovery_status() != 18084 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_get_recovery_status() != 18084 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_retries_for_contact() != 16947 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_get_retries_for_contact() != 16947 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_retry_count() != 56457 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_get_retry_count() != 56457 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_suggested_labels() != 35491 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_get_suggested_labels() != 35491 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_sync_status() != 18804 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_get_sync_status() != 18804 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_get_total_pending_count() != 28547 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_get_total_pending_count() != 28547 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_grant_consent() != 28571 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_grant_consent() != 28571 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_hard_shred() != 25712 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_hard_shred() != 25712 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_has_identity() != 17028 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_has_identity() != 17028 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_has_seen_aha_moment() != 37304 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_has_seen_aha_moment() != 37304 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_has_validated_field() != 50022 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_has_validated_field() != 50022 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_hide_contact() != 15708 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_hide_contact() != 15708 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_hide_field_from_contact() != 26050 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_hide_field_from_contact() != 26050 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_import_backup() != 16228 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_import_backup() != 16228 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_init_demo_contact_if_needed() != 24963 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_init_demo_contact_if_needed() != 24963 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_is_certificate_pinning_enabled() != 31532 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_is_certificate_pinning_enabled() != 31532 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_is_content_updates_supported() != 25945 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_is_content_updates_supported() != 25945 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_is_delivery_receipts_enabled() != 5569 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_is_delivery_receipts_enabled() != 5569 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_is_demo_update_available() != 17863 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_is_demo_update_available() != 17863 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_is_duress_enabled() != 45103 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_is_duress_enabled() != 45103 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_is_field_visible_to_contact() != 31866 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_is_field_visible_to_contact() != 31866 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_is_offline_queue_full() != 65171 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_is_offline_queue_full() != 65171 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_is_onboarding_complete() != 42583 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_is_onboarding_complete() != 42583 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_is_password_enabled() != 34976 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_is_password_enabled() != 34976 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_is_primary_device() != 55103 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_is_primary_device() != 55103 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_is_suppress_presence_enabled() != 42693 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_is_suppress_presence_enabled() != 42693 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_list_contacts() != 21454 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_list_contacts() != 21454 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_list_contacts_paginated() != 30748 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_list_contacts_paginated() != 30748 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_list_decoy_contacts() != 27082 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_list_decoy_contacts() != 27082 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_list_hidden_contacts() != 42503 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_list_hidden_contacts() != 42503 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_list_labels() != 31739 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_list_labels() != 31739 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_list_my_validations() != 30917 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_list_my_validations() != 30917 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_list_social_networks() != 64160 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_list_social_networks() != 64160 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_listen_for_device_link_request() != 59845 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_listen_for_device_link_request() != 59845 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_load_tor_config() != 44102 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_load_tor_config() != 44102 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_manual_retry() != 42209 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_manual_retry() != 42209 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_panic_shred() != 52835 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_panic_shred() != 52835 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_parse_device_link_qr() != 14305 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_parse_device_link_qr() != 14305 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_parse_recovery_claim() != 19311 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_parse_recovery_claim() != 19311 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_pending_update_count() != 109 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_pending_update_count() != 109 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_reload_social_networks() != 53115 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_reload_social_networks() != 53115 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_remove_contact() != 60263 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_remove_contact() != 60263 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_remove_contact_field_override() != 62988 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_remove_contact_field_override() != 62988 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_remove_contact_from_label() != 34319 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_remove_contact_from_label() != 34319 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_remove_field() != 48211 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_remove_field() != 48211 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_rename_label() != 5503 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_rename_label() != 5503 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_request_new_tor_circuit() != 48653 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_request_new_tor_circuit() != 48653 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_reset_aha_moments() != 24810 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_reset_aha_moments() != 24810 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_reset_onboarding() != 30448 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_reset_onboarding() != 30448 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_restore_demo_contact() != 31302 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_restore_demo_contact() != 31302 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_revoke_consent() != 7992 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_revoke_consent() != 7992 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_revoke_field_validation() != 14878 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_revoke_field_validation() != 14878 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_schedule_account_deletion() != 23295 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_schedule_account_deletion() != 23295 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_search_contacts() != 4061 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_search_contacts() != 4061 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_search_social_networks() != 27909 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_search_social_networks() != 27909 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_send_device_link_request() != 11214 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_send_device_link_request() != 11214 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_send_device_link_response() != 7939 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_send_device_link_response() != 7939 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_send_emergency_broadcast() != 34786 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_send_emergency_broadcast() != 34786 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_set_contact_field_override() != 24591 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_set_contact_field_override() != 24591 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_set_delivery_receipts_enabled() != 54854 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_set_delivery_receipts_enabled() != 54854 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_set_display_name() != 21017 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_set_display_name() != 21017 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_set_label_field_visibility() != 63370 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_set_label_field_visibility() != 63370 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_set_pinned_certificate() != 2029 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_set_pinned_certificate() != 2029 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_set_platform_keychain() != 45535 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_set_platform_keychain() != 45535 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_set_suppress_presence_enabled() != 32876 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_set_suppress_presence_enabled() != 32876 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_setup_app_password() != 46352 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_setup_app_password() != 46352 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_setup_duress_password() != 48796 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_setup_duress_password() != 48796 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_show_field_to_contact() != 3699 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_show_field_to_contact() != 3699 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_shred_status() != 19648 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_shred_status() != 19648 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_skip_onboarding_step() != 3768 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_skip_onboarding_step() != 3768 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_skip_onboarding_to_finish() != 11467 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_skip_onboarding_to_finish() != 11467 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_soft_shred() != 22022 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_soft_shred() != 22022 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_start_device_join() != 7246 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_start_device_join() != 7246 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_start_device_link() != 44513 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_start_device_link() != 44513 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_sync() != 44616 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_sync() != 44616 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_sync_async() != 40029 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_sync_async() != 40029 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_tor_status() != 62836 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_tor_status() != 62836 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_trigger_demo_update() != 56863 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_trigger_demo_update() != 56863 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_trust_contact_for_recovery() != 65532 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_trust_contact_for_recovery() != 65532 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_trusted_contact_count() != 12819 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_trusted_contact_count() != 12819 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_try_trigger_aha_moment() != 32158 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_try_trigger_aha_moment() != 32158 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_try_trigger_aha_moment_with_context() != 36865 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_try_trigger_aha_moment_with_context() != 36865 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_unhide_contact() != 3991 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_unhide_contact() != 3991 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_unlink_device() != 30553 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_unlink_device() != 30553 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_untrust_contact_for_recovery() != 31348 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_untrust_contact_for_recovery() != 31348 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_update_field() != 13386 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_update_field() != 13386 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_validate_field() != 21676 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_validate_field() != 21676 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_verify_contact() != 57061 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_verify_contact() != 57061 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_verify_recovery_proof() != 55854 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_verify_recovery_proof() != 55854 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_vauchimobile_verify_shred() != 51157 {
+    if uniffi_vauchi_platform_checksum_method_vauchimobile_verify_shred() != 51157 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_constructor_mobileanimatedqrreceiver_new() != 25165 {
+    if uniffi_vauchi_platform_checksum_constructor_mobileanimatedqrreceiver_new() != 25165 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_constructor_mobileanimatedqrsender_new() != 57286 {
+    if uniffi_vauchi_platform_checksum_constructor_mobileanimatedqrsender_new() != 57286 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_constructor_mobilebackuprecoveryworkflow_new() != 1920 {
+    if uniffi_vauchi_platform_checksum_constructor_mobilebackuprecoveryworkflow_new() != 1920 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_constructor_mobilebleexchangesession_new() != 44548 {
+    if uniffi_vauchi_platform_checksum_constructor_mobilebleexchangesession_new() != 44548 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_constructor_mobilecontacteditworkflow_new() != 4830 {
+    if uniffi_vauchi_platform_checksum_constructor_mobilecontacteditworkflow_new() != 4830 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_constructor_mobilecontactlistworkflow_new() != 27183 {
+    if uniffi_vauchi_platform_checksum_constructor_mobilecontactlistworkflow_new() != 27183 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_constructor_mobiledeliverystatusworkflow_new() != 17068 {
+    if uniffi_vauchi_platform_checksum_constructor_mobiledeliverystatusworkflow_new() != 17068 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_constructor_mobiledevicelinkingworkflow_new() != 34397 {
+    if uniffi_vauchi_platform_checksum_constructor_mobiledevicelinkingworkflow_new() != 34397 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_constructor_mobileduresspinworkflow_new() != 7590 {
+    if uniffi_vauchi_platform_checksum_constructor_mobileduresspinworkflow_new() != 7590 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_constructor_mobileemergencyshredworkflow_new() != 33212 {
+    if uniffi_vauchi_platform_checksum_constructor_mobileemergencyshredworkflow_new() != 33212 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_constructor_mobileexchangeworkflow_new() != 44694 {
+    if uniffi_vauchi_platform_checksum_constructor_mobileexchangeworkflow_new() != 44694 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_constructor_mobilehelpworkflow_new() != 24347 {
+    if uniffi_vauchi_platform_checksum_constructor_mobilehelpworkflow_new() != 24347 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_constructor_mobilehomeworkflow_new() != 63759 {
+    if uniffi_vauchi_platform_checksum_constructor_mobilehomeworkflow_new() != 63759 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_constructor_mobilelockscreenworkflow_new() != 12086 {
+    if uniffi_vauchi_platform_checksum_constructor_mobilelockscreenworkflow_new() != 12086 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_constructor_mobilemultistagesession_new() != 16320 {
+    if uniffi_vauchi_platform_checksum_constructor_mobilemultistagesession_new() != 16320 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_constructor_mobilemultipartdecoder_new() != 15717 {
+    if uniffi_vauchi_platform_checksum_constructor_mobilemultipartdecoder_new() != 15717 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_constructor_mobileonboardingworkflow_new() != 51729 {
+    if uniffi_vauchi_platform_checksum_constructor_mobileonboardingworkflow_new() != 51729 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_constructor_mobileproximityverifier_new() != 33177 {
+    if uniffi_vauchi_platform_checksum_constructor_mobileproximityverifier_new() != 33177 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_constructor_mobileproximityverifier_without_handler() != 27250 {
+    if uniffi_vauchi_platform_checksum_constructor_mobileproximityverifier_without_handler() != 27250 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_constructor_mobilesettingsworkflow_new() != 27829 {
+    if uniffi_vauchi_platform_checksum_constructor_mobilesettingsworkflow_new() != 27829 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_constructor_vauchimobile_new() != 54148 {
+    if uniffi_vauchi_platform_checksum_constructor_vauchimobile_new() != 54148 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_constructor_vauchimobile_new_with_secure_key() != 16278 {
+    if uniffi_vauchi_platform_checksum_constructor_vauchimobile_new_with_secure_key() != 16278 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilebledelegate_send_data() != 8461 {
+    if uniffi_vauchi_platform_checksum_method_mobilebledelegate_send_data() != 8461 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilebledelegate_subscribe_notify() != 64758 {
+    if uniffi_vauchi_platform_checksum_method_mobilebledelegate_subscribe_notify() != 64758 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilebledelegate_disconnect() != 59512 {
+    if uniffi_vauchi_platform_checksum_method_mobilebledelegate_disconnect() != 59512 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilebledelegate_on_state_changed() != 57253 {
+    if uniffi_vauchi_platform_checksum_method_mobilebledelegate_on_state_changed() != 57253 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilebledelegate_on_exchange_complete() != 4038 {
+    if uniffi_vauchi_platform_checksum_method_mobilebledelegate_on_exchange_complete() != 4038 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilebledelegate_on_exchange_failed() != 36511 {
+    if uniffi_vauchi_platform_checksum_method_mobilebledelegate_on_exchange_failed() != 36511 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilenfctransport_transceive() != 47972 {
+    if uniffi_vauchi_platform_checksum_method_mobilenfctransport_transceive() != 47972 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilenfctransport_respond() != 53494 {
+    if uniffi_vauchi_platform_checksum_method_mobilenfctransport_respond() != 53494 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilenfctransport_is_connected() != 18117 {
+    if uniffi_vauchi_platform_checksum_method_mobilenfctransport_is_connected() != 18117 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobileplatformkeychain_save_key() != 54986 {
+    if uniffi_vauchi_platform_checksum_method_mobileplatformkeychain_save_key() != 54986 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobileplatformkeychain_load_key() != 19543 {
+    if uniffi_vauchi_platform_checksum_method_mobileplatformkeychain_load_key() != 19543 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobileplatformkeychain_delete_key() != 34382 {
+    if uniffi_vauchi_platform_checksum_method_mobileplatformkeychain_delete_key() != 34382 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobileproximityhandler_verify_proximity() != 10196 {
+    if uniffi_vauchi_platform_checksum_method_mobileproximityhandler_verify_proximity() != 10196 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilewifiawarehandler_on_peer_discovered() != 16200 {
+    if uniffi_vauchi_platform_checksum_method_mobilewifiawarehandler_on_peer_discovered() != 16200 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilewifiawarehandler_on_connected() != 54943 {
+    if uniffi_vauchi_platform_checksum_method_mobilewifiawarehandler_on_connected() != 54943 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilewifiawarehandler_on_data_received() != 40066 {
+    if uniffi_vauchi_platform_checksum_method_mobilewifiawarehandler_on_data_received() != 40066 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_mobilewifiawarehandler_on_error() != 29160 {
+    if uniffi_vauchi_platform_checksum_method_mobilewifiawarehandler_on_error() != 29160 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_platformaudiohandler_check_capability() != 34713 {
+    if uniffi_vauchi_platform_checksum_method_platformaudiohandler_check_capability() != 34713 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_platformaudiohandler_emit_signal() != 23893 {
+    if uniffi_vauchi_platform_checksum_method_platformaudiohandler_emit_signal() != 23893 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_platformaudiohandler_receive_signal() != 19346 {
+    if uniffi_vauchi_platform_checksum_method_platformaudiohandler_receive_signal() != 19346 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_platformaudiohandler_is_active() != 3765 {
+    if uniffi_vauchi_platform_checksum_method_platformaudiohandler_is_active() != 3765 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_mobile_checksum_method_platformaudiohandler_stop() != 15316 {
+    if uniffi_vauchi_platform_checksum_method_platformaudiohandler_stop() != 15316 {
         return InitializationResult.apiChecksumMismatch
     }
 

@@ -14,14 +14,16 @@
 include:
   - project: 'vauchi/scripts'
     ref: main
-    file: '/ci-templates/reuse.yml'
-
+    file:
+      - '/ci-templates/reuse.yml'
+      - '/ci-templates/badges.yml'
 
 stages:
   - lint
   - validate
   - test
   - notify
+  - deploy
 
 workflow:
   auto_cancel:
@@ -159,3 +161,10 @@ trigger:macos-app:
     strategy: depend
   rules:
     - if: ($CI_PIPELINE_SOURCE == "trigger" || $CI_PIPELINE_SOURCE == "pipeline" || $CI_PIPELINE_SOURCE == "api") && $UPSTREAM_VERSION
+
+# ============================================================
+# Deploy Stage — Badge Pages
+# ============================================================
+
+pages:
+  extends: .badges-pages

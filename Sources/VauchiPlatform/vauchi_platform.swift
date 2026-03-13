@@ -4575,12 +4575,26 @@ public protocol PlatformAppEngineProtocol: AnyObject {
     func defaultScreenJson() throws -> String
 
     /**
+     * Returns whether the current form has unsaved user data.
+     *
+     * Used by frontends to show a "discard changes?" prompt on back navigation.
+     */
+    func formHasData() throws -> Bool
+
+    /**
      * Handles a user action (as JSON) and returns the result as JSON.
      *
      * The action JSON must match the `UserAction` enum format.
      * The result JSON matches the `ActionResult` enum.
      */
     func handleActionJson(actionJson: String) throws -> String
+
+    /**
+     * Returns whether the user has created an identity.
+     *
+     * Used by frontends to decide between onboarding and main UI.
+     */
+    func hasIdentity() throws -> Bool
 
     /**
      * Invalidate all cached engines.
@@ -4755,6 +4769,17 @@ open class PlatformAppEngine:
     }
 
     /**
+     * Returns whether the current form has unsaved user data.
+     *
+     * Used by frontends to show a "discard changes?" prompt on back navigation.
+     */
+    open func formHasData() throws -> Bool {
+        return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_form_has_data(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
      * Handles a user action (as JSON) and returns the result as JSON.
      *
      * The action JSON must match the `UserAction` enum format.
@@ -4764,6 +4789,17 @@ open class PlatformAppEngine:
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_platformappengine_handle_action_json(self.uniffiClonePointer(),
                                                                                   FfiConverterString.lower(actionJson), $0)
+        })
+    }
+
+    /**
+     * Returns whether the user has created an identity.
+     *
+     * Used by frontends to decide between onboarding and main UI.
+     */
+    open func hasIdentity() throws -> Bool {
+        return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_has_identity(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -20370,7 +20406,13 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_platformappengine_default_screen_json() != 8108 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_form_has_data() != 43012 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_platform_checksum_method_platformappengine_handle_action_json() != 38620 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_has_identity() != 9989 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_platformappengine_invalidate_all() != 20571 {

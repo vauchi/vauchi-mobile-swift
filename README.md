@@ -1,6 +1,7 @@
 <!-- SPDX-FileCopyrightText: 2026 Mattia Egloff <mattia.egloff@pm.me> -->
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 
+[![Pipeline](https://vauchi.gitlab.io/vauchi-platform-swift/badges/pipeline.svg)](https://gitlab.com/vauchi/vauchi-platform-swift/-/pipelines)
 [![REUSE](https://api.reuse.software/badge/gitlab.com/vauchi/vauchi-platform-swift)](https://api.reuse.software/info/gitlab.com/vauchi/vauchi-platform-swift)
 
 # VauchiPlatform Swift Package

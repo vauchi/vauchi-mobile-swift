@@ -3075,11 +3075,10 @@ open class MobileHomeWorkflow:
         return try! rustCall { uniffi_vauchi_platform_fn_clone_mobilehomeworkflow(self.pointer, $0) }
     }
 
-    public convenience init(contactsJson: String, progressJson: String) throws {
+    public convenience init(progressJson: String) throws {
         let pointer =
             try rustCallWithError(FfiConverterTypeMobileError.lift) {
                 uniffi_vauchi_platform_fn_constructor_mobilehomeworkflow_new(
-                    FfiConverterString.lower(contactsJson),
                     FfiConverterString.lower(progressJson), $0
                 )
             }
@@ -4517,6 +4516,355 @@ public func FfiConverterTypeMobileSettingsWorkflow_lower(_ value: MobileSettings
 }
 
 /**
+ * Unified navigation and screen engine for mobile/desktop platforms.
+ *
+ * Wraps `AppEngine<MockTransport>` with JSON-based FFI transport.
+ * Manages screen navigation, engine lifecycle, and form dialog persistence.
+ *
+ * # Usage from Swift/Kotlin
+ *
+ * ```swift
+ * let engine = try PlatformAppEngine(
+ * dataDir: dataDir,
+ * relayUrl: "wss://relay.vauchi.app",
+ * storageKeyBytes: keyBytes
+ * )
+ *
+ * // Get current screen
+ * let screenJson = try engine.currentScreenJson()
+ *
+ * // Handle user action
+ * let resultJson = try engine.handleActionJson(
+ * actionJson: "{\"ActionPressed\": {\"action_id\": \"get_started\"}}"
+ * )
+ *
+ * // Navigate to a screen
+ * let screenJson = try engine.navigateToJson(screenJson: "\"Exchange\"")
+ *
+ * // After VauchiPlatform mutations, invalidate
+ * try engine.invalidateAll()
+ * ```
+ */
+public protocol PlatformAppEngineProtocol: AnyObject {
+    /**
+     * Returns the available navigation screens as a JSON array.
+     *
+     * These are the screens that should appear in the navigation bar/tabs.
+     */
+    func availableScreensJson() throws -> String
+
+    /**
+     * Returns the current screen's screen_id (lightweight query).
+     *
+     * Useful for tab bar highlighting without deserializing the full ScreenModel.
+     */
+    func currentScreenId() throws -> String
+
+    /**
+     * Returns the current screen as a JSON string.
+     *
+     * The JSON structure matches `ScreenModel` from vauchi-core.
+     */
+    func currentScreenJson() throws -> String
+
+    /**
+     * Returns the default landing screen as a JSON string.
+     *
+     * Returns MyInfo when no contacts, Contacts when >=1 contact.
+     */
+    func defaultScreenJson() throws -> String
+
+    /**
+     * Handles a user action (as JSON) and returns the result as JSON.
+     *
+     * The action JSON must match the `UserAction` enum format.
+     * The result JSON matches the `ActionResult` enum.
+     */
+    func handleActionJson(actionJson: String) throws -> String
+
+    /**
+     * Invalidate all cached engines.
+     *
+     * Call this after mutations via `VauchiPlatform` so the next
+     * `current_screen_json()` rebuilds engines with fresh data.
+     */
+    func invalidateAll() throws
+
+    /**
+     * Invalidate a specific screen's cached engine.
+     *
+     * The screen JSON must match the `AppScreen` enum format.
+     */
+    func invalidateScreenJson(screenJson: String) throws
+
+    /**
+     * Navigate back in the history stack.
+     *
+     * Returns the previous screen model as JSON.
+     */
+    func navigateBackJson() throws -> String
+
+    /**
+     * Navigate to a screen (as JSON) and return the new screen model as JSON.
+     *
+     * The screen JSON must match the `AppScreen` enum format, e.g.:
+     * - `"Exchange"` (simple variant)
+     * - `{"ContactDetail": {"contact_id": "abc"}}` (parameterized variant)
+     */
+    func navigateToJson(screenJson: String) throws -> String
+}
+
+/**
+ * Unified navigation and screen engine for mobile/desktop platforms.
+ *
+ * Wraps `AppEngine<MockTransport>` with JSON-based FFI transport.
+ * Manages screen navigation, engine lifecycle, and form dialog persistence.
+ *
+ * # Usage from Swift/Kotlin
+ *
+ * ```swift
+ * let engine = try PlatformAppEngine(
+ * dataDir: dataDir,
+ * relayUrl: "wss://relay.vauchi.app",
+ * storageKeyBytes: keyBytes
+ * )
+ *
+ * // Get current screen
+ * let screenJson = try engine.currentScreenJson()
+ *
+ * // Handle user action
+ * let resultJson = try engine.handleActionJson(
+ * actionJson: "{\"ActionPressed\": {\"action_id\": \"get_started\"}}"
+ * )
+ *
+ * // Navigate to a screen
+ * let screenJson = try engine.navigateToJson(screenJson: "\"Exchange\"")
+ *
+ * // After VauchiPlatform mutations, invalidate
+ * try engine.invalidateAll()
+ * ```
+ */
+open class PlatformAppEngine:
+    PlatformAppEngineProtocol
+{
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    // Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noPointer _: NoPointer) {
+        pointer = nil
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_vauchi_platform_fn_clone_platformappengine(self.pointer, $0) }
+    }
+
+    /**
+     * Create a new PlatformAppEngine with platform-provided secure key.
+     *
+     * This creates its own `Vauchi` instance backed by the same database
+     * as `VauchiPlatform`. After mutations via `VauchiPlatform`, call
+     * `invalidate_all()` to refresh cached engines.
+     */
+    public convenience init(dataDir: String, relayUrl: String, storageKeyBytes: Data) throws {
+        let pointer =
+            try rustCallWithError(FfiConverterTypeMobileError.lift) {
+                uniffi_vauchi_platform_fn_constructor_platformappengine_new(
+                    FfiConverterString.lower(dataDir),
+                    FfiConverterString.lower(relayUrl),
+                    FfiConverterData.lower(storageKeyBytes), $0
+                )
+            }
+        self.init(unsafeFromRawPointer: pointer)
+    }
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_vauchi_platform_fn_free_platformappengine(pointer, $0) }
+    }
+
+    /**
+     * Returns the available navigation screens as a JSON array.
+     *
+     * These are the screens that should appear in the navigation bar/tabs.
+     */
+    open func availableScreensJson() throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_available_screens_json(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Returns the current screen's screen_id (lightweight query).
+     *
+     * Useful for tab bar highlighting without deserializing the full ScreenModel.
+     */
+    open func currentScreenId() throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_current_screen_id(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Returns the current screen as a JSON string.
+     *
+     * The JSON structure matches `ScreenModel` from vauchi-core.
+     */
+    open func currentScreenJson() throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_current_screen_json(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Returns the default landing screen as a JSON string.
+     *
+     * Returns MyInfo when no contacts, Contacts when >=1 contact.
+     */
+    open func defaultScreenJson() throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_default_screen_json(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Handles a user action (as JSON) and returns the result as JSON.
+     *
+     * The action JSON must match the `UserAction` enum format.
+     * The result JSON matches the `ActionResult` enum.
+     */
+    open func handleActionJson(actionJson: String) throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_handle_action_json(self.uniffiClonePointer(),
+                                                                                  FfiConverterString.lower(actionJson), $0)
+        })
+    }
+
+    /**
+     * Invalidate all cached engines.
+     *
+     * Call this after mutations via `VauchiPlatform` so the next
+     * `current_screen_json()` rebuilds engines with fresh data.
+     */
+    open func invalidateAll() throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_invalidate_all(self.uniffiClonePointer(), $0)
+        }
+    }
+
+    /**
+     * Invalidate a specific screen's cached engine.
+     *
+     * The screen JSON must match the `AppScreen` enum format.
+     */
+    open func invalidateScreenJson(screenJson: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_invalidate_screen_json(self.uniffiClonePointer(),
+                                                                                      FfiConverterString.lower(screenJson), $0)
+        }
+    }
+
+    /**
+     * Navigate back in the history stack.
+     *
+     * Returns the previous screen model as JSON.
+     */
+    open func navigateBackJson() throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_navigate_back_json(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Navigate to a screen (as JSON) and return the new screen model as JSON.
+     *
+     * The screen JSON must match the `AppScreen` enum format, e.g.:
+     * - `"Exchange"` (simple variant)
+     * - `{"ContactDetail": {"contact_id": "abc"}}` (parameterized variant)
+     */
+    open func navigateToJson(screenJson: String) throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_navigate_to_json(self.uniffiClonePointer(),
+                                                                                FfiConverterString.lower(screenJson), $0)
+        })
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypePlatformAppEngine: FfiConverter {
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = PlatformAppEngine
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> PlatformAppEngine {
+        return PlatformAppEngine(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: PlatformAppEngine) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PlatformAppEngine {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if ptr == nil {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: PlatformAppEngine, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypePlatformAppEngine_lift(_ pointer: UnsafeMutableRawPointer) throws -> PlatformAppEngine {
+    return try FfiConverterTypePlatformAppEngine.lift(pointer)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypePlatformAppEngine_lower(_ value: PlatformAppEngine) -> UnsafeMutableRawPointer {
+    return FfiConverterTypePlatformAppEngine.lower(value)
+}
+
+/**
  * Main Vauchi interface for mobile platforms.
  *
  * Uses on-demand storage connections for thread safety.
@@ -4525,7 +4873,7 @@ public protocol VauchiPlatformProtocol: AnyObject {
     /**
      * Add a contact to a label.
      */
-    func addContactToLabel(labelId: String, contactId: String) throws
+    func addContactToGroup(labelId: String, contactId: String) throws
 
     /**
      * Adds a decoy contact for duress mode.
@@ -4963,14 +5311,14 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func getFieldValidationStatus(contactId: String, fieldId: String, fieldValue: String) throws -> MobileValidationStatus
 
     /**
+     * Get all labels that contain a contact.
+     */
+    func getGroupsForContact(contactId: String) throws -> [MobileVisibilityLabel]
+
+    /**
      * Get a label by ID with full details.
      */
     func getLabel(labelId: String) throws -> MobileVisibilityLabelDetail
-
-    /**
-     * Get all labels that contain a contact.
-     */
-    func getLabelsForContact(contactId: String) throws -> [MobileVisibilityLabel]
 
     /**
      * Get remaining capacity in the offline queue.
@@ -5280,7 +5628,7 @@ public protocol VauchiPlatformProtocol: AnyObject {
     /**
      * Remove a contact from a label.
      */
-    func removeContactFromLabel(labelId: String, contactId: String) throws
+    func removeContactFromGroup(labelId: String, contactId: String) throws
 
     /**
      * Remove field from card.
@@ -5386,7 +5734,7 @@ public protocol VauchiPlatformProtocol: AnyObject {
     /**
      * Set whether a field is visible to contacts in a label.
      */
-    func setLabelFieldVisibility(labelId: String, fieldLabel: String, isVisible: Bool) throws
+    func setGroupFieldVisibility(labelId: String, fieldLabel: String, isVisible: Bool) throws
 
     /**
      * Set the pinned certificate for relay TLS connections.
@@ -5674,9 +6022,9 @@ open class VauchiPlatform:
     /**
      * Add a contact to a label.
      */
-    open func addContactToLabel(labelId: String, contactId: String) throws {
+    open func addContactToGroup(labelId: String, contactId: String) throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_add_contact_to_label(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchiplatform_add_contact_to_group(self.uniffiClonePointer(),
                                                                                  FfiConverterString.lower(labelId),
                                                                                  FfiConverterString.lower(contactId), $0)
         }
@@ -6428,22 +6776,22 @@ open class VauchiPlatform:
     }
 
     /**
+     * Get all labels that contain a contact.
+     */
+    open func getGroupsForContact(contactId: String) throws -> [MobileVisibilityLabel] {
+        return try FfiConverterSequenceTypeMobileVisibilityLabel.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_vauchiplatform_get_groups_for_contact(self.uniffiClonePointer(),
+                                                                                   FfiConverterString.lower(contactId), $0)
+        })
+    }
+
+    /**
      * Get a label by ID with full details.
      */
     open func getLabel(labelId: String) throws -> MobileVisibilityLabelDetail {
         return try FfiConverterTypeMobileVisibilityLabelDetail.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_vauchiplatform_get_label(self.uniffiClonePointer(),
                                                                       FfiConverterString.lower(labelId), $0)
-        })
-    }
-
-    /**
-     * Get all labels that contain a contact.
-     */
-    open func getLabelsForContact(contactId: String) throws -> [MobileVisibilityLabel] {
-        return try FfiConverterSequenceTypeMobileVisibilityLabel.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_get_labels_for_contact(self.uniffiClonePointer(),
-                                                                                   FfiConverterString.lower(contactId), $0)
         })
     }
 
@@ -6987,9 +7335,9 @@ open class VauchiPlatform:
     /**
      * Remove a contact from a label.
      */
-    open func removeContactFromLabel(labelId: String, contactId: String) throws {
+    open func removeContactFromGroup(labelId: String, contactId: String) throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_remove_contact_from_label(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchiplatform_remove_contact_from_group(self.uniffiClonePointer(),
                                                                                       FfiConverterString.lower(labelId),
                                                                                       FfiConverterString.lower(contactId), $0)
         }
@@ -7186,9 +7534,9 @@ open class VauchiPlatform:
     /**
      * Set whether a field is visible to contacts in a label.
      */
-    open func setLabelFieldVisibility(labelId: String, fieldLabel: String, isVisible: Bool) throws {
+    open func setGroupFieldVisibility(labelId: String, fieldLabel: String, isVisible: Bool) throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_set_label_field_visibility(self.uniffiClonePointer(),
+            uniffi_vauchi_platform_fn_method_vauchiplatform_set_group_field_visibility(self.uniffiClonePointer(),
                                                                                        FfiConverterString.lower(labelId),
                                                                                        FfiConverterString.lower(fieldLabel),
                                                                                        FfiConverterBool.lower(isVisible), $0)
@@ -20010,7 +20358,34 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_mobilesettingsworkflow_handle_action_json() != 10389 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_add_contact_to_label() != 4458 {
+    if uniffi_vauchi_platform_checksum_method_platformappengine_available_screens_json() != 8671 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_current_screen_id() != 29912 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_current_screen_json() != 10670 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_default_screen_json() != 8108 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_handle_action_json() != 38620 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_invalidate_all() != 20571 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_invalidate_screen_json() != 16626 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_navigate_back_json() != 55923 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_navigate_to_json() != 60323 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_add_contact_to_group() != 53515 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_add_decoy_contact() != 30419 {
@@ -20214,10 +20589,10 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_field_validation_status() != 36148 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_label() != 48817 {
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_groups_for_contact() != 50060 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_labels_for_contact() != 1534 {
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_label() != 48817 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_offline_queue_capacity() != 11142 {
@@ -20376,7 +20751,7 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_remove_contact_field_override() != 17410 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_remove_contact_from_label() != 16825 {
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_remove_contact_from_group() != 36649 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_remove_field() != 52877 {
@@ -20430,7 +20805,7 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_set_display_name() != 30292 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_set_label_field_visibility() != 13624 {
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_set_group_field_visibility() != 38564 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_set_pinned_certificate() != 8876 {
@@ -20553,7 +20928,7 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_constructor_mobilehelpworkflow_new() != 51344 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_constructor_mobilehomeworkflow_new() != 2213 {
+    if uniffi_vauchi_platform_checksum_constructor_mobilehomeworkflow_new() != 42636 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_constructor_mobilelockscreenworkflow_new() != 37040 {
@@ -20575,6 +20950,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_constructor_mobilesettingsworkflow_new() != 19685 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_constructor_platformappengine_new() != 53960 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_constructor_vauchiplatform_new() != 52967 {

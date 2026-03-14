@@ -2508,9 +2508,33 @@ public protocol MobileExchangeSessionProtocol: AnyObject {
     func confirmProximity() throws
 
     /**
+     * Enable exchange debug logging.
+     *
+     * Production API: intended for the debug panel settings toggle.
+     * When enabled, captures timestamped events at each state transition
+     * (QR generation, scan, key agreement, proximity, completion/failure).
+     * Call once before `generate_qr()`. Idempotent.
+     */
+    func enableDebugLog()
+
+    /**
      * Generate and display a QR code. Transitions Idle -> DisplayingQr.
      */
     func generateQr() throws -> String
+
+    /**
+     * Returns the exchange debug log as JSONL, if enabled.
+     *
+     * Production API: intended for diagnostic export (share sheet, clipboard).
+     */
+    func getExchangeDebugJsonl() -> String?
+
+    /**
+     * Returns the exchange debug log as Markdown, if enabled.
+     *
+     * Production API: intended for diagnostic export (share sheet, clipboard).
+     */
+    func getExchangeDebugMarkdown() -> String?
 
     /**
      * Returns the event log from the last proximity verification.
@@ -2645,11 +2669,47 @@ open class MobileExchangeSession:
     }
 
     /**
+     * Enable exchange debug logging.
+     *
+     * Production API: intended for the debug panel settings toggle.
+     * When enabled, captures timestamped events at each state transition
+     * (QR generation, scan, key agreement, proximity, completion/failure).
+     * Call once before `generate_qr()`. Idempotent.
+     */
+    open func enableDebugLog() {
+        try! rustCall {
+            uniffi_vauchi_platform_fn_method_mobileexchangesession_enable_debug_log(self.uniffiClonePointer(), $0)
+        }
+    }
+
+    /**
      * Generate and display a QR code. Transitions Idle -> DisplayingQr.
      */
     open func generateQr() throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_mobileexchangesession_generate_qr(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Returns the exchange debug log as JSONL, if enabled.
+     *
+     * Production API: intended for diagnostic export (share sheet, clipboard).
+     */
+    open func getExchangeDebugJsonl() -> String? {
+        return try! FfiConverterOptionString.lift(try! rustCall {
+            uniffi_vauchi_platform_fn_method_mobileexchangesession_get_exchange_debug_jsonl(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Returns the exchange debug log as Markdown, if enabled.
+     *
+     * Production API: intended for diagnostic export (share sheet, clipboard).
+     */
+    open func getExchangeDebugMarkdown() -> String? {
+        return try! FfiConverterOptionString.lift(try! rustCall {
+            uniffi_vauchi_platform_fn_method_mobileexchangesession_get_exchange_debug_markdown(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -20573,7 +20633,16 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_mobileexchangesession_confirm_proximity() != 50473 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_method_mobileexchangesession_enable_debug_log() != 48820 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_platform_checksum_method_mobileexchangesession_generate_qr() != 59228 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_mobileexchangesession_get_exchange_debug_jsonl() != 2480 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_mobileexchangesession_get_exchange_debug_markdown() != 19273 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_mobileexchangesession_get_verification_events() != 37397 {

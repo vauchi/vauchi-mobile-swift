@@ -15326,10 +15326,6 @@ public enum MobileConsentType {
      */
     case contactSharing
     /**
-     * Consent for anonymous usage analytics.
-     */
-    case analytics
-    /**
      * Consent to participate in recovery vouching.
      */
     case recoveryVouching
@@ -15348,9 +15344,7 @@ public struct FfiConverterTypeMobileConsentType: FfiConverterRustBuffer {
 
         case 2: return .contactSharing
 
-        case 3: return .analytics
-
-        case 4: return .recoveryVouching
+        case 3: return .recoveryVouching
 
         default: throw UniffiInternalError.unexpectedEnumCase
         }
@@ -15364,11 +15358,8 @@ public struct FfiConverterTypeMobileConsentType: FfiConverterRustBuffer {
         case .contactSharing:
             writeInt(&buf, Int32(2))
 
-        case .analytics:
-            writeInt(&buf, Int32(3))
-
         case .recoveryVouching:
-            writeInt(&buf, Int32(4))
+            writeInt(&buf, Int32(3))
         }
     }
 }

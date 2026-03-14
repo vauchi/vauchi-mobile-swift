@@ -2485,6 +2485,7 @@ public func FfiConverterTypeMobileEmergencyShredWorkflow_lower(_ value: MobileEm
  * Mobile exchange session wrapping the core `ExchangeSession` state machine.
  *
  * Drives the exchange flow: generate/scan QR -> verify proximity -> key agreement -> complete.
+ * Since `ExchangeSession` stores `Box<dyn ProximityVerifier>`, no enum dispatch is needed.
  */
 public protocol MobileExchangeSessionProtocol: AnyObject {
     /**
@@ -2510,6 +2511,15 @@ public protocol MobileExchangeSessionProtocol: AnyObject {
      * Generate and display a QR code. Transitions Idle -> DisplayingQr.
      */
     func generateQr() throws -> String
+
+    /**
+     * Returns the event log from the last proximity verification.
+     *
+     * Returns an empty list before any verification has occurred.
+     * After key agreement, contains the chain's events (InProgress,
+     * Completed, MethodFailed, FallingBack, etc.).
+     */
+    func getVerificationEvents() -> [MobileProximityVerifierEvent]
 
     /**
      * Check if the session has timed out.
@@ -2542,12 +2552,20 @@ public protocol MobileExchangeSessionProtocol: AnyObject {
      * Signal that the other party scanned our QR. Transitions PeerScanned -> AwaitingKeyAgreement.
      */
     func theyScannedOurQr() throws
+
+    /**
+     * Returns the proximity confidence from the last verification.
+     *
+     * Available after key agreement has been performed.
+     */
+    func verificationConfidence() -> MobileProximityConfidence
 }
 
 /**
  * Mobile exchange session wrapping the core `ExchangeSession` state machine.
  *
  * Drives the exchange flow: generate/scan QR -> verify proximity -> key agreement -> complete.
+ * Since `ExchangeSession` stores `Box<dyn ProximityVerifier>`, no enum dispatch is needed.
  */
 open class MobileExchangeSession:
     MobileExchangeSessionProtocol
@@ -2636,6 +2654,19 @@ open class MobileExchangeSession:
     }
 
     /**
+     * Returns the event log from the last proximity verification.
+     *
+     * Returns an empty list before any verification has occurred.
+     * After key agreement, contains the chain's events (InProgress,
+     * Completed, MethodFailed, FallingBack, etc.).
+     */
+    open func getVerificationEvents() -> [MobileProximityVerifierEvent] {
+        return try! FfiConverterSequenceTypeMobileProximityVerifierEvent.lift(try! rustCall {
+            uniffi_vauchi_platform_fn_method_mobileexchangesession_get_verification_events(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
      * Check if the session has timed out.
      */
     open func isTimedOut() -> Bool {
@@ -2690,6 +2721,17 @@ open class MobileExchangeSession:
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_mobileexchangesession_they_scanned_our_qr(self.uniffiClonePointer(), $0)
         }
+    }
+
+    /**
+     * Returns the proximity confidence from the last verification.
+     *
+     * Available after key agreement has been performed.
+     */
+    open func verificationConfidence() -> MobileProximityConfidence {
+        return try! FfiConverterTypeMobileProximityConfidence.lift(try! rustCall {
+            uniffi_vauchi_platform_fn_method_mobileexchangesession_verification_confidence(self.uniffiClonePointer(), $0)
+        })
     }
 }
 
@@ -19787,6 +19829,31 @@ private struct FfiConverterSequenceTypeMobileOnboardingStep: FfiConverterRustBuf
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
+private struct FfiConverterSequenceTypeMobileProximityVerifierEvent: FfiConverterRustBuffer {
+    typealias SwiftType = [MobileProximityVerifierEvent]
+
+    static func write(_ value: [MobileProximityVerifierEvent], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeMobileProximityVerifierEvent.write(item, into: &buf)
+        }
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileProximityVerifierEvent] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [MobileProximityVerifierEvent]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            try seq.append(FfiConverterTypeMobileProximityVerifierEvent.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
 private struct FfiConverterDictionaryStringString: FfiConverterRustBuffer {
     static func write(_ value: [String: String], into buf: inout [UInt8]) {
         let len = Int32(value.count)
@@ -20509,6 +20576,9 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_mobileexchangesession_generate_qr() != 59228 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_method_mobileexchangesession_get_verification_events() != 37397 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_platform_checksum_method_mobileexchangesession_is_timed_out() != 3047 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -20525,6 +20595,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_mobileexchangesession_they_scanned_our_qr() != 40935 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_mobileexchangesession_verification_confidence() != 33982 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_mobileexchangeworkflow_current_screen_json() != 49755 {

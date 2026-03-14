@@ -16842,6 +16842,189 @@ extension MobileProtocolState: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /* 
+ * Mobile-friendly proximity confidence level.
+ */
+
+public enum MobileProximityConfidence {
+    case high
+    case medium
+    case low
+    case unknown
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileProximityConfidence: FfiConverterRustBuffer {
+    typealias SwiftType = MobileProximityConfidence
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileProximityConfidence {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return .high
+
+        case 2: return .medium
+
+        case 3: return .low
+
+        case 4: return .unknown
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileProximityConfidence, into buf: inout [UInt8]) {
+        switch value {
+        case .high:
+            writeInt(&buf, Int32(1))
+
+        case .medium:
+            writeInt(&buf, Int32(2))
+
+        case .low:
+            writeInt(&buf, Int32(3))
+
+        case .unknown:
+            writeInt(&buf, Int32(4))
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileProximityConfidence_lift(_ buf: RustBuffer) throws -> MobileProximityConfidence {
+    return try FfiConverterTypeMobileProximityConfidence.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileProximityConfidence_lower(_ value: MobileProximityConfidence) -> RustBuffer {
+    return FfiConverterTypeMobileProximityConfidence.lower(value)
+}
+
+extension MobileProximityConfidence: Equatable, Hashable {}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/* 
+ * Events emitted during proximity verification for mobile UI consumption.
+ *
+ * The mobile platform layer observes these to update the user interface:
+ * - Show instructions ("Tap the table with both phones")
+ * - Show progress bars
+ * - Indicate method failures and fallbacks
+ * - Announce completion with confidence level
+ */
+
+public enum MobileProximityVerifierEvent {
+    /**
+     * Waiting for user action before verification can proceed.
+     */
+    case waitingForAction(method: MobileVerifierMethod, instruction: String)
+    /**
+     * Verification is in progress for the given method.
+     */
+    case inProgress(method: MobileVerifierMethod,
+                    /* 
+                        * 0–100 percent.
+                        */ progressPct: UInt8)
+    /**
+     * A verification method failed.
+     */
+    case methodFailed(method: MobileVerifierMethod, reason: String)
+    /**
+     * Falling back from one method to another.
+     */
+    case fallingBack(failedMethod: MobileVerifierMethod, nextMethod: MobileVerifierMethod)
+    /**
+     * Verification completed successfully.
+     */
+    case completed(method: MobileVerifierMethod, confidence: MobileProximityConfidence)
+    /**
+     * All available methods have been tried and failed.
+     */
+    case allMethodsExhausted
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileProximityVerifierEvent: FfiConverterRustBuffer {
+    typealias SwiftType = MobileProximityVerifierEvent
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileProximityVerifierEvent {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return try .waitingForAction(method: FfiConverterTypeMobileVerifierMethod.read(from: &buf), instruction: FfiConverterString.read(from: &buf))
+
+        case 2: return try .inProgress(method: FfiConverterTypeMobileVerifierMethod.read(from: &buf), progressPct: FfiConverterUInt8.read(from: &buf))
+
+        case 3: return try .methodFailed(method: FfiConverterTypeMobileVerifierMethod.read(from: &buf), reason: FfiConverterString.read(from: &buf))
+
+        case 4: return try .fallingBack(failedMethod: FfiConverterTypeMobileVerifierMethod.read(from: &buf), nextMethod: FfiConverterTypeMobileVerifierMethod.read(from: &buf))
+
+        case 5: return try .completed(method: FfiConverterTypeMobileVerifierMethod.read(from: &buf), confidence: FfiConverterTypeMobileProximityConfidence.read(from: &buf))
+
+        case 6: return .allMethodsExhausted
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileProximityVerifierEvent, into buf: inout [UInt8]) {
+        switch value {
+        case let .waitingForAction(method, instruction):
+            writeInt(&buf, Int32(1))
+            FfiConverterTypeMobileVerifierMethod.write(method, into: &buf)
+            FfiConverterString.write(instruction, into: &buf)
+
+        case let .inProgress(method, progressPct):
+            writeInt(&buf, Int32(2))
+            FfiConverterTypeMobileVerifierMethod.write(method, into: &buf)
+            FfiConverterUInt8.write(progressPct, into: &buf)
+
+        case let .methodFailed(method, reason):
+            writeInt(&buf, Int32(3))
+            FfiConverterTypeMobileVerifierMethod.write(method, into: &buf)
+            FfiConverterString.write(reason, into: &buf)
+
+        case let .fallingBack(failedMethod, nextMethod):
+            writeInt(&buf, Int32(4))
+            FfiConverterTypeMobileVerifierMethod.write(failedMethod, into: &buf)
+            FfiConverterTypeMobileVerifierMethod.write(nextMethod, into: &buf)
+
+        case let .completed(method, confidence):
+            writeInt(&buf, Int32(5))
+            FfiConverterTypeMobileVerifierMethod.write(method, into: &buf)
+            FfiConverterTypeMobileProximityConfidence.write(confidence, into: &buf)
+
+        case .allMethodsExhausted:
+            writeInt(&buf, Int32(6))
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileProximityVerifierEvent_lift(_ buf: RustBuffer) throws -> MobileProximityVerifierEvent {
+    return try FfiConverterTypeMobileProximityVerifierEvent.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileProximityVerifierEvent_lower(_ value: MobileProximityVerifierEvent) -> RustBuffer {
+    return FfiConverterTypeMobileProximityVerifierEvent.lower(value)
+}
+
+extension MobileProximityVerifierEvent: Equatable, Hashable {}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/* 
  * Current shred status for the account.
  */
 
@@ -17276,6 +17459,85 @@ public func FfiConverterTypeMobileUpdateStatus_lower(_ value: MobileUpdateStatus
 }
 
 extension MobileUpdateStatus: Equatable, Hashable {}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/* 
+ * Identifies which proximity verification method is active.
+ */
+
+public enum MobileVerifierMethod {
+    case ultrasonic
+    case ambientAudio
+    case accelerometer
+    case manualConfirmation
+    case nfc
+    case ble
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileVerifierMethod: FfiConverterRustBuffer {
+    typealias SwiftType = MobileVerifierMethod
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileVerifierMethod {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return .ultrasonic
+
+        case 2: return .ambientAudio
+
+        case 3: return .accelerometer
+
+        case 4: return .manualConfirmation
+
+        case 5: return .nfc
+
+        case 6: return .ble
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileVerifierMethod, into buf: inout [UInt8]) {
+        switch value {
+        case .ultrasonic:
+            writeInt(&buf, Int32(1))
+
+        case .ambientAudio:
+            writeInt(&buf, Int32(2))
+
+        case .accelerometer:
+            writeInt(&buf, Int32(3))
+
+        case .manualConfirmation:
+            writeInt(&buf, Int32(4))
+
+        case .nfc:
+            writeInt(&buf, Int32(5))
+
+        case .ble:
+            writeInt(&buf, Int32(6))
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileVerifierMethod_lift(_ buf: RustBuffer) throws -> MobileVerifierMethod {
+    return try FfiConverterTypeMobileVerifierMethod.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileVerifierMethod_lower(_ value: MobileVerifierMethod) -> RustBuffer {
+    return FfiConverterTypeMobileVerifierMethod.lower(value)
+}
+
+extension MobileVerifierMethod: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.

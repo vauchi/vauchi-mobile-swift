@@ -6,8 +6,8 @@
 
 import PackageDescription
 
-let version = "0.3.0-dev.15"
-let checksum = "f9fbeb1c725a110f27ce05d8f9b3fce00277e1dd6643f2833a939c9ddaeb405d" // Updated by CI on release
+let version = "0.3.0-dev.16"
+let checksum = "2a97169e3261d208ec40c6c52f581e7738683604b735a108c4f62618e4bfcca2" // Updated by CI on release
 
 let package = Package(
     name: "VauchiPlatform",

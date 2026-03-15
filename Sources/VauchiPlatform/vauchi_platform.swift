@@ -4620,7 +4620,7 @@ public func FfiConverterTypeMobileSettingsWorkflow_lower(_ value: MobileSettings
 /**
  * Unified navigation and screen engine for mobile/desktop platforms.
  *
- * Wraps `AppEngine<MockTransport>` with JSON-based FFI transport.
+ * Wraps `AppEngine` with JSON-based FFI transport.
  * Manages screen navigation, engine lifecycle, and form dialog persistence.
  *
  * # Usage from Swift/Kotlin
@@ -4733,7 +4733,7 @@ public protocol PlatformAppEngineProtocol: AnyObject {
 /**
  * Unified navigation and screen engine for mobile/desktop platforms.
  *
- * Wraps `AppEngine<MockTransport>` with JSON-based FFI transport.
+ * Wraps `AppEngine` with JSON-based FFI transport.
  * Manages screen navigation, engine lifecycle, and form dialog persistence.
  *
  * # Usage from Swift/Kotlin

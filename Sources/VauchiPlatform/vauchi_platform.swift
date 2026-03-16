@@ -430,6 +430,22 @@ private struct FfiConverterInt8: FfiConverterPrimitive {
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
+private struct FfiConverterInt16: FfiConverterPrimitive {
+    typealias FfiType = Int16
+    typealias SwiftType = Int16
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Int16 {
+        return try lift(readInt(&buf))
+    }
+
+    static func write(_ value: Int16, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
 private struct FfiConverterUInt32: FfiConverterPrimitive {
     typealias FfiType = UInt32
     typealias SwiftType = UInt32
@@ -2489,6 +2505,17 @@ public func FfiConverterTypeMobileEmergencyShredWorkflow_lower(_ value: MobileEm
  */
 public protocol MobileExchangeSessionProtocol: AnyObject {
     /**
+     * Feed a hardware event back to the session (ADR-031).
+     *
+     * Call when the platform completes a hardware action (QR scanned,
+     * BLE data received, NFC tap, audio response, etc.). The session
+     * advances its state machine and may produce new commands.
+     *
+     * After calling this, use `drain_pending_commands()` to get response commands.
+     */
+    func applyHardwareEvent(event: MobileExchangeHardwareEvent) throws
+
+    /**
      * Complete the card exchange. Transitions AwaitingCardExchange -> Complete.
      *
      * The `their_card_name` is used to create a placeholder card for the contact.
@@ -2506,6 +2533,17 @@ public protocol MobileExchangeSessionProtocol: AnyObject {
      * For proximity sessions: no-op (auto-verified via audio hardware).
      */
     func confirmProximity() throws
+
+    /**
+     * Drain all pending commands from the session (ADR-031).
+     *
+     * Call after any state-advancing method (generate_qr, process_qr,
+     * perform_key_agreement, etc.) to get hardware commands that the
+     * mobile app should execute (display QR, start BLE scan, emit audio, etc.).
+     *
+     * Returns an empty list if no commands are pending.
+     */
+    func drainPendingCommands() -> [MobileExchangeCommand]
 
     /**
      * Enable exchange debug logging.
@@ -2641,6 +2679,22 @@ open class MobileExchangeSession:
     }
 
     /**
+     * Feed a hardware event back to the session (ADR-031).
+     *
+     * Call when the platform completes a hardware action (QR scanned,
+     * BLE data received, NFC tap, audio response, etc.). The session
+     * advances its state machine and may produce new commands.
+     *
+     * After calling this, use `drain_pending_commands()` to get response commands.
+     */
+    open func applyHardwareEvent(event: MobileExchangeHardwareEvent) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_mobileexchangesession_apply_hardware_event(self.uniffiClonePointer(),
+                                                                                        FfiConverterTypeMobileExchangeHardwareEvent.lower(event), $0)
+        }
+    }
+
+    /**
      * Complete the card exchange. Transitions AwaitingCardExchange -> Complete.
      *
      * The `their_card_name` is used to create a placeholder card for the contact.
@@ -2666,6 +2720,21 @@ open class MobileExchangeSession:
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_mobileexchangesession_confirm_proximity(self.uniffiClonePointer(), $0)
         }
+    }
+
+    /**
+     * Drain all pending commands from the session (ADR-031).
+     *
+     * Call after any state-advancing method (generate_qr, process_qr,
+     * perform_key_agreement, etc.) to get hardware commands that the
+     * mobile app should execute (display QR, start BLE scan, emit audio, etc.).
+     *
+     * Returns an empty list if no commands are pending.
+     */
+    open func drainPendingCommands() -> [MobileExchangeCommand] {
+        return try! FfiConverterSequenceTypeMobileExchangeCommand.lift(try! rustCall {
+            uniffi_vauchi_platform_fn_method_mobileexchangesession_drain_pending_commands(self.uniffiClonePointer(), $0)
+        })
     }
 
     /**
@@ -16120,6 +16189,262 @@ extension MobileErrorCorrectionLevel: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /* 
+ * Exchange command sent from core to the frontend (ADR-031).
+ *
+ * Mobile apps match on these and dispatch to platform-specific APIs
+ * (camera, BLE stack, NFC reader, audio subsystem).
+ */
+
+public enum MobileExchangeCommand {
+    case qrDisplay(data: String)
+    case qrRequestScan
+    case bleStartAdvertising(serviceUuid: String, payload: Data)
+    case bleStartScanning(serviceUuid: String)
+    case bleConnect(deviceId: String)
+    case bleWriteCharacteristic(uuid: String, data: Data)
+    case bleReadCharacteristic(uuid: String)
+    case bleDisconnect
+    case nfcActivate(payload: Data)
+    case nfcDeactivate
+    case audioEmitChallenge(data: Data)
+    case audioListenForResponse(timeoutMs: UInt64)
+    case audioStop
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileExchangeCommand: FfiConverterRustBuffer {
+    typealias SwiftType = MobileExchangeCommand
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileExchangeCommand {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return try .qrDisplay(data: FfiConverterString.read(from: &buf))
+
+        case 2: return .qrRequestScan
+
+        case 3: return try .bleStartAdvertising(serviceUuid: FfiConverterString.read(from: &buf), payload: FfiConverterData.read(from: &buf))
+
+        case 4: return try .bleStartScanning(serviceUuid: FfiConverterString.read(from: &buf))
+
+        case 5: return try .bleConnect(deviceId: FfiConverterString.read(from: &buf))
+
+        case 6: return try .bleWriteCharacteristic(uuid: FfiConverterString.read(from: &buf), data: FfiConverterData.read(from: &buf))
+
+        case 7: return try .bleReadCharacteristic(uuid: FfiConverterString.read(from: &buf))
+
+        case 8: return .bleDisconnect
+
+        case 9: return try .nfcActivate(payload: FfiConverterData.read(from: &buf))
+
+        case 10: return .nfcDeactivate
+
+        case 11: return try .audioEmitChallenge(data: FfiConverterData.read(from: &buf))
+
+        case 12: return try .audioListenForResponse(timeoutMs: FfiConverterUInt64.read(from: &buf))
+
+        case 13: return .audioStop
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileExchangeCommand, into buf: inout [UInt8]) {
+        switch value {
+        case let .qrDisplay(data):
+            writeInt(&buf, Int32(1))
+            FfiConverterString.write(data, into: &buf)
+
+        case .qrRequestScan:
+            writeInt(&buf, Int32(2))
+
+        case let .bleStartAdvertising(serviceUuid, payload):
+            writeInt(&buf, Int32(3))
+            FfiConverterString.write(serviceUuid, into: &buf)
+            FfiConverterData.write(payload, into: &buf)
+
+        case let .bleStartScanning(serviceUuid):
+            writeInt(&buf, Int32(4))
+            FfiConverterString.write(serviceUuid, into: &buf)
+
+        case let .bleConnect(deviceId):
+            writeInt(&buf, Int32(5))
+            FfiConverterString.write(deviceId, into: &buf)
+
+        case let .bleWriteCharacteristic(uuid, data):
+            writeInt(&buf, Int32(6))
+            FfiConverterString.write(uuid, into: &buf)
+            FfiConverterData.write(data, into: &buf)
+
+        case let .bleReadCharacteristic(uuid):
+            writeInt(&buf, Int32(7))
+            FfiConverterString.write(uuid, into: &buf)
+
+        case .bleDisconnect:
+            writeInt(&buf, Int32(8))
+
+        case let .nfcActivate(payload):
+            writeInt(&buf, Int32(9))
+            FfiConverterData.write(payload, into: &buf)
+
+        case .nfcDeactivate:
+            writeInt(&buf, Int32(10))
+
+        case let .audioEmitChallenge(data):
+            writeInt(&buf, Int32(11))
+            FfiConverterData.write(data, into: &buf)
+
+        case let .audioListenForResponse(timeoutMs):
+            writeInt(&buf, Int32(12))
+            FfiConverterUInt64.write(timeoutMs, into: &buf)
+
+        case .audioStop:
+            writeInt(&buf, Int32(13))
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileExchangeCommand_lift(_ buf: RustBuffer) throws -> MobileExchangeCommand {
+    return try FfiConverterTypeMobileExchangeCommand.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileExchangeCommand_lower(_ value: MobileExchangeCommand) -> RustBuffer {
+    return FfiConverterTypeMobileExchangeCommand.lower(value)
+}
+
+extension MobileExchangeCommand: Equatable, Hashable {}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/* 
+ * Hardware event reported by the frontend back to core (ADR-031).
+ *
+ * Mobile apps create these after executing a command (e.g., QR scanned,
+ * BLE data received) and feed them back via `apply_hardware_event()`.
+ */
+
+public enum MobileExchangeHardwareEvent {
+    case qrScanned(data: String)
+    case bleDeviceDiscovered(id: String, rssi: Int16, advData: Data)
+    case bleConnected(deviceId: String)
+    case bleCharacteristicRead(uuid: String, data: Data)
+    case bleCharacteristicNotified(uuid: String, data: Data)
+    case bleDisconnected(reason: String)
+    case nfcDataReceived(data: Data)
+    case audioResponseReceived(data: Data)
+    case hardwareError(transport: String, error: String)
+    case hardwareUnavailable(transport: String)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileExchangeHardwareEvent: FfiConverterRustBuffer {
+    typealias SwiftType = MobileExchangeHardwareEvent
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileExchangeHardwareEvent {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return try .qrScanned(data: FfiConverterString.read(from: &buf))
+
+        case 2: return try .bleDeviceDiscovered(id: FfiConverterString.read(from: &buf), rssi: FfiConverterInt16.read(from: &buf), advData: FfiConverterData.read(from: &buf))
+
+        case 3: return try .bleConnected(deviceId: FfiConverterString.read(from: &buf))
+
+        case 4: return try .bleCharacteristicRead(uuid: FfiConverterString.read(from: &buf), data: FfiConverterData.read(from: &buf))
+
+        case 5: return try .bleCharacteristicNotified(uuid: FfiConverterString.read(from: &buf), data: FfiConverterData.read(from: &buf))
+
+        case 6: return try .bleDisconnected(reason: FfiConverterString.read(from: &buf))
+
+        case 7: return try .nfcDataReceived(data: FfiConverterData.read(from: &buf))
+
+        case 8: return try .audioResponseReceived(data: FfiConverterData.read(from: &buf))
+
+        case 9: return try .hardwareError(transport: FfiConverterString.read(from: &buf), error: FfiConverterString.read(from: &buf))
+
+        case 10: return try .hardwareUnavailable(transport: FfiConverterString.read(from: &buf))
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileExchangeHardwareEvent, into buf: inout [UInt8]) {
+        switch value {
+        case let .qrScanned(data):
+            writeInt(&buf, Int32(1))
+            FfiConverterString.write(data, into: &buf)
+
+        case let .bleDeviceDiscovered(id, rssi, advData):
+            writeInt(&buf, Int32(2))
+            FfiConverterString.write(id, into: &buf)
+            FfiConverterInt16.write(rssi, into: &buf)
+            FfiConverterData.write(advData, into: &buf)
+
+        case let .bleConnected(deviceId):
+            writeInt(&buf, Int32(3))
+            FfiConverterString.write(deviceId, into: &buf)
+
+        case let .bleCharacteristicRead(uuid, data):
+            writeInt(&buf, Int32(4))
+            FfiConverterString.write(uuid, into: &buf)
+            FfiConverterData.write(data, into: &buf)
+
+        case let .bleCharacteristicNotified(uuid, data):
+            writeInt(&buf, Int32(5))
+            FfiConverterString.write(uuid, into: &buf)
+            FfiConverterData.write(data, into: &buf)
+
+        case let .bleDisconnected(reason):
+            writeInt(&buf, Int32(6))
+            FfiConverterString.write(reason, into: &buf)
+
+        case let .nfcDataReceived(data):
+            writeInt(&buf, Int32(7))
+            FfiConverterData.write(data, into: &buf)
+
+        case let .audioResponseReceived(data):
+            writeInt(&buf, Int32(8))
+            FfiConverterData.write(data, into: &buf)
+
+        case let .hardwareError(transport, error):
+            writeInt(&buf, Int32(9))
+            FfiConverterString.write(transport, into: &buf)
+            FfiConverterString.write(error, into: &buf)
+
+        case let .hardwareUnavailable(transport):
+            writeInt(&buf, Int32(10))
+            FfiConverterString.write(transport, into: &buf)
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileExchangeHardwareEvent_lift(_ buf: RustBuffer) throws -> MobileExchangeHardwareEvent {
+    return try FfiConverterTypeMobileExchangeHardwareEvent.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileExchangeHardwareEvent_lower(_ value: MobileExchangeHardwareEvent) -> RustBuffer {
+    return FfiConverterTypeMobileExchangeHardwareEvent.lower(value)
+}
+
+extension MobileExchangeHardwareEvent: Equatable, Hashable {}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/* 
  * Mobile-friendly exchange state (no raw bytes or core types).
  */
 
@@ -19864,6 +20189,31 @@ private struct FfiConverterSequenceTypeMobileContentType: FfiConverterRustBuffer
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
+private struct FfiConverterSequenceTypeMobileExchangeCommand: FfiConverterRustBuffer {
+    typealias SwiftType = [MobileExchangeCommand]
+
+    static func write(_ value: [MobileExchangeCommand], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeMobileExchangeCommand.write(item, into: &buf)
+        }
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileExchangeCommand] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [MobileExchangeCommand]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            try seq.append(FfiConverterTypeMobileExchangeCommand.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
 private struct FfiConverterSequenceTypeMobileOnboardingStep: FfiConverterRustBuffer {
     typealias SwiftType = [MobileOnboardingStep]
 
@@ -20627,10 +20977,16 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_mobileemergencyshredworkflow_wipe_complete() != 10585 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_method_mobileexchangesession_apply_hardware_event() != 3482 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_platform_checksum_method_mobileexchangesession_complete_card_exchange() != 63295 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_mobileexchangesession_confirm_proximity() != 50473 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_mobileexchangesession_drain_pending_commands() != 51499 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_mobileexchangesession_enable_debug_log() != 48820 {

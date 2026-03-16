@@ -116,8 +116,8 @@ update:version:
       head -12 Package.swift
 
       # Configure git to push via CI_JOB_TOKEN
-      git config user.email "ci@vauchi.com"
-      git config user.name "Vauchi CI"
+      git config user.email "${GITLAB_USER_EMAIL}"
+      git config user.name "${GITLAB_USER_NAME}"
       git remote set-url origin "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/${CI_PROJECT_PATH}.git"
 
       # GitLab clones in detached HEAD — checkout main so we can commit and push

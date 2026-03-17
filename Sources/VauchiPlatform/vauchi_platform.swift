@@ -17184,6 +17184,7 @@ public enum MobileProtocolState {
     case verifying
     case confirming
     case complete
+    case finalized
     case failed(reason: String)
 }
 
@@ -17210,7 +17211,9 @@ public struct FfiConverterTypeMobileProtocolState: FfiConverterRustBuffer {
 
         case 7: return .complete
 
-        case 8: return try .failed(reason: FfiConverterString.read(from: &buf))
+        case 8: return .finalized
+
+        case 9: return try .failed(reason: FfiConverterString.read(from: &buf))
 
         default: throw UniffiInternalError.unexpectedEnumCase
         }
@@ -17243,8 +17246,11 @@ public struct FfiConverterTypeMobileProtocolState: FfiConverterRustBuffer {
         case .complete:
             writeInt(&buf, Int32(7))
 
-        case let .failed(reason):
+        case .finalized:
             writeInt(&buf, Int32(8))
+
+        case let .failed(reason):
+            writeInt(&buf, Int32(9))
             FfiConverterString.write(reason, into: &buf)
         }
     }

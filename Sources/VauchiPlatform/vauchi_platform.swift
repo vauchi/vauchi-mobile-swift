@@ -18633,7 +18633,7 @@ extension FfiConverterCallbackInterfaceMobilePlatformKeychain: FfiConverter {
  */
 public protocol MobileProximityHandler: AnyObject {
     /**
-     * Perform proximity verification with the given challenge.
+     * Perform single-direction proximity verification (legacy).
      *
      * challenge: 16 bytes from the QR code's audio_challenge field.
      * timeout_ms: maximum time to wait in milliseconds.
@@ -18641,6 +18641,24 @@ public protocol MobileProximityHandler: AnyObject {
      * Returns empty string on success, error message on failure.
      */
     func verifyProximity(challenge: Data, timeoutMs: UInt64) -> String
+
+    /**
+     * Perform bidirectional proximity verification.
+     *
+     * Both devices must independently prove they can hear each other.
+     * The initiator emits first then listens; the responder listens first then emits.
+     *
+     * emit_challenge: 16 bytes to emit (from peer's QR audio_challenge).
+     * listen_challenge: 16 bytes to listen for (our challenge, sent via encrypted channel).
+     * timeout_ms: maximum time to wait in milliseconds.
+     * is_initiator: true if this device scanned the QR (emit first), false if displayed.
+     *
+     * Returns empty string on success, error message on failure.
+     *
+     * Default: falls back to single-direction (emit only) for backward compat.
+     * Mobile apps should override this to enforce both directions.
+     */
+    func verifyProximityTwoWay(emitChallenge: Data, listenChallenge: Data, timeoutMs: UInt64, isInitiator: Bool) -> String
 }
 
 /// Put the implementation in a struct so we don't pollute the top-level namespace
@@ -18663,6 +18681,35 @@ private enum UniffiCallbackInterfaceMobileProximityHandler {
                 return try uniffiObj.verifyProximity(
                     challenge: FfiConverterData.lift(challenge),
                     timeoutMs: FfiConverterUInt64.lift(timeoutMs)
+                )
+            }
+
+            let writeReturn = { uniffiOutReturn.pointee = FfiConverterString.lower($0) }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        verifyProximityTwoWay: { (
+            uniffiHandle: UInt64,
+            emitChallenge: RustBuffer,
+            listenChallenge: RustBuffer,
+            timeoutMs: UInt64,
+            isInitiator: Int8,
+            uniffiOutReturn: UnsafeMutablePointer<RustBuffer>,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> String in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceMobileProximityHandler.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return try uniffiObj.verifyProximityTwoWay(
+                    emitChallenge: FfiConverterData.lift(emitChallenge),
+                    listenChallenge: FfiConverterData.lift(listenChallenge),
+                    timeoutMs: FfiConverterUInt64.lift(timeoutMs),
+                    isInitiator: FfiConverterBool.lift(isInitiator)
                 )
             }
 
@@ -21796,7 +21843,10 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_mobileplatformkeychain_delete_key() != 33591 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_mobileproximityhandler_verify_proximity() != 43496 {
+    if uniffi_vauchi_platform_checksum_method_mobileproximityhandler_verify_proximity() != 47246 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_mobileproximityhandler_verify_proximity_two_way() != 53362 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_mobilewifiawarehandler_on_peer_discovered() != 45630 {

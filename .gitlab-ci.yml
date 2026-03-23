@@ -87,15 +87,15 @@ update:version:
       echo "Checksum: $CHECKSUM"
 
       # Verify checksum signature with cosign — fail hard on verification failure
-      SIG_URL="${CHECKSUM_URL}.sig"
+      BUNDLE_URL="${CHECKSUM_URL}.bundle"
       COSIGN_PUB_URL="https://gitlab.com/vauchi/core/-/raw/main/cosign.pub"
-      echo "Fetching checksum signature from: $SIG_URL"
-      curl -sf -o checksum.sha256.sig "$SIG_URL"
-      curl -sf -o cosign.pub "$COSIGN_PUB_URL"
+      echo "Fetching checksum bundle from: $BUNDLE_URL"
       echo "$CHECKSUM" > checksum.sha256
-      cosign verify-blob --key cosign.pub --signature checksum.sha256.sig checksum.sha256
+      curl -sf -o checksum.sha256.bundle "$BUNDLE_URL"
+      curl -sf -o cosign.pub "$COSIGN_PUB_URL"
+      cosign verify-blob --key cosign.pub --bundle checksum.sha256.bundle checksum.sha256
       echo "Checksum signature verified"
-      rm -f checksum.sha256 checksum.sha256.sig cosign.pub
+      rm -f checksum.sha256 checksum.sha256.bundle cosign.pub
 
       # Download generated Swift bindings from upstream full package
       # NOTE: The checksum above is for VauchiPlatformFFI.xcframework.zip (verified by SPM

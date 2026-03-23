@@ -4,32 +4,24 @@
 
 # GitLab CI for vauchi-platform-swift
 #
-# Swift Package distribution for VauchiPlatform
-#
-# This pipeline:
-# - Validates Package.swift syntax
-# - Tests package resolution (when binaries are available)
-# - Auto-updates on upstream release triggers
+# Thin SPM distribution repo. Updates are pushed directly by vauchi/core CI
+# (update:swift-bindings job). This pipeline only validates Package.swift syntax.
 
 include:
   - project: 'vauchi/scripts'
     ref: main
     file:
       - '/ci-templates/reuse.yml'
-      - '/ci-templates/badges.yml'
 
 stages:
   - lint
   - validate
-  - test
-  - notify
-  - deploy
 
 workflow:
   auto_cancel:
     on_new_commit: interruptible
 
-# Validate Package.swift syntax
+# Validate Package.swift syntax on every push
 validate:package:
   stage: validate
   image: swift:5.9
@@ -39,134 +31,3 @@ validate:package:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == "main"
-
-# Test package can be resolved (requires released binary)
-test:resolve:
-  stage: test
-  tags:
-    - macos
-    - self-hosted
-  script:
-    - swift package resolve
-  rules:
-    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
-  allow_failure: true  # May fail if binary not yet published
-
-# Triggered by upstream vauchi/core release
-# Updates Package.swift with new version and checksum
-update:version:
-  stage: validate
-  image: alpine:latest
-  resource_group: bindings-update
-  rules:
-    # Accept all trigger sources:
-    #   "trigger" = Pipeline Trigger API (trigger-downstream.sh from CI)
-    #   "pipeline" = GitLab trigger: keyword (multi-project pipeline)
-    #   "api" = Pipeline API with PRIVATE-TOKEN (trigger-downstream.sh locally, or glab)
-    - if: ($CI_PIPELINE_SOURCE == "trigger" || $CI_PIPELINE_SOURCE == "pipeline" || $CI_PIPELINE_SOURCE == "api") && $UPSTREAM_VERSION
-  before_script:
-    - apk add --no-cache curl git jq
-    - curl -sSfL https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64 -o /usr/local/bin/cosign && chmod +x /usr/local/bin/cosign
-  script:
-    - |
-      echo "Updating to version $UPSTREAM_VERSION"
-
-      # Strip v prefix for Package.swift version string
-      CLEAN_VERSION="${UPSTREAM_VERSION#v}"
-
-      # Download checksum from upstream
-      CHECKSUM_URL="https://gitlab.com/api/v4/projects/vauchi%2Fcore/packages/generic/vauchi-platform/$CLEAN_VERSION/VauchiPlatformFFI.xcframework.zip.sha256"
-      echo "Fetching checksum from: $CHECKSUM_URL"
-      # No auth header — packages are public. Sending CI_JOB_TOKEN from a
-      # downstream project causes 401 (GitLab validates the token instead of
-      # falling through to public access).
-      CHECKSUM=$(curl -sfL "$CHECKSUM_URL" || true)
-
-      if [[ -z "$CHECKSUM" || "$CHECKSUM" == "null" ]]; then
-        echo "Error: Could not fetch checksum from $CHECKSUM_URL"
-        exit 1
-      fi
-
-      echo "Checksum: $CHECKSUM"
-
-      # Verify checksum signature with cosign — fail hard on verification failure
-      BUNDLE_URL="${CHECKSUM_URL}.bundle"
-      COSIGN_PUB_URL="https://gitlab.com/vauchi/core/-/raw/main/cosign.pub"
-      echo "Fetching checksum bundle from: $BUNDLE_URL"
-      echo "$CHECKSUM" > checksum.sha256
-      curl -sfL -o checksum.sha256.bundle "$BUNDLE_URL"
-      curl -sfL -o cosign.pub "$COSIGN_PUB_URL"
-      cosign verify-blob --key cosign.pub --bundle checksum.sha256.bundle checksum.sha256
-      echo "Checksum signature verified"
-      rm -f checksum.sha256 checksum.sha256.bundle cosign.pub
-
-      # Download generated Swift bindings from upstream full package
-      # NOTE: The checksum above is for VauchiPlatformFFI.xcframework.zip (verified by SPM
-      # at resolve time via Package.swift). The bindings zip below is a different artifact
-      # and has no published checksum. To close this gap, core would need to publish a
-      # separate checksum for VauchiPlatform-*.zip.
-      BINDINGS_URL="https://gitlab.com/api/v4/projects/vauchi%2Fcore/packages/generic/vauchi-platform/$CLEAN_VERSION/VauchiPlatform-$CLEAN_VERSION.zip"
-      echo "Fetching Swift bindings from: $BINDINGS_URL"
-      curl -sfL -o VauchiPlatform.zip "$BINDINGS_URL"
-      unzip -o -j VauchiPlatform.zip "VauchiPlatform-$CLEAN_VERSION/Sources/vauchi_platform.swift" -d Sources/VauchiPlatform/
-
-      # Update Package.swift
-      sed -i "s/let version = \".*\"/let version = \"$CLEAN_VERSION\"/" Package.swift
-      sed -i "s/let checksum = \".*\"/let checksum = \"$CHECKSUM\"/" Package.swift
-
-      echo "Updated Package.swift:"
-      head -12 Package.swift
-
-      # Configure git to push via CI_JOB_TOKEN
-      git config user.email "${GITLAB_USER_EMAIL}"
-      git config user.name "${GITLAB_USER_NAME}"
-      git remote set-url origin "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/${CI_PROJECT_PATH}.git"
-
-      # GitLab clones in detached HEAD — checkout main so we can commit and push
-      git checkout -B main
-
-      git add Package.swift Sources/VauchiPlatform/vauchi_platform.swift
-      if git diff --cached --quiet; then
-        echo "No changes to commit — bindings already up to date"
-        exit 0
-      fi
-      git commit -m "chore: Update to $UPSTREAM_VERSION"
-      git tag -f "$UPSTREAM_VERSION"
-      git push origin main --tags --force
-
-# Trigger vauchi/ios to create an MR bumping the dependency.
-# Uses GitLab's native trigger: keyword — CI_JOB_TOKEN is used implicitly.
-# Requires vauchi/ios to allow CI job tokens from this project.
-trigger:ios-app:
-  stage: notify
-  needs:
-    - update:version
-  variables:
-    BINDINGS_VERSION: $UPSTREAM_VERSION
-  trigger:
-    project: vauchi/ios
-    branch: main
-    strategy: depend
-  rules:
-    - if: ($CI_PIPELINE_SOURCE == "trigger" || $CI_PIPELINE_SOURCE == "pipeline" || $CI_PIPELINE_SOURCE == "api") && $UPSTREAM_VERSION
-
-# Trigger vauchi/macos to create an MR bumping the dependency.
-trigger:macos-app:
-  stage: notify
-  needs:
-    - update:version
-  variables:
-    BINDINGS_VERSION: $UPSTREAM_VERSION
-  trigger:
-    project: vauchi/macos
-    branch: main
-    strategy: depend
-  rules:
-    - if: ($CI_PIPELINE_SOURCE == "trigger" || $CI_PIPELINE_SOURCE == "pipeline" || $CI_PIPELINE_SOURCE == "api") && $UPSTREAM_VERSION
-
-# ============================================================
-# Deploy Stage — Badge Pages
-# ============================================================
-
-pages:
-  extends: .badges-pages

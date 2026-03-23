@@ -77,7 +77,10 @@ update:version:
       # Download checksum from upstream
       CHECKSUM_URL="https://gitlab.com/api/v4/projects/vauchi%2Fcore/packages/generic/vauchi-platform/$CLEAN_VERSION/VauchiPlatformFFI.xcframework.zip.sha256"
       echo "Fetching checksum from: $CHECKSUM_URL"
-      CHECKSUM=$(curl -sfL --header "JOB-TOKEN: $CI_JOB_TOKEN" "$CHECKSUM_URL" || true)
+      # No auth header — packages are public. Sending CI_JOB_TOKEN from a
+      # downstream project causes 401 (GitLab validates the token instead of
+      # falling through to public access).
+      CHECKSUM=$(curl -sfL "$CHECKSUM_URL" || true)
 
       if [[ -z "$CHECKSUM" || "$CHECKSUM" == "null" ]]; then
         echo "Error: Could not fetch checksum from $CHECKSUM_URL"
@@ -91,7 +94,7 @@ update:version:
       COSIGN_PUB_URL="https://gitlab.com/vauchi/core/-/raw/main/cosign.pub"
       echo "Fetching checksum bundle from: $BUNDLE_URL"
       echo "$CHECKSUM" > checksum.sha256
-      curl -sfL --header "JOB-TOKEN: $CI_JOB_TOKEN" -o checksum.sha256.bundle "$BUNDLE_URL"
+      curl -sfL -o checksum.sha256.bundle "$BUNDLE_URL"
       curl -sfL -o cosign.pub "$COSIGN_PUB_URL"
       cosign verify-blob --key cosign.pub --bundle checksum.sha256.bundle checksum.sha256
       echo "Checksum signature verified"
@@ -104,7 +107,7 @@ update:version:
       # separate checksum for VauchiPlatform-*.zip.
       BINDINGS_URL="https://gitlab.com/api/v4/projects/vauchi%2Fcore/packages/generic/vauchi-platform/$CLEAN_VERSION/VauchiPlatform-$CLEAN_VERSION.zip"
       echo "Fetching Swift bindings from: $BINDINGS_URL"
-      curl -sfL --header "JOB-TOKEN: $CI_JOB_TOKEN" -o VauchiPlatform.zip "$BINDINGS_URL"
+      curl -sfL -o VauchiPlatform.zip "$BINDINGS_URL"
       unzip -o -j VauchiPlatform.zip "VauchiPlatform-$CLEAN_VERSION/Sources/vauchi_platform.swift" -d Sources/VauchiPlatform/
 
       # Update Package.swift

@@ -12,6 +12,7 @@ include:
     ref: main
     file:
       - '/ci-templates/reuse.yml'
+      - '/ci-templates/github-mirror.yml'
 
 stages:
   - lint
@@ -31,3 +32,8 @@ validate:package:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == "main"
+
+github-mirror:
+  extends: .github-mirror
+  variables:
+    GITHUB_MIRROR_REPO: "vauchi-mobile-swift"

@@ -1165,17 +1165,19 @@ open class MobileBleExchangeSession:
      * * `identity_key` - 32-byte Ed25519 signing public key
      * * `display_name` - User's display name for the contact card
      * * `exchange_key` - 32-byte X25519 exchange public key
+     * * `exchange_secret` - 32-byte X25519 exchange secret key (for identity DH binding)
      * * `fields` - Contact fields as key-value pairs
      * * `avatar` - Optional avatar image bytes
      * * `delegate` - Platform BLE transport callback
      */
-    public convenience init(identityKey: Data, displayName: String, exchangeKey: Data, fields: [MobileBleField], avatar: Data?, delegate: MobileBleDelegate) throws {
+    public convenience init(identityKey: Data, displayName: String, exchangeKey: Data, exchangeSecret: Data, fields: [MobileBleField], avatar: Data?, delegate: MobileBleDelegate) throws {
         let pointer =
             try rustCallWithError(FfiConverterTypeMobileBleError.lift) {
                 uniffi_vauchi_platform_fn_constructor_mobilebleexchangesession_new(
                     FfiConverterData.lower(identityKey),
                     FfiConverterString.lower(displayName),
                     FfiConverterData.lower(exchangeKey),
+                    FfiConverterData.lower(exchangeSecret),
                     FfiConverterSequenceTypeMobileBleField.lower(fields),
                     FfiConverterOptionData.lower(avatar),
                     FfiConverterCallbackInterfaceMobileBleDelegate.lower(delegate), $0
@@ -5202,13 +5204,6 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func configureEmergencyBroadcast(contactIds: [String], message: String, includeLocation: Bool) throws
 
     /**
-     * Configures Tor bridge addresses.
-     *
-     * Bridges are used when direct Tor connections are blocked.
-     */
-    func configureTorBridges(bridges: [String]) throws
-
-    /**
      * Get contact count.
      */
     func contactCount() throws -> UInt32
@@ -5286,6 +5281,20 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func currentOnboardingStep() throws -> MobileOnboardingStep
 
     /**
+     * Delete the private note on a specific field of a contact.
+     *
+     * No error is returned if no note existed.
+     */
+    func deleteContactFieldNote(contactId: String, fieldId: String) throws
+
+    /**
+     * Delete the personal note for a contact.
+     *
+     * No error is returned if no note existed.
+     */
+    func deleteContactNote(contactId: String) throws
+
+    /**
      * Deletes a decoy contact by ID.
      */
     func deleteDecoyContact(id: String) throws
@@ -5318,13 +5327,6 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func disableEmergencyBroadcast() throws
 
     /**
-     * Disables Tor.
-     *
-     * Persists the disabled state to storage.
-     */
-    func disableTor() throws
-
-    /**
      * Dismiss the demo contact.
      */
     func dismissDemoContact() throws
@@ -5336,14 +5338,6 @@ public protocol VauchiPlatformProtocol: AnyObject {
      * "Alexandra", "Alex", "A. Johnson".
      */
     func displayNameSuggestions(fullName: String) -> [String]
-
-    /**
-     * Enables Tor with the current configuration.
-     *
-     * Persists the enabled state to storage.
-     * Note: Actual Tor bootstrapping requires the `tor` feature in core.
-     */
-    func enableTor() throws
 
     /**
      * Encode data into multipart QR chunk strings for animated display.
@@ -5385,6 +5379,16 @@ public protocol VauchiPlatformProtocol: AnyObject {
      * and initializes the double ratchet. No relay notification is sent — face-to-face
      * exchange completes locally on both devices.
      *
+     * On repeat exchange with the same peer, the contact card is upserted and the
+     * ratchet state is re-initialized with fresh keys. Any relay messages in flight
+     * from the previous ratchet epoch become permanently undecryptable. This is
+     * intentional: a face-to-face re-exchange is a deliberate key ceremony that
+     * establishes fresh forward secrecy.
+     *
+     * Old mailbox tokens (derived from the previous shared key) self-heal
+     * via the relay's 30-day blob TTL — no active deregistration needed.
+     * `exchange_timestamp` is updated by the SQL upsert in `save_contact()`.
+     *
      * The session must be in the Complete state (i.e., the state machine has been
      * driven through all steps).
      */
@@ -5396,6 +5400,9 @@ public protocol VauchiPlatformProtocol: AnyObject {
      * Deserializes the peer's exchange payload (public key + contact card),
      * creates a Contact using the transport key as the shared secret,
      * saves it to storage, and initializes the double ratchet.
+     *
+     * On repeat exchange: same ratchet-reset semantics as `finalize_exchange` —
+     * card is upserted, ratchet re-initialized, in-flight messages lost.
      *
      * The session must be in the Complete state with received data available.
      */
@@ -5431,6 +5438,20 @@ public protocol VauchiPlatformProtocol: AnyObject {
      * Get single contact by ID.
      */
     func getContact(id: String) throws -> MobileContact?
+
+    /**
+     * Load all private field notes for a contact.
+     *
+     * Returns a list of `(field_id, note)` pairs. Fields with no note are omitted.
+     */
+    func getContactFieldNotes(contactId: String) throws -> [MobileFieldNote]
+
+    /**
+     * Load the personal note for a contact, if any.
+     *
+     * Returns `None` if no note has been saved.
+     */
+    func getContactNote(contactId: String) throws -> String?
 
     /**
      * Get current deletion state.
@@ -5772,11 +5793,6 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func listenForDeviceLinkRequest(timeoutSecs: UInt64) throws -> MobileDeviceLinkRequest
 
     /**
-     * Loads the persisted Tor configuration from storage and returns it.
-     */
-    func loadTorConfig() throws -> MobileTorConfig
-
-    /**
      * Manually retry a failed delivery.
      *
      * Returns true if the retry entry was found and rescheduled.
@@ -5848,13 +5864,6 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func renameLabel(labelId: String, newName: String) throws
 
     /**
-     * Requests a new Tor circuit rotation.
-     *
-     * Without the `tor` feature, this is a no-op that returns Ok.
-     */
-    func requestNewTorCircuit() throws
-
-    /**
      * Reset all aha moments (for testing/debugging).
      */
     func resetAhaMoments() throws
@@ -5922,11 +5931,27 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func sendEmergencyBroadcast() throws -> MobileBroadcastResult
 
     /**
+     * Save a private note on a specific field of a contact.
+     *
+     * Notes are private ("your eyes only") — they are never sent to the contact.
+     * An empty string clears the note.
+     */
+    func setContactFieldNote(contactId: String, fieldId: String, note: String) throws
+
+    /**
      * Set a per-contact override for field visibility.
      *
      * Per-contact overrides take precedence over label-based visibility.
      */
     func setContactFieldOverride(contactId: String, fieldLabel: String, isVisible: Bool) throws
+
+    /**
+     * Save a personal note for a contact.
+     *
+     * Notes are private ("your eyes only") — they are never sent to the contact.
+     * An empty string clears the note.
+     */
+    func setContactNote(contactId: String, note: String) throws
 
     /**
      * Sets whether delivery receipts are enabled.
@@ -5959,6 +5984,13 @@ public protocol VauchiPlatformProtocol: AnyObject {
      * Android KeyStore) for SMK management.
      */
     func setPlatformKeychain(keychain: MobilePlatformKeychain)
+
+    /**
+     * Mark a contact as trusted for simplified contact proposals.
+     *
+     * This is a local-only flag — the contact is never informed of their trust status.
+     */
+    func setProposalTrusted(contactId: String, trusted: Bool) throws
 
     /**
      * Sets whether presence suppression is enabled.
@@ -6048,11 +6080,6 @@ public protocol VauchiPlatformProtocol: AnyObject {
      * the future `Send` (required by UniFFI async exports).
      */
     func syncAsync() async throws -> MobileSyncResult
-
-    /**
-     * Returns the current Tor connection status.
-     */
-    func torStatus() throws -> MobileTorStatus
 
     /**
      * Trigger a demo update and get the new content.
@@ -6441,18 +6468,6 @@ open class VauchiPlatform:
     }
 
     /**
-     * Configures Tor bridge addresses.
-     *
-     * Bridges are used when direct Tor connections are blocked.
-     */
-    open func configureTorBridges(bridges: [String]) throws {
-        try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_configure_tor_bridges(self.uniffiClonePointer(),
-                                                                                  FfiConverterSequenceString.lower(bridges), $0)
-        }
-    }
-
-    /**
      * Get contact count.
      */
     open func contactCount() throws -> UInt32 {
@@ -6583,6 +6598,31 @@ open class VauchiPlatform:
     }
 
     /**
+     * Delete the private note on a specific field of a contact.
+     *
+     * No error is returned if no note existed.
+     */
+    open func deleteContactFieldNote(contactId: String, fieldId: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_vauchiplatform_delete_contact_field_note(self.uniffiClonePointer(),
+                                                                                      FfiConverterString.lower(contactId),
+                                                                                      FfiConverterString.lower(fieldId), $0)
+        }
+    }
+
+    /**
+     * Delete the personal note for a contact.
+     *
+     * No error is returned if no note existed.
+     */
+    open func deleteContactNote(contactId: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_vauchiplatform_delete_contact_note(self.uniffiClonePointer(),
+                                                                                FfiConverterString.lower(contactId), $0)
+        }
+    }
+
+    /**
      * Deletes a decoy contact by ID.
      */
     open func deleteDecoyContact(id: String) throws {
@@ -6642,17 +6682,6 @@ open class VauchiPlatform:
     }
 
     /**
-     * Disables Tor.
-     *
-     * Persists the disabled state to storage.
-     */
-    open func disableTor() throws {
-        try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_disable_tor(self.uniffiClonePointer(), $0)
-        }
-    }
-
-    /**
      * Dismiss the demo contact.
      */
     open func dismissDemoContact() throws {
@@ -6672,18 +6701,6 @@ open class VauchiPlatform:
             uniffi_vauchi_platform_fn_method_vauchiplatform_display_name_suggestions(self.uniffiClonePointer(),
                                                                                      FfiConverterString.lower(fullName), $0)
         })
-    }
-
-    /**
-     * Enables Tor with the current configuration.
-     *
-     * Persists the enabled state to storage.
-     * Note: Actual Tor bootstrapping requires the `tor` feature in core.
-     */
-    open func enableTor() throws {
-        try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_enable_tor(self.uniffiClonePointer(), $0)
-        }
     }
 
     /**
@@ -6748,6 +6765,16 @@ open class VauchiPlatform:
      * and initializes the double ratchet. No relay notification is sent — face-to-face
      * exchange completes locally on both devices.
      *
+     * On repeat exchange with the same peer, the contact card is upserted and the
+     * ratchet state is re-initialized with fresh keys. Any relay messages in flight
+     * from the previous ratchet epoch become permanently undecryptable. This is
+     * intentional: a face-to-face re-exchange is a deliberate key ceremony that
+     * establishes fresh forward secrecy.
+     *
+     * Old mailbox tokens (derived from the previous shared key) self-heal
+     * via the relay's 30-day blob TTL — no active deregistration needed.
+     * `exchange_timestamp` is updated by the SQL upsert in `save_contact()`.
+     *
      * The session must be in the Complete state (i.e., the state machine has been
      * driven through all steps).
      */
@@ -6764,6 +6791,9 @@ open class VauchiPlatform:
      * Deserializes the peer's exchange payload (public key + contact card),
      * creates a Contact using the transport key as the shared secret,
      * saves it to storage, and initializes the double ratchet.
+     *
+     * On repeat exchange: same ratchet-reset semantics as `finalize_exchange` —
+     * card is upserted, ratchet re-initialized, in-flight messages lost.
      *
      * The session must be in the Complete state with received data available.
      */
@@ -6824,6 +6854,30 @@ open class VauchiPlatform:
         return try FfiConverterOptionTypeMobileContact.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_vauchiplatform_get_contact(self.uniffiClonePointer(),
                                                                         FfiConverterString.lower(id), $0)
+        })
+    }
+
+    /**
+     * Load all private field notes for a contact.
+     *
+     * Returns a list of `(field_id, note)` pairs. Fields with no note are omitted.
+     */
+    open func getContactFieldNotes(contactId: String) throws -> [MobileFieldNote] {
+        return try FfiConverterSequenceTypeMobileFieldNote.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_vauchiplatform_get_contact_field_notes(self.uniffiClonePointer(),
+                                                                                    FfiConverterString.lower(contactId), $0)
+        })
+    }
+
+    /**
+     * Load the personal note for a contact, if any.
+     *
+     * Returns `None` if no note has been saved.
+     */
+    open func getContactNote(contactId: String) throws -> String? {
+        return try FfiConverterOptionString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_vauchiplatform_get_contact_note(self.uniffiClonePointer(),
+                                                                             FfiConverterString.lower(contactId), $0)
         })
     }
 
@@ -7437,15 +7491,6 @@ open class VauchiPlatform:
     }
 
     /**
-     * Loads the persisted Tor configuration from storage and returns it.
-     */
-    open func loadTorConfig() throws -> MobileTorConfig {
-        return try FfiConverterTypeMobileTorConfig.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_load_tor_config(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
      * Manually retry a failed delivery.
      *
      * Returns true if the retry entry was found and rescheduled.
@@ -7572,17 +7617,6 @@ open class VauchiPlatform:
     }
 
     /**
-     * Requests a new Tor circuit rotation.
-     *
-     * Without the `tor` feature, this is a no-op that returns Ok.
-     */
-    open func requestNewTorCircuit() throws {
-        try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_request_new_tor_circuit(self.uniffiClonePointer(), $0)
-        }
-    }
-
-    /**
      * Reset all aha moments (for testing/debugging).
      */
     open func resetAhaMoments() throws {
@@ -7705,6 +7739,21 @@ open class VauchiPlatform:
     }
 
     /**
+     * Save a private note on a specific field of a contact.
+     *
+     * Notes are private ("your eyes only") — they are never sent to the contact.
+     * An empty string clears the note.
+     */
+    open func setContactFieldNote(contactId: String, fieldId: String, note: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_vauchiplatform_set_contact_field_note(self.uniffiClonePointer(),
+                                                                                   FfiConverterString.lower(contactId),
+                                                                                   FfiConverterString.lower(fieldId),
+                                                                                   FfiConverterString.lower(note), $0)
+        }
+    }
+
+    /**
      * Set a per-contact override for field visibility.
      *
      * Per-contact overrides take precedence over label-based visibility.
@@ -7715,6 +7764,20 @@ open class VauchiPlatform:
                                                                                        FfiConverterString.lower(contactId),
                                                                                        FfiConverterString.lower(fieldLabel),
                                                                                        FfiConverterBool.lower(isVisible), $0)
+        }
+    }
+
+    /**
+     * Save a personal note for a contact.
+     *
+     * Notes are private ("your eyes only") — they are never sent to the contact.
+     * An empty string clears the note.
+     */
+    open func setContactNote(contactId: String, note: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_vauchiplatform_set_contact_note(self.uniffiClonePointer(),
+                                                                             FfiConverterString.lower(contactId),
+                                                                             FfiConverterString.lower(note), $0)
         }
     }
 
@@ -7774,6 +7837,19 @@ open class VauchiPlatform:
         try! rustCall {
             uniffi_vauchi_platform_fn_method_vauchiplatform_set_platform_keychain(self.uniffiClonePointer(),
                                                                                   FfiConverterCallbackInterfaceMobilePlatformKeychain.lower(keychain), $0)
+        }
+    }
+
+    /**
+     * Mark a contact as trusted for simplified contact proposals.
+     *
+     * This is a local-only flag — the contact is never informed of their trust status.
+     */
+    open func setProposalTrusted(contactId: String, trusted: Bool) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_vauchiplatform_set_proposal_trusted(self.uniffiClonePointer(),
+                                                                                 FfiConverterString.lower(contactId),
+                                                                                 FfiConverterBool.lower(trusted), $0)
         }
     }
 
@@ -7929,15 +8005,6 @@ open class VauchiPlatform:
                 liftFunc: FfiConverterTypeMobileSyncResult.lift,
                 errorHandler: FfiConverterTypeMobileError.lift
             )
-    }
-
-    /**
-     * Returns the current Tor connection status.
-     */
-    open func torStatus() throws -> MobileTorStatus {
-        return try FfiConverterTypeMobileTorStatus.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_tor_status(self.uniffiClonePointer(), $0)
-        })
     }
 
     /**
@@ -8968,10 +9035,53 @@ public struct MobileContact {
     public var isHidden: Bool
     public var card: MobileContactCard
     public var addedAt: UInt64
+    /**
+     * Cryptographic trust level derived from exchange facts.
+     */
+    public var trustLevel: MobileContactTrustLevel
+    /**
+     * Transport used during the original exchange (e.g. "qr", "nfc", "ble").
+     */
+    public var exchangeTransport: String
+    /**
+     * Proximity confidence from the original exchange (e.g. "high", "medium", "low", "unknown").
+     */
+    public var proximityConfidence: String
+    /**
+     * Whether this contact is trusted for simplified contact proposals (local-only flag).
+     */
+    public var proposalTrusted: Bool
+    /**
+     * Transport proximity level from the original exchange (e.g. "physical", "contact_range", "proximate", "none", "unknown").
+     */
+    public var transportProximity: String
+    /**
+     * Whether this contact has trust metrics recorded from a full exchange session.
+     */
+    public var hasTrustMetrics: Bool
 
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
-    public init(id: String, displayName: String, fingerprint: String, isVerified: Bool, isRecoveryTrusted: Bool, isHidden: Bool, card: MobileContactCard, addedAt: UInt64) {
+    public init(id: String, displayName: String, fingerprint: String, isVerified: Bool, isRecoveryTrusted: Bool, isHidden: Bool, card: MobileContactCard, addedAt: UInt64,
+                /* 
+                    * Cryptographic trust level derived from exchange facts.
+                    */ trustLevel: MobileContactTrustLevel,
+                /* 
+                    * Transport used during the original exchange (e.g. "qr", "nfc", "ble").
+                    */ exchangeTransport: String,
+                /* 
+                    * Proximity confidence from the original exchange (e.g. "high", "medium", "low", "unknown").
+                    */ proximityConfidence: String,
+                /* 
+                    * Whether this contact is trusted for simplified contact proposals (local-only flag).
+                    */ proposalTrusted: Bool,
+                /* 
+                    * Transport proximity level from the original exchange (e.g. "physical", "contact_range", "proximate", "none", "unknown").
+                    */ transportProximity: String,
+                /* 
+                    * Whether this contact has trust metrics recorded from a full exchange session.
+                    */ hasTrustMetrics: Bool)
+    {
         self.id = id
         self.displayName = displayName
         self.fingerprint = fingerprint
@@ -8980,6 +9090,12 @@ public struct MobileContact {
         self.isHidden = isHidden
         self.card = card
         self.addedAt = addedAt
+        self.trustLevel = trustLevel
+        self.exchangeTransport = exchangeTransport
+        self.proximityConfidence = proximityConfidence
+        self.proposalTrusted = proposalTrusted
+        self.transportProximity = transportProximity
+        self.hasTrustMetrics = hasTrustMetrics
     }
 }
 
@@ -9009,6 +9125,24 @@ extension MobileContact: Equatable, Hashable {
         if lhs.addedAt != rhs.addedAt {
             return false
         }
+        if lhs.trustLevel != rhs.trustLevel {
+            return false
+        }
+        if lhs.exchangeTransport != rhs.exchangeTransport {
+            return false
+        }
+        if lhs.proximityConfidence != rhs.proximityConfidence {
+            return false
+        }
+        if lhs.proposalTrusted != rhs.proposalTrusted {
+            return false
+        }
+        if lhs.transportProximity != rhs.transportProximity {
+            return false
+        }
+        if lhs.hasTrustMetrics != rhs.hasTrustMetrics {
+            return false
+        }
         return true
     }
 
@@ -9021,6 +9155,12 @@ extension MobileContact: Equatable, Hashable {
         hasher.combine(isHidden)
         hasher.combine(card)
         hasher.combine(addedAt)
+        hasher.combine(trustLevel)
+        hasher.combine(exchangeTransport)
+        hasher.combine(proximityConfidence)
+        hasher.combine(proposalTrusted)
+        hasher.combine(transportProximity)
+        hasher.combine(hasTrustMetrics)
     }
 }
 
@@ -9038,7 +9178,13 @@ public struct FfiConverterTypeMobileContact: FfiConverterRustBuffer {
                 isRecoveryTrusted: FfiConverterBool.read(from: &buf),
                 isHidden: FfiConverterBool.read(from: &buf),
                 card: FfiConverterTypeMobileContactCard.read(from: &buf),
-                addedAt: FfiConverterUInt64.read(from: &buf)
+                addedAt: FfiConverterUInt64.read(from: &buf),
+                trustLevel: FfiConverterTypeMobileContactTrustLevel.read(from: &buf),
+                exchangeTransport: FfiConverterString.read(from: &buf),
+                proximityConfidence: FfiConverterString.read(from: &buf),
+                proposalTrusted: FfiConverterBool.read(from: &buf),
+                transportProximity: FfiConverterString.read(from: &buf),
+                hasTrustMetrics: FfiConverterBool.read(from: &buf)
             )
     }
 
@@ -9051,6 +9197,12 @@ public struct FfiConverterTypeMobileContact: FfiConverterRustBuffer {
         FfiConverterBool.write(value.isHidden, into: &buf)
         FfiConverterTypeMobileContactCard.write(value.card, into: &buf)
         FfiConverterUInt64.write(value.addedAt, into: &buf)
+        FfiConverterTypeMobileContactTrustLevel.write(value.trustLevel, into: &buf)
+        FfiConverterString.write(value.exchangeTransport, into: &buf)
+        FfiConverterString.write(value.proximityConfidence, into: &buf)
+        FfiConverterBool.write(value.proposalTrusted, into: &buf)
+        FfiConverterString.write(value.transportProximity, into: &buf)
+        FfiConverterBool.write(value.hasTrustMetrics, into: &buf)
     }
 }
 
@@ -9140,14 +9292,23 @@ public struct MobileContactField {
     public var fieldType: MobileFieldType
     public var label: String
     public var value: String
+    /**
+     * Private per-field annotation (your eyes only — never sent to other contacts).
+     */
+    public var note: String?
 
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
-    public init(id: String, fieldType: MobileFieldType, label: String, value: String) {
+    public init(id: String, fieldType: MobileFieldType, label: String, value: String,
+                /* 
+                    * Private per-field annotation (your eyes only — never sent to other contacts).
+                    */ note: String?)
+    {
         self.id = id
         self.fieldType = fieldType
         self.label = label
         self.value = value
+        self.note = note
     }
 }
 
@@ -9165,6 +9326,9 @@ extension MobileContactField: Equatable, Hashable {
         if lhs.value != rhs.value {
             return false
         }
+        if lhs.note != rhs.note {
+            return false
+        }
         return true
     }
 
@@ -9173,6 +9337,7 @@ extension MobileContactField: Equatable, Hashable {
         hasher.combine(fieldType)
         hasher.combine(label)
         hasher.combine(value)
+        hasher.combine(note)
     }
 }
 
@@ -9186,7 +9351,8 @@ public struct FfiConverterTypeMobileContactField: FfiConverterRustBuffer {
                 id: FfiConverterString.read(from: &buf),
                 fieldType: FfiConverterTypeMobileFieldType.read(from: &buf),
                 label: FfiConverterString.read(from: &buf),
-                value: FfiConverterString.read(from: &buf)
+                value: FfiConverterString.read(from: &buf),
+                note: FfiConverterOptionString.read(from: &buf)
             )
     }
 
@@ -9195,6 +9361,7 @@ public struct FfiConverterTypeMobileContactField: FfiConverterRustBuffer {
         FfiConverterTypeMobileFieldType.write(value.fieldType, into: &buf)
         FfiConverterString.write(value.label, into: &buf)
         FfiConverterString.write(value.value, into: &buf)
+        FfiConverterOptionString.write(value.note, into: &buf)
     }
 }
 
@@ -9225,7 +9392,7 @@ public struct MobileContentConfig {
      */
     public var contentUrl: String
     /**
-     * Optional SOCKS5 proxy URL (e.g., for Tor)
+     * Optional SOCKS5 proxy URL (e.g., for SOCKS5 proxy)
      */
     public var proxyUrl: String?
 
@@ -9239,7 +9406,7 @@ public struct MobileContentConfig {
             * Content server URL
             */ contentUrl: String,
         /* 
-            * Optional SOCKS5 proxy URL (e.g., for Tor)
+            * Optional SOCKS5 proxy URL (e.g., for SOCKS5 proxy)
             */ proxyUrl: String?
     ) {
         self.remoteUpdatesEnabled = remoteUpdatesEnabled
@@ -11379,6 +11546,72 @@ public func FfiConverterTypeMobileFaqItem_lift(_ buf: RustBuffer) throws -> Mobi
 #endif
 public func FfiConverterTypeMobileFaqItem_lower(_ value: MobileFaqItem) -> RustBuffer {
     return FfiConverterTypeMobileFaqItem.lower(value)
+}
+
+/**
+ * A per-field private note entry (field_id + note text).
+ *
+ * Used as a Vec-based alternative to HashMap for UniFFI compatibility.
+ */
+public struct MobileFieldNote {
+    public var fieldId: String
+    public var note: String
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(fieldId: String, note: String) {
+        self.fieldId = fieldId
+        self.note = note
+    }
+}
+
+extension MobileFieldNote: Equatable, Hashable {
+    public static func == (lhs: MobileFieldNote, rhs: MobileFieldNote) -> Bool {
+        if lhs.fieldId != rhs.fieldId {
+            return false
+        }
+        if lhs.note != rhs.note {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(fieldId)
+        hasher.combine(note)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileFieldNote: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileFieldNote {
+        return
+            try MobileFieldNote(
+                fieldId: FfiConverterString.read(from: &buf),
+                note: FfiConverterString.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileFieldNote, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.fieldId, into: &buf)
+        FfiConverterString.write(value.note, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileFieldNote_lift(_ buf: RustBuffer) throws -> MobileFieldNote {
+    return try FfiConverterTypeMobileFieldNote.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileFieldNote_lower(_ value: MobileFieldNote) -> RustBuffer {
+    return FfiConverterTypeMobileFieldNote.lower(value)
 }
 
 /**
@@ -13679,6 +13912,10 @@ public struct MobileSyncResult {
      * Whether any changes were synced.
      */
     public var hasChanges: Bool
+    /**
+     * Display names of contacts whose cards were updated (for UI notification).
+     */
+    public var updatedContactNames: [String]
 
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
@@ -13697,13 +13934,17 @@ public struct MobileSyncResult {
             */ total: UInt32,
         /* 
             * Whether any changes were synced.
-            */ hasChanges: Bool
+            */ hasChanges: Bool,
+        /* 
+            * Display names of contacts whose cards were updated (for UI notification).
+            */ updatedContactNames: [String]
     ) {
         self.contactsAdded = contactsAdded
         self.cardsUpdated = cardsUpdated
         self.updatesSent = updatesSent
         self.total = total
         self.hasChanges = hasChanges
+        self.updatedContactNames = updatedContactNames
     }
 }
 
@@ -13724,6 +13965,9 @@ extension MobileSyncResult: Equatable, Hashable {
         if lhs.hasChanges != rhs.hasChanges {
             return false
         }
+        if lhs.updatedContactNames != rhs.updatedContactNames {
+            return false
+        }
         return true
     }
 
@@ -13733,6 +13977,7 @@ extension MobileSyncResult: Equatable, Hashable {
         hasher.combine(updatesSent)
         hasher.combine(total)
         hasher.combine(hasChanges)
+        hasher.combine(updatedContactNames)
     }
 }
 
@@ -13747,7 +13992,8 @@ public struct FfiConverterTypeMobileSyncResult: FfiConverterRustBuffer {
                 cardsUpdated: FfiConverterUInt32.read(from: &buf),
                 updatesSent: FfiConverterUInt32.read(from: &buf),
                 total: FfiConverterUInt32.read(from: &buf),
-                hasChanges: FfiConverterBool.read(from: &buf)
+                hasChanges: FfiConverterBool.read(from: &buf),
+                updatedContactNames: FfiConverterSequenceString.read(from: &buf)
             )
     }
 
@@ -13757,6 +14003,7 @@ public struct FfiConverterTypeMobileSyncResult: FfiConverterRustBuffer {
         FfiConverterUInt32.write(value.updatesSent, into: &buf)
         FfiConverterUInt32.write(value.total, into: &buf)
         FfiConverterBool.write(value.hasChanges, into: &buf)
+        FfiConverterSequenceString.write(value.updatedContactNames, into: &buf)
     }
 }
 
@@ -14136,111 +14383,6 @@ public func FfiConverterTypeMobileThemeColors_lift(_ buf: RustBuffer) throws -> 
 #endif
 public func FfiConverterTypeMobileThemeColors_lower(_ value: MobileThemeColors) -> RustBuffer {
     return FfiConverterTypeMobileThemeColors.lower(value)
-}
-
-/**
- * Tor configuration for mobile platforms.
- */
-public struct MobileTorConfig {
-    /**
-     * Whether Tor mode is enabled.
-     */
-    public var enabled: Bool
-    /**
-     * Whether to prefer .onion addresses when available.
-     */
-    public var preferOnion: Bool
-    /**
-     * Bridge addresses for censored networks.
-     */
-    public var bridges: [String]
-    /**
-     * Circuit rotation interval in seconds.
-     */
-    public var circuitRotationSecs: UInt64
-
-    /// Default memberwise initializers are never public by default, so we
-    /// declare one manually.
-    public init(
-        /* 
-         * Whether Tor mode is enabled.
-         */ enabled: Bool,
-        /* 
-            * Whether to prefer .onion addresses when available.
-            */ preferOnion: Bool,
-        /* 
-            * Bridge addresses for censored networks.
-            */ bridges: [String],
-        /* 
-            * Circuit rotation interval in seconds.
-            */ circuitRotationSecs: UInt64
-    ) {
-        self.enabled = enabled
-        self.preferOnion = preferOnion
-        self.bridges = bridges
-        self.circuitRotationSecs = circuitRotationSecs
-    }
-}
-
-extension MobileTorConfig: Equatable, Hashable {
-    public static func == (lhs: MobileTorConfig, rhs: MobileTorConfig) -> Bool {
-        if lhs.enabled != rhs.enabled {
-            return false
-        }
-        if lhs.preferOnion != rhs.preferOnion {
-            return false
-        }
-        if lhs.bridges != rhs.bridges {
-            return false
-        }
-        if lhs.circuitRotationSecs != rhs.circuitRotationSecs {
-            return false
-        }
-        return true
-    }
-
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(enabled)
-        hasher.combine(preferOnion)
-        hasher.combine(bridges)
-        hasher.combine(circuitRotationSecs)
-    }
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public struct FfiConverterTypeMobileTorConfig: FfiConverterRustBuffer {
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileTorConfig {
-        return
-            try MobileTorConfig(
-                enabled: FfiConverterBool.read(from: &buf),
-                preferOnion: FfiConverterBool.read(from: &buf),
-                bridges: FfiConverterSequenceString.read(from: &buf),
-                circuitRotationSecs: FfiConverterUInt64.read(from: &buf)
-            )
-    }
-
-    public static func write(_ value: MobileTorConfig, into buf: inout [UInt8]) {
-        FfiConverterBool.write(value.enabled, into: &buf)
-        FfiConverterBool.write(value.preferOnion, into: &buf)
-        FfiConverterSequenceString.write(value.bridges, into: &buf)
-        FfiConverterUInt64.write(value.circuitRotationSecs, into: &buf)
-    }
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMobileTorConfig_lift(_ buf: RustBuffer) throws -> MobileTorConfig {
-    return try FfiConverterTypeMobileTorConfig.lift(buf)
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMobileTorConfig_lower(_ value: MobileTorConfig) -> RustBuffer {
-    return FfiConverterTypeMobileTorConfig.lower(value)
 }
 
 public struct MobileTuningResult {
@@ -15554,6 +15696,89 @@ extension MobileConsentType: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /* 
+ * Mobile-friendly contact trust level derived from cryptographic exchange facts.
+ *
+ * This is distinct from `MobileTrustLevel` (which reflects social validation counts).
+ * `MobileContactTrustLevel` is computed deterministically from exchange metadata —
+ * it is never user-editable.
+ */
+
+public enum MobileContactTrustLevel {
+    /**
+     * Identity was recovered — ratchet may have reset. Highest caution.
+     */
+    case cautious
+    /**
+     * User manually verified the key fingerprint out-of-band.
+     */
+    case verified
+    /**
+     * High proximity confidence with a close-range transport (NFC or BLE).
+     */
+    case high
+    /**
+     * Normal exchange, no special indicators. Default.
+     */
+    case standard
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileContactTrustLevel: FfiConverterRustBuffer {
+    typealias SwiftType = MobileContactTrustLevel
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileContactTrustLevel {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return .cautious
+
+        case 2: return .verified
+
+        case 3: return .high
+
+        case 4: return .standard
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileContactTrustLevel, into buf: inout [UInt8]) {
+        switch value {
+        case .cautious:
+            writeInt(&buf, Int32(1))
+
+        case .verified:
+            writeInt(&buf, Int32(2))
+
+        case .high:
+            writeInt(&buf, Int32(3))
+
+        case .standard:
+            writeInt(&buf, Int32(4))
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileContactTrustLevel_lift(_ buf: RustBuffer) throws -> MobileContactTrustLevel {
+    return try FfiConverterTypeMobileContactTrustLevel.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileContactTrustLevel_lower(_ value: MobileContactTrustLevel) -> RustBuffer {
+    return FfiConverterTypeMobileContactTrustLevel.lower(value)
+}
+
+extension MobileContactTrustLevel: Equatable, Hashable {}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/* 
  * Content type for mobile platforms.
  */
 
@@ -15980,6 +16205,11 @@ public enum MobileError {
     case InitError(String)
     case Internal(String)
     case BleNotAvailable(String)
+    case RateLimited(
+        /* 
+         * Seconds to wait before retrying.
+         */ retryAfterSecs: UInt64
+    )
 }
 
 #if swift(>=5.8)
@@ -16036,6 +16266,9 @@ public struct FfiConverterTypeMobileError: FfiConverterRustBuffer {
             )
         case 18: return try .BleNotAvailable(
                 FfiConverterString.read(from: &buf)
+            )
+        case 19: return try .RateLimited(
+                retryAfterSecs: FfiConverterUInt64.read(from: &buf)
             )
         default: throw UniffiInternalError.unexpectedEnumCase
         }
@@ -16110,6 +16343,10 @@ public struct FfiConverterTypeMobileError: FfiConverterRustBuffer {
         case let .BleNotAvailable(v1):
             writeInt(&buf, Int32(18))
             FfiConverterString.write(v1, into: &buf)
+
+        case let .RateLimited(retryAfterSecs):
+            writeInt(&buf, Int32(19))
+            FfiConverterUInt64.write(retryAfterSecs, into: &buf)
         }
     }
 }
@@ -16706,6 +16943,7 @@ public enum MobileLocale {
     case german
     case french
     case spanish
+    case italian
 }
 
 #if swift(>=5.8)
@@ -16725,6 +16963,8 @@ public struct FfiConverterTypeMobileLocale: FfiConverterRustBuffer {
 
         case 4: return .spanish
 
+        case 5: return .italian
+
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
@@ -16742,6 +16982,9 @@ public struct FfiConverterTypeMobileLocale: FfiConverterRustBuffer {
 
         case .spanish:
             writeInt(&buf, Int32(4))
+
+        case .italian:
+            writeInt(&buf, Int32(5))
         }
     }
 }
@@ -17649,94 +17892,7 @@ extension MobileThemeMode: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /* 
- * Current Tor connection status for mobile platforms.
- *
- * Simplified from core's `TorStatus` — maps `Bootstrapping` to `Connecting`
- * since mobile UIs don't need bootstrap percentage detail.
- */
-
-public enum MobileTorStatus {
-    /**
-     * Tor is not enabled.
-     */
-    case disabled
-    /**
-     * Tor client is connecting or bootstrapping.
-     */
-    case connecting
-    /**
-     * Tor client is connected and ready.
-     */
-    case connected
-    /**
-     * Tor client is disconnected.
-     */
-    case disconnected(
-        /* 
-         * Reason for disconnection.
-         */ reason: String
-    )
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public struct FfiConverterTypeMobileTorStatus: FfiConverterRustBuffer {
-    typealias SwiftType = MobileTorStatus
-
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileTorStatus {
-        let variant: Int32 = try readInt(&buf)
-        switch variant {
-        case 1: return .disabled
-
-        case 2: return .connecting
-
-        case 3: return .connected
-
-        case 4: return try .disconnected(reason: FfiConverterString.read(from: &buf))
-
-        default: throw UniffiInternalError.unexpectedEnumCase
-        }
-    }
-
-    public static func write(_ value: MobileTorStatus, into buf: inout [UInt8]) {
-        switch value {
-        case .disabled:
-            writeInt(&buf, Int32(1))
-
-        case .connecting:
-            writeInt(&buf, Int32(2))
-
-        case .connected:
-            writeInt(&buf, Int32(3))
-
-        case let .disconnected(reason):
-            writeInt(&buf, Int32(4))
-            FfiConverterString.write(reason, into: &buf)
-        }
-    }
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMobileTorStatus_lift(_ buf: RustBuffer) throws -> MobileTorStatus {
-    return try FfiConverterTypeMobileTorStatus.lift(buf)
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMobileTorStatus_lower(_ value: MobileTorStatus) -> RustBuffer {
-    return FfiConverterTypeMobileTorStatus.lower(value)
-}
-
-extension MobileTorStatus: Equatable, Hashable {}
-
-// Note that we don't yet support `indirect` for enums.
-// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/* 
- * Trust level based on validation count.
+ * Validation confidence level based on validation count.
  */
 
 public enum MobileTrustLevel {
@@ -19917,6 +20073,31 @@ private struct FfiConverterSequenceTypeMobileFaqItem: FfiConverterRustBuffer {
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
+private struct FfiConverterSequenceTypeMobileFieldNote: FfiConverterRustBuffer {
+    typealias SwiftType = [MobileFieldNote]
+
+    static func write(_ value: [MobileFieldNote], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeMobileFieldNote.write(item, into: &buf)
+        }
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileFieldNote] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [MobileFieldNote]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            try seq.append(FfiConverterTypeMobileFieldNote.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
 private struct FfiConverterSequenceTypeMobileFieldValidation: FfiConverterRustBuffer {
     typealias SwiftType = [MobileFieldValidation]
 
@@ -21285,9 +21466,6 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_configure_emergency_broadcast() != 9572 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_configure_tor_bridges() != 788 {
-        return InitializationResult.apiChecksumMismatch
-    }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_contact_count() != 20147 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -21324,6 +21502,12 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_current_onboarding_step() != 60702 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_delete_contact_field_note() != 60163 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_delete_contact_note() != 34389 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_delete_decoy_contact() != 38092 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -21342,16 +21526,10 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_disable_emergency_broadcast() != 18687 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_disable_tor() != 6759 {
-        return InitializationResult.apiChecksumMismatch
-    }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_dismiss_demo_contact() != 13148 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_display_name_suggestions() != 41563 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_enable_tor() != 195 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_encode_multipart_qr() != 5986 {
@@ -21369,10 +21547,10 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_export_storage_key() != 12509 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_finalize_exchange() != 64364 {
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_finalize_exchange() != 16940 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_finalize_multistage_exchange() != 343 {
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_finalize_multistage_exchange() != 47774 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_generate_device_link_qr() != 3761 {
@@ -21388,6 +21566,12 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_contact() != 64699 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_contact_field_notes() != 60654 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_contact_note() != 9403 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_deletion_state() != 29747 {
@@ -21570,9 +21754,6 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_listen_for_device_link_request() != 58889 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_load_tor_config() != 56218 {
-        return InitializationResult.apiChecksumMismatch
-    }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_manual_retry() != 41082 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -21604,9 +21785,6 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_rename_label() != 55757 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_request_new_tor_circuit() != 42294 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_reset_aha_moments() != 21889 {
@@ -21642,7 +21820,13 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_send_emergency_broadcast() != 15809 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_set_contact_field_note() != 34512 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_set_contact_field_override() != 40155 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_set_contact_note() != 7169 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_set_delivery_receipts_enabled() != 60376 {
@@ -21658,6 +21842,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_set_platform_keychain() != 57911 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_set_proposal_trusted() != 57304 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_set_suppress_presence_enabled() != 65209 {
@@ -21694,9 +21881,6 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_sync_async() != 11620 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_tor_status() != 47175 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_trigger_demo_update() != 2004 {
@@ -21747,7 +21931,7 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_constructor_mobilebackuprecoveryworkflow_new() != 29341 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_constructor_mobilebleexchangesession_new() != 32437 {
+    if uniffi_vauchi_platform_checksum_constructor_mobilebleexchangesession_new() != 46873 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_constructor_mobilecontacteditworkflow_new() != 11341 {

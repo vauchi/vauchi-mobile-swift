@@ -5156,9 +5156,9 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func calculateRetryBackoff(attempt: UInt32) -> UInt64
 
     /**
-     * Cancel a scheduled account deletion.
+     * Cancel a scheduled identity deletion.
      */
-    func cancelAccountDeletion() throws
+    func cancelIdentityDeletion() throws
 
     /**
      * Cancel a scheduled shred during the grace period.
@@ -5349,13 +5349,13 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func encodeMultipartQr(data: Data) -> [String]
 
     /**
-     * Execute account deletion (only after grace period).
+     * Execute identity deletion (only after grace period).
      *
      * Generates revocation messages for all contacts and shreds CEKs.
      * Returns the number of revocation messages generated (caller should
      * arrange relay delivery).
      */
-    func executeAccountDeletion() throws -> UInt32
+    func executeIdentityDeletion() throws -> UInt32
 
     /**
      * Export encrypted backup.
@@ -5526,19 +5526,6 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func getEmergencyConfig() throws -> MobileEmergencyConfig?
 
     /**
-     * Get the validation count for a field (quick check without full status).
-     */
-    func getFieldValidationCount(contactId: String, fieldId: String) throws -> UInt32
-
-    /**
-     * Get validation status for a contact's field.
-     *
-     * Returns aggregated validation information including count, trust level,
-     * and whether you have validated this field.
-     */
-    func getFieldValidationStatus(contactId: String, fieldId: String, fieldValue: String) throws -> MobileValidationStatus
-
-    /**
      * Get all labels that contain a contact.
      */
     func getGroupsForContact(contactId: String) throws -> [MobileVisibilityLabel]
@@ -5641,7 +5628,7 @@ public protocol VauchiPlatformProtocol: AnyObject {
      * Requires the grace period to have elapsed. Destroys all key material,
      * secure-deletes the database, and removes all local data.
      *
-     * **WARNING**: This operation is irreversible. All account data will be
+     * **WARNING**: This operation is irreversible. All identity data will be
      * permanently destroyed.
      */
     func hardShred(token: MobileShredToken) throws -> MobileShredReport
@@ -5655,11 +5642,6 @@ public protocol VauchiPlatformProtocol: AnyObject {
      * Check if an aha moment has been seen.
      */
     func hasSeenAhaMoment(momentType: MobileAhaMomentType) -> Bool
-
-    /**
-     * Check if you have validated a specific field.
-     */
-    func hasValidatedField(contactId: String, fieldId: String) throws -> Bool
 
     /**
      * Hides a contact from the main contact list.
@@ -5772,14 +5754,6 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func listLabels() throws -> [MobileVisibilityLabel]
 
     /**
-     * List all validations you have made.
-     *
-     * Returns a list of all fields you have validated, sorted by
-     * validation timestamp (most recent first).
-     */
-    func listMyValidations() throws -> [MobileFieldValidation]
-
-    /**
      * List available social networks.
      */
     func listSocialNetworks() -> [MobileSocialNetwork]
@@ -5886,16 +5860,9 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func revokeConsent(consentType: MobileConsentType) throws
 
     /**
-     * Revoke your validation of a contact's field.
-     *
-     * Returns true if a validation was revoked, false if you hadn't validated.
+     * Schedule identity deletion with 7-day grace period.
      */
-    func revokeFieldValidation(contactId: String, fieldId: String) throws -> Bool
-
-    /**
-     * Schedule account deletion with 7-day grace period.
-     */
-    func scheduleAccountDeletion() throws -> MobileDeletionInfo
+    func scheduleIdentityDeletion() throws -> MobileDeletionInfo
 
     /**
      * Search contacts using SQL-level search.
@@ -6121,7 +6088,7 @@ public protocol VauchiPlatformProtocol: AnyObject {
      * and its keys will be rotated out. Returns true if the device was
      * found and unlinked.
      *
-     * Note: Cannot unlink the current device (use account deletion instead).
+     * Note: Cannot unlink the current device (use identity deletion instead).
      * The device_index is the position in the devices list (0-based).
      */
     func unlinkDevice(deviceIndex: UInt32) throws -> Bool
@@ -6135,15 +6102,6 @@ public protocol VauchiPlatformProtocol: AnyObject {
      * Update field value.
      */
     func updateField(label: String, newValue: String) throws
-
-    /**
-     * Validate a contact's field.
-     *
-     * Creates a cryptographically signed validation record attesting
-     * that you believe this field value belongs to this contact.
-     * Returns the created validation.
-     */
-    func validateField(contactId: String, fieldId: String, fieldValue: String) throws -> MobileFieldValidation
 
     /**
      * Verify contact fingerprint.
@@ -6384,11 +6342,11 @@ open class VauchiPlatform:
     }
 
     /**
-     * Cancel a scheduled account deletion.
+     * Cancel a scheduled identity deletion.
      */
-    open func cancelAccountDeletion() throws {
+    open func cancelIdentityDeletion() throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_cancel_account_deletion(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchiplatform_cancel_identity_deletion(self.uniffiClonePointer(), $0)
         }
     }
 
@@ -6718,15 +6676,15 @@ open class VauchiPlatform:
     }
 
     /**
-     * Execute account deletion (only after grace period).
+     * Execute identity deletion (only after grace period).
      *
      * Generates revocation messages for all contacts and shreds CEKs.
      * Returns the number of revocation messages generated (caller should
      * arrange relay delivery).
      */
-    open func executeAccountDeletion() throws -> UInt32 {
+    open func executeIdentityDeletion() throws -> UInt32 {
         return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_execute_account_deletion(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchiplatform_execute_identity_deletion(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -7011,32 +6969,6 @@ open class VauchiPlatform:
     }
 
     /**
-     * Get the validation count for a field (quick check without full status).
-     */
-    open func getFieldValidationCount(contactId: String, fieldId: String) throws -> UInt32 {
-        return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_get_field_validation_count(self.uniffiClonePointer(),
-                                                                                       FfiConverterString.lower(contactId),
-                                                                                       FfiConverterString.lower(fieldId), $0)
-        })
-    }
-
-    /**
-     * Get validation status for a contact's field.
-     *
-     * Returns aggregated validation information including count, trust level,
-     * and whether you have validated this field.
-     */
-    open func getFieldValidationStatus(contactId: String, fieldId: String, fieldValue: String) throws -> MobileValidationStatus {
-        return try FfiConverterTypeMobileValidationStatus.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_get_field_validation_status(self.uniffiClonePointer(),
-                                                                                        FfiConverterString.lower(contactId),
-                                                                                        FfiConverterString.lower(fieldId),
-                                                                                        FfiConverterString.lower(fieldValue), $0)
-        })
-    }
-
-    /**
      * Get all labels that contain a contact.
      */
     open func getGroupsForContact(contactId: String) throws -> [MobileVisibilityLabel] {
@@ -7217,7 +7149,7 @@ open class VauchiPlatform:
      * Requires the grace period to have elapsed. Destroys all key material,
      * secure-deletes the database, and removes all local data.
      *
-     * **WARNING**: This operation is irreversible. All account data will be
+     * **WARNING**: This operation is irreversible. All identity data will be
      * permanently destroyed.
      */
     open func hardShred(token: MobileShredToken) throws -> MobileShredReport {
@@ -7243,17 +7175,6 @@ open class VauchiPlatform:
         return try! FfiConverterBool.lift(try! rustCall {
             uniffi_vauchi_platform_fn_method_vauchiplatform_has_seen_aha_moment(self.uniffiClonePointer(),
                                                                                 FfiConverterTypeMobileAhaMomentType.lower(momentType), $0)
-        })
-    }
-
-    /**
-     * Check if you have validated a specific field.
-     */
-    open func hasValidatedField(contactId: String, fieldId: String) throws -> Bool {
-        return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_has_validated_field(self.uniffiClonePointer(),
-                                                                                FfiConverterString.lower(contactId),
-                                                                                FfiConverterString.lower(fieldId), $0)
         })
     }
 
@@ -7457,18 +7378,6 @@ open class VauchiPlatform:
     }
 
     /**
-     * List all validations you have made.
-     *
-     * Returns a list of all fields you have validated, sorted by
-     * validation timestamp (most recent first).
-     */
-    open func listMyValidations() throws -> [MobileFieldValidation] {
-        return try FfiConverterSequenceTypeMobileFieldValidation.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_list_my_validations(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
      * List available social networks.
      */
     open func listSocialNetworks() -> [MobileSocialNetwork] {
@@ -7656,24 +7565,11 @@ open class VauchiPlatform:
     }
 
     /**
-     * Revoke your validation of a contact's field.
-     *
-     * Returns true if a validation was revoked, false if you hadn't validated.
+     * Schedule identity deletion with 7-day grace period.
      */
-    open func revokeFieldValidation(contactId: String, fieldId: String) throws -> Bool {
-        return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_revoke_field_validation(self.uniffiClonePointer(),
-                                                                                    FfiConverterString.lower(contactId),
-                                                                                    FfiConverterString.lower(fieldId), $0)
-        })
-    }
-
-    /**
-     * Schedule account deletion with 7-day grace period.
-     */
-    open func scheduleAccountDeletion() throws -> MobileDeletionInfo {
+    open func scheduleIdentityDeletion() throws -> MobileDeletionInfo {
         return try FfiConverterTypeMobileDeletionInfo.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_schedule_account_deletion(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_vauchiplatform_schedule_identity_deletion(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -8076,7 +7972,7 @@ open class VauchiPlatform:
      * and its keys will be rotated out. Returns true if the device was
      * found and unlinked.
      *
-     * Note: Cannot unlink the current device (use account deletion instead).
+     * Note: Cannot unlink the current device (use identity deletion instead).
      * The device_index is the position in the devices list (0-based).
      */
     open func unlinkDevice(deviceIndex: UInt32) throws -> Bool {
@@ -8105,22 +8001,6 @@ open class VauchiPlatform:
                                                                          FfiConverterString.lower(label),
                                                                          FfiConverterString.lower(newValue), $0)
         }
-    }
-
-    /**
-     * Validate a contact's field.
-     *
-     * Creates a cryptographically signed validation record attesting
-     * that you believe this field value belongs to this contact.
-     * Returns the created validation.
-     */
-    open func validateField(contactId: String, fieldId: String, fieldValue: String) throws -> MobileFieldValidation {
-        return try FfiConverterTypeMobileFieldValidation.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_validate_field(self.uniffiClonePointer(),
-                                                                           FfiConverterString.lower(contactId),
-                                                                           FfiConverterString.lower(fieldId),
-                                                                           FfiConverterString.lower(fieldValue), $0)
-        })
     }
 
     /**
@@ -11614,111 +11494,6 @@ public func FfiConverterTypeMobileFieldNote_lower(_ value: MobileFieldNote) -> R
     return FfiConverterTypeMobileFieldNote.lower(value)
 }
 
-/**
- * A validation record for a contact's field.
- */
-public struct MobileFieldValidation {
-    /**
-     * Contact ID that was validated.
-     */
-    public var contactId: String
-    /**
-     * Field name that was validated (e.g., "twitter", "email").
-     */
-    public var fieldName: String
-    /**
-     * Field value at time of validation.
-     */
-    public var fieldValue: String
-    /**
-     * Timestamp when validation was created.
-     */
-    public var validatedAt: UInt64
-
-    /// Default memberwise initializers are never public by default, so we
-    /// declare one manually.
-    public init(
-        /* 
-         * Contact ID that was validated.
-         */ contactId: String,
-        /* 
-            * Field name that was validated (e.g., "twitter", "email").
-            */ fieldName: String,
-        /* 
-            * Field value at time of validation.
-            */ fieldValue: String,
-        /* 
-            * Timestamp when validation was created.
-            */ validatedAt: UInt64
-    ) {
-        self.contactId = contactId
-        self.fieldName = fieldName
-        self.fieldValue = fieldValue
-        self.validatedAt = validatedAt
-    }
-}
-
-extension MobileFieldValidation: Equatable, Hashable {
-    public static func == (lhs: MobileFieldValidation, rhs: MobileFieldValidation) -> Bool {
-        if lhs.contactId != rhs.contactId {
-            return false
-        }
-        if lhs.fieldName != rhs.fieldName {
-            return false
-        }
-        if lhs.fieldValue != rhs.fieldValue {
-            return false
-        }
-        if lhs.validatedAt != rhs.validatedAt {
-            return false
-        }
-        return true
-    }
-
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(contactId)
-        hasher.combine(fieldName)
-        hasher.combine(fieldValue)
-        hasher.combine(validatedAt)
-    }
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public struct FfiConverterTypeMobileFieldValidation: FfiConverterRustBuffer {
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileFieldValidation {
-        return
-            try MobileFieldValidation(
-                contactId: FfiConverterString.read(from: &buf),
-                fieldName: FfiConverterString.read(from: &buf),
-                fieldValue: FfiConverterString.read(from: &buf),
-                validatedAt: FfiConverterUInt64.read(from: &buf)
-            )
-    }
-
-    public static func write(_ value: MobileFieldValidation, into buf: inout [UInt8]) {
-        FfiConverterString.write(value.contactId, into: &buf)
-        FfiConverterString.write(value.fieldName, into: &buf)
-        FfiConverterString.write(value.fieldValue, into: &buf)
-        FfiConverterUInt64.write(value.validatedAt, into: &buf)
-    }
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMobileFieldValidation_lift(_ buf: RustBuffer) throws -> MobileFieldValidation {
-    return try FfiConverterTypeMobileFieldValidation.lift(buf)
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMobileFieldValidation_lower(_ value: MobileFieldValidation) -> RustBuffer {
-    return FfiConverterTypeMobileFieldValidation.lower(value)
-}
-
 public struct MobileFpsRange {
     public var min: Int32
     public var max: Int32
@@ -14524,139 +14299,6 @@ public func FfiConverterTypeMobileTuningResult_lift(_ buf: RustBuffer) throws ->
 #endif
 public func FfiConverterTypeMobileTuningResult_lower(_ value: MobileTuningResult) -> RustBuffer {
     return FfiConverterTypeMobileTuningResult.lower(value)
-}
-
-/**
- * Validation status for a field.
- */
-public struct MobileValidationStatus {
-    /**
-     * Total number of validations.
-     */
-    public var count: UInt32
-    /**
-     * Trust level based on count.
-     */
-    public var trustLevel: MobileTrustLevel
-    /**
-     * Trust level label for display.
-     */
-    public var trustLevelLabel: String
-    /**
-     * Color indicator for UI (grey, yellow, light_green, green).
-     */
-    public var color: String
-    /**
-     * Whether the current user has validated this field.
-     */
-    public var validatedByMe: Bool
-    /**
-     * Display text (e.g., "Verified by Bob and 2 others").
-     */
-    public var displayText: String
-
-    /// Default memberwise initializers are never public by default, so we
-    /// declare one manually.
-    public init(
-        /* 
-         * Total number of validations.
-         */ count: UInt32,
-        /* 
-            * Trust level based on count.
-            */ trustLevel: MobileTrustLevel,
-        /* 
-            * Trust level label for display.
-            */ trustLevelLabel: String,
-        /* 
-            * Color indicator for UI (grey, yellow, light_green, green).
-            */ color: String,
-        /* 
-            * Whether the current user has validated this field.
-            */ validatedByMe: Bool,
-        /* 
-            * Display text (e.g., "Verified by Bob and 2 others").
-            */ displayText: String
-    ) {
-        self.count = count
-        self.trustLevel = trustLevel
-        self.trustLevelLabel = trustLevelLabel
-        self.color = color
-        self.validatedByMe = validatedByMe
-        self.displayText = displayText
-    }
-}
-
-extension MobileValidationStatus: Equatable, Hashable {
-    public static func == (lhs: MobileValidationStatus, rhs: MobileValidationStatus) -> Bool {
-        if lhs.count != rhs.count {
-            return false
-        }
-        if lhs.trustLevel != rhs.trustLevel {
-            return false
-        }
-        if lhs.trustLevelLabel != rhs.trustLevelLabel {
-            return false
-        }
-        if lhs.color != rhs.color {
-            return false
-        }
-        if lhs.validatedByMe != rhs.validatedByMe {
-            return false
-        }
-        if lhs.displayText != rhs.displayText {
-            return false
-        }
-        return true
-    }
-
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(count)
-        hasher.combine(trustLevel)
-        hasher.combine(trustLevelLabel)
-        hasher.combine(color)
-        hasher.combine(validatedByMe)
-        hasher.combine(displayText)
-    }
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public struct FfiConverterTypeMobileValidationStatus: FfiConverterRustBuffer {
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileValidationStatus {
-        return
-            try MobileValidationStatus(
-                count: FfiConverterUInt32.read(from: &buf),
-                trustLevel: FfiConverterTypeMobileTrustLevel.read(from: &buf),
-                trustLevelLabel: FfiConverterString.read(from: &buf),
-                color: FfiConverterString.read(from: &buf),
-                validatedByMe: FfiConverterBool.read(from: &buf),
-                displayText: FfiConverterString.read(from: &buf)
-            )
-    }
-
-    public static func write(_ value: MobileValidationStatus, into buf: inout [UInt8]) {
-        FfiConverterUInt32.write(value.count, into: &buf)
-        FfiConverterTypeMobileTrustLevel.write(value.trustLevel, into: &buf)
-        FfiConverterString.write(value.trustLevelLabel, into: &buf)
-        FfiConverterString.write(value.color, into: &buf)
-        FfiConverterBool.write(value.validatedByMe, into: &buf)
-        FfiConverterString.write(value.displayText, into: &buf)
-    }
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMobileValidationStatus_lift(_ buf: RustBuffer) throws -> MobileValidationStatus {
-    return try FfiConverterTypeMobileValidationStatus.lift(buf)
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMobileValidationStatus_lower(_ value: MobileValidationStatus) -> RustBuffer {
-    return FfiConverterTypeMobileValidationStatus.lower(value)
 }
 
 /**
@@ -17701,7 +17343,7 @@ extension MobileProximityVerifierEvent: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /* 
- * Current shred status for the account.
+ * Current shred status for the identity.
  */
 
 public enum MobileShredStatus {
@@ -17888,85 +17530,6 @@ public func FfiConverterTypeMobileThemeMode_lower(_ value: MobileThemeMode) -> R
 }
 
 extension MobileThemeMode: Equatable, Hashable {}
-
-// Note that we don't yet support `indirect` for enums.
-// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/* 
- * Validation confidence level based on validation count.
- */
-
-public enum MobileTrustLevel {
-    /**
-     * No validations yet.
-     */
-    case unverified
-    /**
-     * 1 validation.
-     */
-    case lowConfidence
-    /**
-     * 2-4 validations.
-     */
-    case partialConfidence
-    /**
-     * 5+ validations.
-     */
-    case highConfidence
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public struct FfiConverterTypeMobileTrustLevel: FfiConverterRustBuffer {
-    typealias SwiftType = MobileTrustLevel
-
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileTrustLevel {
-        let variant: Int32 = try readInt(&buf)
-        switch variant {
-        case 1: return .unverified
-
-        case 2: return .lowConfidence
-
-        case 3: return .partialConfidence
-
-        case 4: return .highConfidence
-
-        default: throw UniffiInternalError.unexpectedEnumCase
-        }
-    }
-
-    public static func write(_ value: MobileTrustLevel, into buf: inout [UInt8]) {
-        switch value {
-        case .unverified:
-            writeInt(&buf, Int32(1))
-
-        case .lowConfidence:
-            writeInt(&buf, Int32(2))
-
-        case .partialConfidence:
-            writeInt(&buf, Int32(3))
-
-        case .highConfidence:
-            writeInt(&buf, Int32(4))
-        }
-    }
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMobileTrustLevel_lift(_ buf: RustBuffer) throws -> MobileTrustLevel {
-    return try FfiConverterTypeMobileTrustLevel.lift(buf)
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMobileTrustLevel_lower(_ value: MobileTrustLevel) -> RustBuffer {
-    return FfiConverterTypeMobileTrustLevel.lower(value)
-}
-
-extension MobileTrustLevel: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
@@ -20098,31 +19661,6 @@ private struct FfiConverterSequenceTypeMobileFieldNote: FfiConverterRustBuffer {
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
-private struct FfiConverterSequenceTypeMobileFieldValidation: FfiConverterRustBuffer {
-    typealias SwiftType = [MobileFieldValidation]
-
-    static func write(_ value: [MobileFieldValidation], into buf: inout [UInt8]) {
-        let len = Int32(value.count)
-        writeInt(&buf, len)
-        for item in value {
-            FfiConverterTypeMobileFieldValidation.write(item, into: &buf)
-        }
-    }
-
-    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileFieldValidation] {
-        let len: Int32 = try readInt(&buf)
-        var seq = [MobileFieldValidation]()
-        seq.reserveCapacity(Int(len))
-        for _ in 0 ..< len {
-            try seq.append(FfiConverterTypeMobileFieldValidation.read(from: &buf))
-        }
-        return seq
-    }
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
 private struct FfiConverterSequenceTypeMobileFpsRange: FfiConverterRustBuffer {
     typealias SwiftType = [MobileFpsRange]
 
@@ -20951,7 +20489,7 @@ public func searchFaqsLocalized(query: String, locale: MobileLocale) -> [MobileF
  * - `data_dir`: The app's data directory path (String for UniFFI compat)
  * - `keychain`: Platform keychain callback for SMK destruction
  *
- * **WARNING**: This operation is irreversible and immediate. All account
+ * **WARNING**: This operation is irreversible and immediate. All identity
  * data in the specified directory will be permanently destroyed.
  */
 public func widgetPanicShred(dataDir: String, keychain: MobilePlatformKeychain) throws -> MobileShredReport {
@@ -21082,7 +20620,7 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_func_search_faqs_localized() != 45611 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_func_widget_panic_shred() != 12290 {
+    if uniffi_vauchi_platform_checksum_func_widget_panic_shred() != 24828 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_func_wifi_aware_check_availability() != 34379 {
@@ -21445,7 +20983,7 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_calculate_retry_backoff() != 41556 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_cancel_account_deletion() != 40208 {
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_cancel_identity_deletion() != 42404 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_cancel_shred() != 2095 {
@@ -21535,7 +21073,7 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_encode_multipart_qr() != 5986 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_execute_account_deletion() != 17016 {
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_execute_identity_deletion() != 63279 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_export_backup() != 28538 {
@@ -21613,12 +21151,6 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_emergency_config() != 19962 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_field_validation_count() != 28772 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_field_validation_status() != 36148 {
-        return InitializationResult.apiChecksumMismatch
-    }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_groups_for_contact() != 50060 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -21673,16 +21205,13 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_grant_consent() != 12497 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_hard_shred() != 10552 {
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_hard_shred() != 59456 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_has_identity() != 20535 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_has_seen_aha_moment() != 48941 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_has_validated_field() != 47284 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_hide_contact() != 48166 {
@@ -21745,9 +21274,6 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_list_labels() != 11443 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_list_my_validations() != 3568 {
-        return InitializationResult.apiChecksumMismatch
-    }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_list_social_networks() != 13035 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -21799,10 +21325,7 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_revoke_consent() != 60709 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_revoke_field_validation() != 3500 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_schedule_account_deletion() != 2823 {
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_schedule_identity_deletion() != 54882 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_search_contacts() != 49653 {
@@ -21901,16 +21424,13 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_unhide_contact() != 23110 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_unlink_device() != 44165 {
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_unlink_device() != 1031 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_untrust_contact_for_recovery() != 58615 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_update_field() != 13986 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_validate_field() != 45732 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_verify_contact() != 22462 {

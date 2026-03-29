@@ -430,6 +430,22 @@ private struct FfiConverterInt8: FfiConverterPrimitive {
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
+private struct FfiConverterUInt16: FfiConverterPrimitive {
+    typealias FfiType = UInt16
+    typealias SwiftType = UInt16
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UInt16 {
+        return try lift(readInt(&buf))
+    }
+
+    static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
 private struct FfiConverterInt16: FfiConverterPrimitive {
     typealias FfiType = Int16
     typealias SwiftType = Int16
@@ -8492,6 +8508,86 @@ public func FfiConverterTypeMobileBleField_lower(_ value: MobileBleField) -> Rus
 }
 
 /**
+ * Design tokens: border radius.
+ */
+public struct MobileBorderRadiusTokens {
+    public var sm: UInt16
+    public var md: UInt16
+    public var mdLg: UInt16
+    public var lg: UInt16
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(sm: UInt16, md: UInt16, mdLg: UInt16, lg: UInt16) {
+        self.sm = sm
+        self.md = md
+        self.mdLg = mdLg
+        self.lg = lg
+    }
+}
+
+extension MobileBorderRadiusTokens: Equatable, Hashable {
+    public static func == (lhs: MobileBorderRadiusTokens, rhs: MobileBorderRadiusTokens) -> Bool {
+        if lhs.sm != rhs.sm {
+            return false
+        }
+        if lhs.md != rhs.md {
+            return false
+        }
+        if lhs.mdLg != rhs.mdLg {
+            return false
+        }
+        if lhs.lg != rhs.lg {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(sm)
+        hasher.combine(md)
+        hasher.combine(mdLg)
+        hasher.combine(lg)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileBorderRadiusTokens: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileBorderRadiusTokens {
+        return
+            try MobileBorderRadiusTokens(
+                sm: FfiConverterUInt16.read(from: &buf),
+                md: FfiConverterUInt16.read(from: &buf),
+                mdLg: FfiConverterUInt16.read(from: &buf),
+                lg: FfiConverterUInt16.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileBorderRadiusTokens, into buf: inout [UInt8]) {
+        FfiConverterUInt16.write(value.sm, into: &buf)
+        FfiConverterUInt16.write(value.md, into: &buf)
+        FfiConverterUInt16.write(value.mdLg, into: &buf)
+        FfiConverterUInt16.write(value.lg, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileBorderRadiusTokens_lift(_ buf: RustBuffer) throws -> MobileBorderRadiusTokens {
+    return try FfiConverterTypeMobileBorderRadiusTokens.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileBorderRadiusTokens_lower(_ value: MobileBorderRadiusTokens) -> RustBuffer {
+    return FfiConverterTypeMobileBorderRadiusTokens.lower(value)
+}
+
+/**
  * Emergency broadcast result for mobile platforms.
  */
 public struct MobileBroadcastResult {
@@ -10062,6 +10158,102 @@ public func FfiConverterTypeMobileDemoContactState_lift(_ buf: RustBuffer) throw
 #endif
 public func FfiConverterTypeMobileDemoContactState_lower(_ value: MobileDemoContactState) -> RustBuffer {
     return FfiConverterTypeMobileDemoContactState.lower(value)
+}
+
+/**
+ * Complete design tokens for cross-platform rendering consistency.
+ */
+public struct MobileDesignTokens {
+    public var spacing: MobileSpacingTokens
+    public var spacingDirection: MobileSpacingDirectionTokens
+    public var typography: MobileTypographyTokens
+    public var borderRadius: MobileBorderRadiusTokens
+    public var touchTarget: MobileTouchTargetTokens
+    public var motion: MobileMotionTokens
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(spacing: MobileSpacingTokens, spacingDirection: MobileSpacingDirectionTokens, typography: MobileTypographyTokens, borderRadius: MobileBorderRadiusTokens, touchTarget: MobileTouchTargetTokens, motion: MobileMotionTokens) {
+        self.spacing = spacing
+        self.spacingDirection = spacingDirection
+        self.typography = typography
+        self.borderRadius = borderRadius
+        self.touchTarget = touchTarget
+        self.motion = motion
+    }
+}
+
+extension MobileDesignTokens: Equatable, Hashable {
+    public static func == (lhs: MobileDesignTokens, rhs: MobileDesignTokens) -> Bool {
+        if lhs.spacing != rhs.spacing {
+            return false
+        }
+        if lhs.spacingDirection != rhs.spacingDirection {
+            return false
+        }
+        if lhs.typography != rhs.typography {
+            return false
+        }
+        if lhs.borderRadius != rhs.borderRadius {
+            return false
+        }
+        if lhs.touchTarget != rhs.touchTarget {
+            return false
+        }
+        if lhs.motion != rhs.motion {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(spacing)
+        hasher.combine(spacingDirection)
+        hasher.combine(typography)
+        hasher.combine(borderRadius)
+        hasher.combine(touchTarget)
+        hasher.combine(motion)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileDesignTokens: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileDesignTokens {
+        return
+            try MobileDesignTokens(
+                spacing: FfiConverterTypeMobileSpacingTokens.read(from: &buf),
+                spacingDirection: FfiConverterTypeMobileSpacingDirectionTokens.read(from: &buf),
+                typography: FfiConverterTypeMobileTypographyTokens.read(from: &buf),
+                borderRadius: FfiConverterTypeMobileBorderRadiusTokens.read(from: &buf),
+                touchTarget: FfiConverterTypeMobileTouchTargetTokens.read(from: &buf),
+                motion: FfiConverterTypeMobileMotionTokens.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileDesignTokens, into buf: inout [UInt8]) {
+        FfiConverterTypeMobileSpacingTokens.write(value.spacing, into: &buf)
+        FfiConverterTypeMobileSpacingDirectionTokens.write(value.spacingDirection, into: &buf)
+        FfiConverterTypeMobileTypographyTokens.write(value.typography, into: &buf)
+        FfiConverterTypeMobileBorderRadiusTokens.write(value.borderRadius, into: &buf)
+        FfiConverterTypeMobileTouchTargetTokens.write(value.touchTarget, into: &buf)
+        FfiConverterTypeMobileMotionTokens.write(value.motion, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileDesignTokens_lift(_ buf: RustBuffer) throws -> MobileDesignTokens {
+    return try FfiConverterTypeMobileDesignTokens.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileDesignTokens_lower(_ value: MobileDesignTokens) -> RustBuffer {
+    return FfiConverterTypeMobileDesignTokens.lower(value)
 }
 
 public struct MobileDeviceCapabilityProfile {
@@ -11826,6 +12018,78 @@ public func FfiConverterTypeMobileLocaleInfo_lift(_ buf: RustBuffer) throws -> M
 #endif
 public func FfiConverterTypeMobileLocaleInfo_lower(_ value: MobileLocaleInfo) -> RustBuffer {
     return FfiConverterTypeMobileLocaleInfo.lower(value)
+}
+
+/**
+ * Design tokens: animation durations in milliseconds.
+ */
+public struct MobileMotionTokens {
+    public var enterDurationMs: UInt16
+    public var exitDurationMs: UInt16
+    public var emphasisDurationMs: UInt16
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(enterDurationMs: UInt16, exitDurationMs: UInt16, emphasisDurationMs: UInt16) {
+        self.enterDurationMs = enterDurationMs
+        self.exitDurationMs = exitDurationMs
+        self.emphasisDurationMs = emphasisDurationMs
+    }
+}
+
+extension MobileMotionTokens: Equatable, Hashable {
+    public static func == (lhs: MobileMotionTokens, rhs: MobileMotionTokens) -> Bool {
+        if lhs.enterDurationMs != rhs.enterDurationMs {
+            return false
+        }
+        if lhs.exitDurationMs != rhs.exitDurationMs {
+            return false
+        }
+        if lhs.emphasisDurationMs != rhs.emphasisDurationMs {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(enterDurationMs)
+        hasher.combine(exitDurationMs)
+        hasher.combine(emphasisDurationMs)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileMotionTokens: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileMotionTokens {
+        return
+            try MobileMotionTokens(
+                enterDurationMs: FfiConverterUInt16.read(from: &buf),
+                exitDurationMs: FfiConverterUInt16.read(from: &buf),
+                emphasisDurationMs: FfiConverterUInt16.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileMotionTokens, into buf: inout [UInt8]) {
+        FfiConverterUInt16.write(value.enterDurationMs, into: &buf)
+        FfiConverterUInt16.write(value.exitDurationMs, into: &buf)
+        FfiConverterUInt16.write(value.emphasisDurationMs, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileMotionTokens_lift(_ buf: RustBuffer) throws -> MobileMotionTokens {
+    return try FfiConverterTypeMobileMotionTokens.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileMotionTokens_lower(_ value: MobileMotionTokens) -> RustBuffer {
+    return FfiConverterTypeMobileMotionTokens.lower(value)
 }
 
 /**
@@ -13602,6 +13866,174 @@ public func FfiConverterTypeMobileSocialNetwork_lower(_ value: MobileSocialNetwo
     return FfiConverterTypeMobileSocialNetwork.lower(value)
 }
 
+/**
+ * Design tokens: directional spacing.
+ */
+public struct MobileSpacingDirectionTokens {
+    public var contentStart: UInt16
+    public var contentEnd: UInt16
+    public var listItemStart: UInt16
+    public var listItemEnd: UInt16
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(contentStart: UInt16, contentEnd: UInt16, listItemStart: UInt16, listItemEnd: UInt16) {
+        self.contentStart = contentStart
+        self.contentEnd = contentEnd
+        self.listItemStart = listItemStart
+        self.listItemEnd = listItemEnd
+    }
+}
+
+extension MobileSpacingDirectionTokens: Equatable, Hashable {
+    public static func == (lhs: MobileSpacingDirectionTokens, rhs: MobileSpacingDirectionTokens) -> Bool {
+        if lhs.contentStart != rhs.contentStart {
+            return false
+        }
+        if lhs.contentEnd != rhs.contentEnd {
+            return false
+        }
+        if lhs.listItemStart != rhs.listItemStart {
+            return false
+        }
+        if lhs.listItemEnd != rhs.listItemEnd {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(contentStart)
+        hasher.combine(contentEnd)
+        hasher.combine(listItemStart)
+        hasher.combine(listItemEnd)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileSpacingDirectionTokens: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileSpacingDirectionTokens {
+        return
+            try MobileSpacingDirectionTokens(
+                contentStart: FfiConverterUInt16.read(from: &buf),
+                contentEnd: FfiConverterUInt16.read(from: &buf),
+                listItemStart: FfiConverterUInt16.read(from: &buf),
+                listItemEnd: FfiConverterUInt16.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileSpacingDirectionTokens, into buf: inout [UInt8]) {
+        FfiConverterUInt16.write(value.contentStart, into: &buf)
+        FfiConverterUInt16.write(value.contentEnd, into: &buf)
+        FfiConverterUInt16.write(value.listItemStart, into: &buf)
+        FfiConverterUInt16.write(value.listItemEnd, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileSpacingDirectionTokens_lift(_ buf: RustBuffer) throws -> MobileSpacingDirectionTokens {
+    return try FfiConverterTypeMobileSpacingDirectionTokens.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileSpacingDirectionTokens_lower(_ value: MobileSpacingDirectionTokens) -> RustBuffer {
+    return FfiConverterTypeMobileSpacingDirectionTokens.lower(value)
+}
+
+/**
+ * Design tokens: spacing scale.
+ */
+public struct MobileSpacingTokens {
+    public var xs: UInt16
+    public var sm: UInt16
+    public var md: UInt16
+    public var lg: UInt16
+    public var xl: UInt16
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(xs: UInt16, sm: UInt16, md: UInt16, lg: UInt16, xl: UInt16) {
+        self.xs = xs
+        self.sm = sm
+        self.md = md
+        self.lg = lg
+        self.xl = xl
+    }
+}
+
+extension MobileSpacingTokens: Equatable, Hashable {
+    public static func == (lhs: MobileSpacingTokens, rhs: MobileSpacingTokens) -> Bool {
+        if lhs.xs != rhs.xs {
+            return false
+        }
+        if lhs.sm != rhs.sm {
+            return false
+        }
+        if lhs.md != rhs.md {
+            return false
+        }
+        if lhs.lg != rhs.lg {
+            return false
+        }
+        if lhs.xl != rhs.xl {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(xs)
+        hasher.combine(sm)
+        hasher.combine(md)
+        hasher.combine(lg)
+        hasher.combine(xl)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileSpacingTokens: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileSpacingTokens {
+        return
+            try MobileSpacingTokens(
+                xs: FfiConverterUInt16.read(from: &buf),
+                sm: FfiConverterUInt16.read(from: &buf),
+                md: FfiConverterUInt16.read(from: &buf),
+                lg: FfiConverterUInt16.read(from: &buf),
+                xl: FfiConverterUInt16.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileSpacingTokens, into buf: inout [UInt8]) {
+        FfiConverterUInt16.write(value.xs, into: &buf)
+        FfiConverterUInt16.write(value.sm, into: &buf)
+        FfiConverterUInt16.write(value.md, into: &buf)
+        FfiConverterUInt16.write(value.lg, into: &buf)
+        FfiConverterUInt16.write(value.xl, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileSpacingTokens_lift(_ buf: RustBuffer) throws -> MobileSpacingTokens {
+    return try FfiConverterTypeMobileSpacingTokens.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileSpacingTokens_lower(_ value: MobileSpacingTokens) -> RustBuffer {
+    return FfiConverterTypeMobileSpacingTokens.lower(value)
+}
+
 public struct MobileSweepMatrix {
     public var cameraConfigs: [MobileCameraConfig]
     public var qrConfigs: [MobileQrConfig]
@@ -13832,6 +14264,10 @@ public struct MobileTheme {
      * Theme colors.
      */
     public var colors: MobileThemeColors
+    /**
+     * Design tokens for layout consistency.
+     */
+    public var tokens: MobileDesignTokens
 
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
@@ -13859,7 +14295,10 @@ public struct MobileTheme {
             */ mode: MobileThemeMode,
         /* 
             * Theme colors.
-            */ colors: MobileThemeColors
+            */ colors: MobileThemeColors,
+        /* 
+            * Design tokens for layout consistency.
+            */ tokens: MobileDesignTokens
     ) {
         self.id = id
         self.name = name
@@ -13869,6 +14308,7 @@ public struct MobileTheme {
         self.source = source
         self.mode = mode
         self.colors = colors
+        self.tokens = tokens
     }
 }
 
@@ -13898,6 +14338,9 @@ extension MobileTheme: Equatable, Hashable {
         if lhs.colors != rhs.colors {
             return false
         }
+        if lhs.tokens != rhs.tokens {
+            return false
+        }
         return true
     }
 
@@ -13910,6 +14353,7 @@ extension MobileTheme: Equatable, Hashable {
         hasher.combine(source)
         hasher.combine(mode)
         hasher.combine(colors)
+        hasher.combine(tokens)
     }
 }
 
@@ -13927,7 +14371,8 @@ public struct FfiConverterTypeMobileTheme: FfiConverterRustBuffer {
                 license: FfiConverterOptionString.read(from: &buf),
                 source: FfiConverterOptionString.read(from: &buf),
                 mode: FfiConverterTypeMobileThemeMode.read(from: &buf),
-                colors: FfiConverterTypeMobileThemeColors.read(from: &buf)
+                colors: FfiConverterTypeMobileThemeColors.read(from: &buf),
+                tokens: FfiConverterTypeMobileDesignTokens.read(from: &buf)
             )
     }
 
@@ -13940,6 +14385,7 @@ public struct FfiConverterTypeMobileTheme: FfiConverterRustBuffer {
         FfiConverterOptionString.write(value.source, into: &buf)
         FfiConverterTypeMobileThemeMode.write(value.mode, into: &buf)
         FfiConverterTypeMobileThemeColors.write(value.colors, into: &buf)
+        FfiConverterTypeMobileDesignTokens.write(value.tokens, into: &buf)
     }
 }
 
@@ -14160,6 +14606,62 @@ public func FfiConverterTypeMobileThemeColors_lower(_ value: MobileThemeColors) 
     return FfiConverterTypeMobileThemeColors.lower(value)
 }
 
+/**
+ * Design tokens: touch target sizes.
+ */
+public struct MobileTouchTargetTokens {
+    public var minimum: UInt16
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(minimum: UInt16) {
+        self.minimum = minimum
+    }
+}
+
+extension MobileTouchTargetTokens: Equatable, Hashable {
+    public static func == (lhs: MobileTouchTargetTokens, rhs: MobileTouchTargetTokens) -> Bool {
+        if lhs.minimum != rhs.minimum {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(minimum)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileTouchTargetTokens: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileTouchTargetTokens {
+        return
+            try MobileTouchTargetTokens(
+                minimum: FfiConverterUInt16.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileTouchTargetTokens, into buf: inout [UInt8]) {
+        FfiConverterUInt16.write(value.minimum, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileTouchTargetTokens_lift(_ buf: RustBuffer) throws -> MobileTouchTargetTokens {
+    return try FfiConverterTypeMobileTouchTargetTokens.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileTouchTargetTokens_lower(_ value: MobileTouchTargetTokens) -> RustBuffer {
+    return FfiConverterTypeMobileTouchTargetTokens.lower(value)
+}
+
 public struct MobileTuningResult {
     public var cameraConfigId: UInt32
     public var qrErrorCorrection: MobileErrorCorrectionLevel
@@ -14299,6 +14801,86 @@ public func FfiConverterTypeMobileTuningResult_lift(_ buf: RustBuffer) throws ->
 #endif
 public func FfiConverterTypeMobileTuningResult_lower(_ value: MobileTuningResult) -> RustBuffer {
     return FfiConverterTypeMobileTuningResult.lower(value)
+}
+
+/**
+ * Design tokens: typography sizes.
+ */
+public struct MobileTypographyTokens {
+    public var titleSize: UInt16
+    public var subtitleSize: UInt16
+    public var bodySize: UInt16
+    public var captionSize: UInt16
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(titleSize: UInt16, subtitleSize: UInt16, bodySize: UInt16, captionSize: UInt16) {
+        self.titleSize = titleSize
+        self.subtitleSize = subtitleSize
+        self.bodySize = bodySize
+        self.captionSize = captionSize
+    }
+}
+
+extension MobileTypographyTokens: Equatable, Hashable {
+    public static func == (lhs: MobileTypographyTokens, rhs: MobileTypographyTokens) -> Bool {
+        if lhs.titleSize != rhs.titleSize {
+            return false
+        }
+        if lhs.subtitleSize != rhs.subtitleSize {
+            return false
+        }
+        if lhs.bodySize != rhs.bodySize {
+            return false
+        }
+        if lhs.captionSize != rhs.captionSize {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(titleSize)
+        hasher.combine(subtitleSize)
+        hasher.combine(bodySize)
+        hasher.combine(captionSize)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileTypographyTokens: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileTypographyTokens {
+        return
+            try MobileTypographyTokens(
+                titleSize: FfiConverterUInt16.read(from: &buf),
+                subtitleSize: FfiConverterUInt16.read(from: &buf),
+                bodySize: FfiConverterUInt16.read(from: &buf),
+                captionSize: FfiConverterUInt16.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileTypographyTokens, into buf: inout [UInt8]) {
+        FfiConverterUInt16.write(value.titleSize, into: &buf)
+        FfiConverterUInt16.write(value.subtitleSize, into: &buf)
+        FfiConverterUInt16.write(value.bodySize, into: &buf)
+        FfiConverterUInt16.write(value.captionSize, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileTypographyTokens_lift(_ buf: RustBuffer) throws -> MobileTypographyTokens {
+    return try FfiConverterTypeMobileTypographyTokens.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileTypographyTokens_lower(_ value: MobileTypographyTokens) -> RustBuffer {
+    return FfiConverterTypeMobileTypographyTokens.lower(value)
 }
 
 /**

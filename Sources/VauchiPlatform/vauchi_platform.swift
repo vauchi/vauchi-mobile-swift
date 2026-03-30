@@ -5679,6 +5679,15 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func importBackup(backupData: String, password: String) throws
 
     /**
+     * Import contacts from vCard data (supports 2.1 / 3.0 / 4.0).
+     *
+     * Pass the raw bytes of a `.vcf` file. Each parsed vCard becomes an
+     * imported contact. Duplicates (by UID) are skipped. Returns counts
+     * and per-contact warnings.
+     */
+    func importContactsFromVcf(data: Data) throws -> MobileImportResult
+
+    /**
      * Initialize the demo contact if user has no real contacts.
      * Call this after onboarding completes.
      */
@@ -7228,6 +7237,20 @@ open class VauchiPlatform:
                                                                           FfiConverterString.lower(backupData),
                                                                           FfiConverterString.lower(password), $0)
         }
+    }
+
+    /**
+     * Import contacts from vCard data (supports 2.1 / 3.0 / 4.0).
+     *
+     * Pass the raw bytes of a `.vcf` file. Each parsed vCard becomes an
+     * imported contact. Duplicates (by UID) are skipped. Returns counts
+     * and per-contact warnings.
+     */
+    open func importContactsFromVcf(data: Data) throws -> MobileImportResult {
+        return try FfiConverterTypeMobileImportResult.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_vauchiplatform_import_contacts_from_vcf(self.uniffiClonePointer(),
+                                                                                     FfiConverterData.lower(data), $0)
+        })
     }
 
     /**
@@ -11913,6 +11936,97 @@ public func FfiConverterTypeMobileHelpCategoryInfo_lift(_ buf: RustBuffer) throw
 #endif
 public func FfiConverterTypeMobileHelpCategoryInfo_lower(_ value: MobileHelpCategoryInfo) -> RustBuffer {
     return FfiConverterTypeMobileHelpCategoryInfo.lower(value)
+}
+
+/**
+ * Result of a contact import operation.
+ */
+public struct MobileImportResult {
+    /**
+     * Number of contacts successfully imported.
+     */
+    public var imported: UInt32
+    /**
+     * Number of contacts skipped (malformed or duplicate).
+     */
+    public var skipped: UInt32
+    /**
+     * Warning messages for skipped contacts.
+     */
+    public var warnings: [String]
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(
+        /* 
+         * Number of contacts successfully imported.
+         */ imported: UInt32,
+        /* 
+            * Number of contacts skipped (malformed or duplicate).
+            */ skipped: UInt32,
+        /* 
+            * Warning messages for skipped contacts.
+            */ warnings: [String]
+    ) {
+        self.imported = imported
+        self.skipped = skipped
+        self.warnings = warnings
+    }
+}
+
+extension MobileImportResult: Equatable, Hashable {
+    public static func == (lhs: MobileImportResult, rhs: MobileImportResult) -> Bool {
+        if lhs.imported != rhs.imported {
+            return false
+        }
+        if lhs.skipped != rhs.skipped {
+            return false
+        }
+        if lhs.warnings != rhs.warnings {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(imported)
+        hasher.combine(skipped)
+        hasher.combine(warnings)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileImportResult: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileImportResult {
+        return
+            try MobileImportResult(
+                imported: FfiConverterUInt32.read(from: &buf),
+                skipped: FfiConverterUInt32.read(from: &buf),
+                warnings: FfiConverterSequenceString.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileImportResult, into buf: inout [UInt8]) {
+        FfiConverterUInt32.write(value.imported, into: &buf)
+        FfiConverterUInt32.write(value.skipped, into: &buf)
+        FfiConverterSequenceString.write(value.warnings, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileImportResult_lift(_ buf: RustBuffer) throws -> MobileImportResult {
+    return try FfiConverterTypeMobileImportResult.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileImportResult_lower(_ value: MobileImportResult) -> RustBuffer {
+    return FfiConverterTypeMobileImportResult.lower(value)
 }
 
 /**
@@ -21803,6 +21917,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_import_backup() != 6890 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_import_contacts_from_vcf() != 44226 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_init_demo_contact_if_needed() != 25750 {

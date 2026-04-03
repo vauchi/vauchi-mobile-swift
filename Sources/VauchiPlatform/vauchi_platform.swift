@@ -21363,6 +21363,20 @@ public func isSafeUrl(url: String) -> Bool {
 }
 
 /**
+ * Validate a relay WebSocket URL.
+ *
+ * Accepts `wss://` for any host, `ws://` only for localhost/loopback.
+ * Use this to validate user-entered relay URLs before saving.
+ */
+public func isValidRelayUrl(url: String) -> Bool {
+    return try! FfiConverterBool.lift(try! rustCall {
+        uniffi_vauchi_platform_fn_func_is_valid_relay_url(
+            FfiConverterString.lower(url), $0
+        )
+    })
+}
+
+/**
  * Parse a locale code to MobileLocale.
  *
  * Supports codes like "en", "en-US", "de-DE", etc.
@@ -21534,6 +21548,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_func_is_safe_url() != 41241 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_func_is_valid_relay_url() != 49638 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_func_parse_locale_code() != 8345 {

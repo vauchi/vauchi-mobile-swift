@@ -4815,6 +4815,14 @@ public protocol PlatformAppEngineProtocol: AnyObject {
      * - `{"ContactDetail": {"contact_id": "abc"}}` (parameterized variant)
      */
     func navigateToJson(screenJson: String) throws -> String
+
+    /**
+     * Report device hardware capabilities.
+     *
+     * Call once at startup after querying platform hardware APIs.
+     * Determines which exchange modes are available.
+     */
+    func setDeviceCapabilitiesJson(capabilitiesJson: String) throws
 }
 
 /**
@@ -5040,6 +5048,19 @@ open class PlatformAppEngine:
                                                                                 FfiConverterString.lower(screenJson), $0)
         })
     }
+
+    /**
+     * Report device hardware capabilities.
+     *
+     * Call once at startup after querying platform hardware APIs.
+     * Determines which exchange modes are available.
+     */
+    open func setDeviceCapabilitiesJson(capabilitiesJson: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_set_device_capabilities_json(self.uniffiClonePointer(),
+                                                                                            FfiConverterString.lower(capabilitiesJson), $0)
+        }
+    }
 }
 
 #if swift(>=5.8)
@@ -5147,6 +5168,15 @@ public protocol VauchiPlatformProtocol: AnyObject {
      * Note: Returns Disabled if the `content-updates` feature is not enabled.
      */
     func applyContentUpdates() -> MobileApplyResult
+
+    /**
+     * Archive an exchanged contact.
+     *
+     * The contact disappears from `list_contacts()` but retains its
+     * crypto state (shared key, ratchet). Reversible via `unarchive_contact()`.
+     * Only works for exchanged contacts — imported contacts must be soft-deleted.
+     */
+    func archiveContact(id: String) throws
 
     /**
      * Authenticates with a password.
@@ -5639,6 +5669,13 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func grantConsent(consentType: MobileConsentType) throws
 
     /**
+     * Permanently delete an imported contact from storage.
+     *
+     * Only works for imported contacts. This is irreversible.
+     */
+    func hardDeleteImportedContact(id: String) throws
+
+    /**
      * Execute irreversible crypto-shredding (Hard Shred).
      *
      * Requires the grace period to have elapsed. Destroys all key material,
@@ -5751,6 +5788,11 @@ public protocol VauchiPlatformProtocol: AnyObject {
      * Returns whether presence suppression is enabled.
      */
     func isSuppressPresenceEnabled() -> Bool
+
+    /**
+     * List all archived contacts.
+     */
+    func listArchivedContacts() throws -> [MobileContact]
 
     /**
      * List all contacts.
@@ -6034,6 +6076,15 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func skipOnboardingToFinish() throws -> MobileOnboardingProgress
 
     /**
+     * Soft-delete an imported contact (30-second undo window).
+     *
+     * The contact disappears from `list_contacts()` but can be restored
+     * with `undo_delete_imported_contact()` within the undo window.
+     * Only works for imported contacts — exchanged contacts must be archived.
+     */
+    func softDeleteImportedContact(id: String) throws
+
+    /**
      * Schedule crypto-shredding with 7-day grace period (Soft Shred).
      *
      * Returns a token that must be passed to `hard_shred()` after the grace period.
@@ -6099,6 +6150,16 @@ public protocol VauchiPlatformProtocol: AnyObject {
      * Try to trigger an aha moment with context (e.g., contact name).
      */
     func tryTriggerAhaMomentWithContext(momentType: MobileAhaMomentType, context: String) throws -> MobileAhaMoment?
+
+    /**
+     * Unarchive an exchanged contact, restoring it to the main list.
+     */
+    func unarchiveContact(id: String) throws
+
+    /**
+     * Undo a soft-delete, restoring the contact to the visible list.
+     */
+    func undoDeleteImportedContact(id: String) throws
 
     /**
      * Unhides a contact, making it visible in the main contact list again.
@@ -6327,6 +6388,20 @@ open class VauchiPlatform:
         return try! FfiConverterTypeMobileApplyResult.lift(try! rustCall {
             uniffi_vauchi_platform_fn_method_vauchiplatform_apply_content_updates(self.uniffiClonePointer(), $0)
         })
+    }
+
+    /**
+     * Archive an exchanged contact.
+     *
+     * The contact disappears from `list_contacts()` but retains its
+     * crypto state (shared key, ratchet). Reversible via `unarchive_contact()`.
+     * Only works for exchanged contacts — imported contacts must be soft-deleted.
+     */
+    open func archiveContact(id: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_vauchiplatform_archive_contact(self.uniffiClonePointer(),
+                                                                            FfiConverterString.lower(id), $0)
+        }
     }
 
     /**
@@ -7169,6 +7244,18 @@ open class VauchiPlatform:
     }
 
     /**
+     * Permanently delete an imported contact from storage.
+     *
+     * Only works for imported contacts. This is irreversible.
+     */
+    open func hardDeleteImportedContact(id: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_vauchiplatform_hard_delete_imported_contact(self.uniffiClonePointer(),
+                                                                                         FfiConverterString.lower(id), $0)
+        }
+    }
+
+    /**
      * Execute irreversible crypto-shredding (Hard Shred).
      *
      * Requires the grace period to have elapsed. Destroys all key material,
@@ -7365,6 +7452,15 @@ open class VauchiPlatform:
     open func isSuppressPresenceEnabled() -> Bool {
         return try! FfiConverterBool.lift(try! rustCall {
             uniffi_vauchi_platform_fn_method_vauchiplatform_is_suppress_presence_enabled(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * List all archived contacts.
+     */
+    open func listArchivedContacts() throws -> [MobileContact] {
+        return try FfiConverterSequenceTypeMobileContact.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_vauchiplatform_list_archived_contacts(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -7871,6 +7967,20 @@ open class VauchiPlatform:
     }
 
     /**
+     * Soft-delete an imported contact (30-second undo window).
+     *
+     * The contact disappears from `list_contacts()` but can be restored
+     * with `undo_delete_imported_contact()` within the undo window.
+     * Only works for imported contacts — exchanged contacts must be archived.
+     */
+    open func softDeleteImportedContact(id: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_vauchiplatform_soft_delete_imported_contact(self.uniffiClonePointer(),
+                                                                                         FfiConverterString.lower(id), $0)
+        }
+    }
+
+    /**
      * Schedule crypto-shredding with 7-day grace period (Soft Shred).
      *
      * Returns a token that must be passed to `hard_shred()` after the grace period.
@@ -7991,6 +8101,26 @@ open class VauchiPlatform:
                                                                                                 FfiConverterTypeMobileAhaMomentType.lower(momentType),
                                                                                                 FfiConverterString.lower(context), $0)
         })
+    }
+
+    /**
+     * Unarchive an exchanged contact, restoring it to the main list.
+     */
+    open func unarchiveContact(id: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_vauchiplatform_unarchive_contact(self.uniffiClonePointer(),
+                                                                              FfiConverterString.lower(id), $0)
+        }
+    }
+
+    /**
+     * Undo a soft-delete, restoring the contact to the visible list.
+     */
+    open func undoDeleteImportedContact(id: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_vauchiplatform_undo_delete_imported_contact(self.uniffiClonePointer(),
+                                                                                         FfiConverterString.lower(id), $0)
+        }
     }
 
     /**
@@ -16784,6 +16914,12 @@ public enum MobileExchangeCommand {
     case audioEmitChallenge(data: Data)
     case audioListenForResponse(timeoutMs: UInt64)
     case audioStop
+    case accelerometerStart
+    case accelerometerStop
+    case relayEscrowDeposit(gateHash: Data, slotHash: Data, encryptedCard: Data, ttlSeconds: UInt32)
+    case relayEscrowCheck(gateHash: Data, suggestedIntervalMs: UInt32)
+    case relayEscrowRetrieve(gateHash: Data, slotHash: Data)
+    case showShareSheet(url: String)
 }
 
 #if swift(>=5.8)
@@ -16820,6 +16956,18 @@ public struct FfiConverterTypeMobileExchangeCommand: FfiConverterRustBuffer {
         case 12: return try .audioListenForResponse(timeoutMs: FfiConverterUInt64.read(from: &buf))
 
         case 13: return .audioStop
+
+        case 14: return .accelerometerStart
+
+        case 15: return .accelerometerStop
+
+        case 16: return try .relayEscrowDeposit(gateHash: FfiConverterData.read(from: &buf), slotHash: FfiConverterData.read(from: &buf), encryptedCard: FfiConverterData.read(from: &buf), ttlSeconds: FfiConverterUInt32.read(from: &buf))
+
+        case 17: return try .relayEscrowCheck(gateHash: FfiConverterData.read(from: &buf), suggestedIntervalMs: FfiConverterUInt32.read(from: &buf))
+
+        case 18: return try .relayEscrowRetrieve(gateHash: FfiConverterData.read(from: &buf), slotHash: FfiConverterData.read(from: &buf))
+
+        case 19: return try .showShareSheet(url: FfiConverterString.read(from: &buf))
 
         default: throw UniffiInternalError.unexpectedEnumCase
         }
@@ -16876,6 +17024,33 @@ public struct FfiConverterTypeMobileExchangeCommand: FfiConverterRustBuffer {
 
         case .audioStop:
             writeInt(&buf, Int32(13))
+
+        case .accelerometerStart:
+            writeInt(&buf, Int32(14))
+
+        case .accelerometerStop:
+            writeInt(&buf, Int32(15))
+
+        case let .relayEscrowDeposit(gateHash, slotHash, encryptedCard, ttlSeconds):
+            writeInt(&buf, Int32(16))
+            FfiConverterData.write(gateHash, into: &buf)
+            FfiConverterData.write(slotHash, into: &buf)
+            FfiConverterData.write(encryptedCard, into: &buf)
+            FfiConverterUInt32.write(ttlSeconds, into: &buf)
+
+        case let .relayEscrowCheck(gateHash, suggestedIntervalMs):
+            writeInt(&buf, Int32(17))
+            FfiConverterData.write(gateHash, into: &buf)
+            FfiConverterUInt32.write(suggestedIntervalMs, into: &buf)
+
+        case let .relayEscrowRetrieve(gateHash, slotHash):
+            writeInt(&buf, Int32(18))
+            FfiConverterData.write(gateHash, into: &buf)
+            FfiConverterData.write(slotHash, into: &buf)
+
+        case let .showShareSheet(url):
+            writeInt(&buf, Int32(19))
+            FfiConverterString.write(url, into: &buf)
         }
     }
 }
@@ -16914,6 +17089,13 @@ public enum MobileExchangeHardwareEvent {
     case bleDisconnected(reason: String)
     case nfcDataReceived(data: Data)
     case audioResponseReceived(data: Data)
+    case accelerometerData(timestampMs: UInt64, xMilliG: Int32, yMilliG: Int32, zMilliG: Int32)
+    case impactDetected(timestampMs: UInt64, magnitudeMilliG: Int32)
+    case relayEscrowReady(gateHash: Data)
+    case relayEscrowBlobReceived(gateHash: Data, blob: Data)
+    case relayEscrowFailed(gateHash: Data, reason: String)
+    case linkShared
+    case linkOpened(peerPublicKey: Data)
     case hardwareError(transport: String, error: String)
     case hardwareUnavailable(transport: String)
 }
@@ -16943,9 +17125,23 @@ public struct FfiConverterTypeMobileExchangeHardwareEvent: FfiConverterRustBuffe
 
         case 8: return try .audioResponseReceived(data: FfiConverterData.read(from: &buf))
 
-        case 9: return try .hardwareError(transport: FfiConverterString.read(from: &buf), error: FfiConverterString.read(from: &buf))
+        case 9: return try .accelerometerData(timestampMs: FfiConverterUInt64.read(from: &buf), xMilliG: FfiConverterInt32.read(from: &buf), yMilliG: FfiConverterInt32.read(from: &buf), zMilliG: FfiConverterInt32.read(from: &buf))
 
-        case 10: return try .hardwareUnavailable(transport: FfiConverterString.read(from: &buf))
+        case 10: return try .impactDetected(timestampMs: FfiConverterUInt64.read(from: &buf), magnitudeMilliG: FfiConverterInt32.read(from: &buf))
+
+        case 11: return try .relayEscrowReady(gateHash: FfiConverterData.read(from: &buf))
+
+        case 12: return try .relayEscrowBlobReceived(gateHash: FfiConverterData.read(from: &buf), blob: FfiConverterData.read(from: &buf))
+
+        case 13: return try .relayEscrowFailed(gateHash: FfiConverterData.read(from: &buf), reason: FfiConverterString.read(from: &buf))
+
+        case 14: return .linkShared
+
+        case 15: return try .linkOpened(peerPublicKey: FfiConverterData.read(from: &buf))
+
+        case 16: return try .hardwareError(transport: FfiConverterString.read(from: &buf), error: FfiConverterString.read(from: &buf))
+
+        case 17: return try .hardwareUnavailable(transport: FfiConverterString.read(from: &buf))
 
         default: throw UniffiInternalError.unexpectedEnumCase
         }
@@ -16989,13 +17185,46 @@ public struct FfiConverterTypeMobileExchangeHardwareEvent: FfiConverterRustBuffe
             writeInt(&buf, Int32(8))
             FfiConverterData.write(data, into: &buf)
 
-        case let .hardwareError(transport, error):
+        case let .accelerometerData(timestampMs, xMilliG, yMilliG, zMilliG):
             writeInt(&buf, Int32(9))
+            FfiConverterUInt64.write(timestampMs, into: &buf)
+            FfiConverterInt32.write(xMilliG, into: &buf)
+            FfiConverterInt32.write(yMilliG, into: &buf)
+            FfiConverterInt32.write(zMilliG, into: &buf)
+
+        case let .impactDetected(timestampMs, magnitudeMilliG):
+            writeInt(&buf, Int32(10))
+            FfiConverterUInt64.write(timestampMs, into: &buf)
+            FfiConverterInt32.write(magnitudeMilliG, into: &buf)
+
+        case let .relayEscrowReady(gateHash):
+            writeInt(&buf, Int32(11))
+            FfiConverterData.write(gateHash, into: &buf)
+
+        case let .relayEscrowBlobReceived(gateHash, blob):
+            writeInt(&buf, Int32(12))
+            FfiConverterData.write(gateHash, into: &buf)
+            FfiConverterData.write(blob, into: &buf)
+
+        case let .relayEscrowFailed(gateHash, reason):
+            writeInt(&buf, Int32(13))
+            FfiConverterData.write(gateHash, into: &buf)
+            FfiConverterString.write(reason, into: &buf)
+
+        case .linkShared:
+            writeInt(&buf, Int32(14))
+
+        case let .linkOpened(peerPublicKey):
+            writeInt(&buf, Int32(15))
+            FfiConverterData.write(peerPublicKey, into: &buf)
+
+        case let .hardwareError(transport, error):
+            writeInt(&buf, Int32(16))
             FfiConverterString.write(transport, into: &buf)
             FfiConverterString.write(error, into: &buf)
 
         case let .hardwareUnavailable(transport):
-            writeInt(&buf, Int32(10))
+            writeInt(&buf, Int32(17))
             FfiConverterString.write(transport, into: &buf)
         }
     }
@@ -21646,6 +21875,9 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_platformappengine_navigate_to_json() != 60323 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_set_device_capabilities_json() != 56951 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_add_contact_to_group() != 53515 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -21668,6 +21900,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_apply_content_updates() != 51432 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_archive_contact() != 5022 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_authenticate() != 14031 {
@@ -21901,6 +22136,9 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_grant_consent() != 12497 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_hard_delete_imported_contact() != 64887 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_hard_shred() != 59456 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -21956,6 +22194,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_is_suppress_presence_enabled() != 46979 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_list_archived_contacts() != 3330 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_list_contacts() != 44048 {
@@ -22090,6 +22331,9 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_skip_onboarding_to_finish() != 61406 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_soft_delete_imported_contact() != 3809 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_soft_shred() != 61517 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -22118,6 +22362,12 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_try_trigger_aha_moment_with_context() != 41501 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_unarchive_contact() != 49986 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_undo_delete_imported_contact() != 16461 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_unhide_contact() != 23110 {

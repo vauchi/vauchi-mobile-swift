@@ -4115,6 +4115,10 @@ public func FfiConverterTypeMobileNfcHandshake_lower(_ value: MobileNfcHandshake
 /**
  * Stateful onboarding workflow for mobile platforms.
  *
+ * **Deprecated**: Use [`PlatformAppEngine`](crate::PlatformAppEngine) instead.
+ * `PlatformAppEngine` wraps the full `AppEngine` orchestrator, providing
+ * unified navigation, validation error resolution, and engine caching.
+ *
  * Wraps the core `OnboardingEngine` state machine. All screen data and
  * action results are exchanged as JSON strings — see module docs for why.
  *
@@ -4184,6 +4188,10 @@ public protocol MobileOnboardingWorkflowProtocol: AnyObject {
 
 /**
  * Stateful onboarding workflow for mobile platforms.
+ *
+ * **Deprecated**: Use [`PlatformAppEngine`](crate::PlatformAppEngine) instead.
+ * `PlatformAppEngine` wraps the full `AppEngine` orchestrator, providing
+ * unified navigation, validation error resolution, and engine caching.
  *
  * Wraps the core `OnboardingEngine` state machine. All screen data and
  * action results are exchanged as JSON strings — see module docs for why.
@@ -4774,7 +4782,10 @@ public protocol PlatformAppEngineProtocol: AnyObject {
      * Handles a user action (as JSON) and returns the result as JSON.
      *
      * The action JSON must match the `UserAction` enum format.
-     * The result JSON matches the `ActionResult` enum.
+     * The result JSON matches the `ActionResult` enum. Note:
+     * `ValidationError` is never returned — validation errors are
+     * resolved into `UpdateScreen` with the error injected into the
+     * matching component's `validation_error` field.
      */
     func handleActionJson(actionJson: String) throws -> String
 
@@ -4823,6 +4834,55 @@ public protocol PlatformAppEngineProtocol: AnyObject {
      * Determines which exchange modes are available.
      */
     func setDeviceCapabilitiesJson(capabilitiesJson: String) throws
+
+    /**
+     * Register a listener for async state-change notifications.
+     *
+     * Core calls `on_screens_invalidated` when background operations
+     * (sync, delivery receipts, device link) change data that affects
+     * rendered screens. Replaces any previously registered listener.
+     *
+     * # Threading — IMPORTANT
+     *
+     * The callback may fire **on the same thread** that called
+     * `handle_action_json` (synchronous event dispatch). The callback
+     * **must not** call back into `PlatformAppEngine` methods directly —
+     * doing so would deadlock on the internal Mutex. Always dispatch
+     * to a separate queue/thread before touching the engine.
+     *
+     * # Usage from Swift
+     *
+     * ```swift
+     * class MyListener: PlatformEventListener {
+     * func onScreensInvalidated(screenIds: [String]) {
+     * DispatchQueue.main.async {  // REQUIRED — never call engine synchronously
+     * for id in screenIds {
+     * try? engine.invalidateScreenJson(screenJson: "\"\(id)\"")
+     * }
+     * self.reloadCurrentScreen()
+     * }
+     * }
+     * }
+     * try engine.setEventListener(listener: MyListener())
+     * ```
+     *
+     * # Usage from Kotlin
+     *
+     * ```kotlin
+     * class MyListener : PlatformEventListener {
+     * override fun onScreensInvalidated(screenIds: List<String>) {
+     * viewModelScope.launch {  // REQUIRED — never call engine synchronously
+     * for (id in screenIds) {
+     * engine.invalidateScreenJson("\"$id\"")
+     * }
+     * reloadCurrentScreen()
+     * }
+     * }
+     * }
+     * engine.setEventListener(MyListener())
+     * ```
+     */
+    func setEventListener(listener: PlatformEventListener) throws
 }
 
 /**
@@ -4980,7 +5040,10 @@ open class PlatformAppEngine:
      * Handles a user action (as JSON) and returns the result as JSON.
      *
      * The action JSON must match the `UserAction` enum format.
-     * The result JSON matches the `ActionResult` enum.
+     * The result JSON matches the `ActionResult` enum. Note:
+     * `ValidationError` is never returned — validation errors are
+     * resolved into `UpdateScreen` with the error injected into the
+     * matching component's `validation_error` field.
      */
     open func handleActionJson(actionJson: String) throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
@@ -5059,6 +5122,60 @@ open class PlatformAppEngine:
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_platformappengine_set_device_capabilities_json(self.uniffiClonePointer(),
                                                                                             FfiConverterString.lower(capabilitiesJson), $0)
+        }
+    }
+
+    /**
+     * Register a listener for async state-change notifications.
+     *
+     * Core calls `on_screens_invalidated` when background operations
+     * (sync, delivery receipts, device link) change data that affects
+     * rendered screens. Replaces any previously registered listener.
+     *
+     * # Threading — IMPORTANT
+     *
+     * The callback may fire **on the same thread** that called
+     * `handle_action_json` (synchronous event dispatch). The callback
+     * **must not** call back into `PlatformAppEngine` methods directly —
+     * doing so would deadlock on the internal Mutex. Always dispatch
+     * to a separate queue/thread before touching the engine.
+     *
+     * # Usage from Swift
+     *
+     * ```swift
+     * class MyListener: PlatformEventListener {
+     * func onScreensInvalidated(screenIds: [String]) {
+     * DispatchQueue.main.async {  // REQUIRED — never call engine synchronously
+     * for id in screenIds {
+     * try? engine.invalidateScreenJson(screenJson: "\"\(id)\"")
+     * }
+     * self.reloadCurrentScreen()
+     * }
+     * }
+     * }
+     * try engine.setEventListener(listener: MyListener())
+     * ```
+     *
+     * # Usage from Kotlin
+     *
+     * ```kotlin
+     * class MyListener : PlatformEventListener {
+     * override fun onScreensInvalidated(screenIds: List<String>) {
+     * viewModelScope.launch {  // REQUIRED — never call engine synchronously
+     * for (id in screenIds) {
+     * engine.invalidateScreenJson("\"$id\"")
+     * }
+     * reloadCurrentScreen()
+     * }
+     * }
+     * }
+     * engine.setEventListener(MyListener())
+     * ```
+     */
+    open func setEventListener(listener: PlatformEventListener) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_set_event_listener(self.uniffiClonePointer(),
+                                                                                  FfiConverterCallbackInterfacePlatformEventListener.lower(listener), $0)
         }
     }
 }
@@ -19825,6 +19942,112 @@ extension FfiConverterCallbackInterfacePlatformAudioHandler: FfiConverter {
     }
 }
 
+/**
+ * Callback interface for async state-change notifications from core.
+ *
+ * Frontends implement this trait (in Swift/Kotlin via UniFFI) and register
+ * it with [`PlatformAppEngine::set_event_listener`]. Core calls
+ * `on_screens_invalidated` when background operations (sync, delivery,
+ * device link) change data that affects rendered screens.
+ *
+ * On receiving the callback, frontends should call `invalidate_screen_json`
+ * or `invalidate_all` and re-render the affected screens.
+ */
+public protocol PlatformEventListener: AnyObject {
+    /**
+     * Called when one or more screens have stale data due to a background
+     * operation. `screen_ids` contains the `screen_id` values of affected
+     * screens (e.g., `["contacts", "delivery_status"]`).
+     */
+    func onScreensInvalidated(screenIds: [String])
+}
+
+/// Put the implementation in a struct so we don't pollute the top-level namespace
+private enum UniffiCallbackInterfacePlatformEventListener {
+    /// Create the VTable using a series of closures.
+    /// Swift automatically converts these into C callback functions.
+    static var vtable: UniffiVTableCallbackInterfacePlatformEventListener = .init(
+        onScreensInvalidated: { (
+            uniffiHandle: UInt64,
+            screenIds: RustBuffer,
+            _: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws in
+                guard let uniffiObj = try? FfiConverterCallbackInterfacePlatformEventListener.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return try uniffiObj.onScreensInvalidated(
+                    screenIds: FfiConverterSequenceString.lift(screenIds)
+                )
+            }
+
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        uniffiFree: { (uniffiHandle: UInt64) in
+            let result = try? FfiConverterCallbackInterfacePlatformEventListener.handleMap.remove(handle: uniffiHandle)
+            if result == nil {
+                print("Uniffi callback interface PlatformEventListener: handle missing in uniffiFree")
+            }
+        }
+    )
+}
+
+private func uniffiCallbackInitPlatformEventListener() {
+    uniffi_vauchi_platform_fn_init_callback_vtable_platformeventlistener(&UniffiCallbackInterfacePlatformEventListener.vtable)
+}
+
+// FfiConverter protocol for callback interfaces
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+private enum FfiConverterCallbackInterfacePlatformEventListener {
+    fileprivate static var handleMap = UniffiHandleMap<PlatformEventListener>()
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+extension FfiConverterCallbackInterfacePlatformEventListener: FfiConverter {
+    typealias SwiftType = PlatformEventListener
+    typealias FfiType = UInt64
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public static func lift(_ handle: UInt64) throws -> SwiftType {
+        try handleMap.get(handle: handle)
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public static func lower(_ v: SwiftType) -> UInt64 {
+        return handleMap.insert(obj: v)
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public static func write(_ v: SwiftType, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(v))
+    }
+}
+
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
@@ -21874,7 +22097,7 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_platformappengine_form_has_data() != 43012 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_platformappengine_handle_action_json() != 38620 {
+    if uniffi_vauchi_platform_checksum_method_platformappengine_handle_action_json() != 42243 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_platformappengine_has_identity() != 9989 {
@@ -21893,6 +22116,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_platformappengine_set_device_capabilities_json() != 56951 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_set_event_listener() != 2450 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_add_contact_to_group() != 53515 {
@@ -22546,6 +22772,9 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_platformaudiohandler_stop() != 64303 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_method_platformeventlistener_on_screens_invalidated() != 40829 {
+        return InitializationResult.apiChecksumMismatch
+    }
 
     uniffiCallbackInitMobileBleDelegate()
     uniffiCallbackInitMobileNfcTransport()
@@ -22553,6 +22782,7 @@ private var initializationResult: InitializationResult = {
     uniffiCallbackInitMobileProximityHandler()
     uniffiCallbackInitMobileWifiAwareHandler()
     uniffiCallbackInitPlatformAudioHandler()
+    uniffiCallbackInitPlatformEventListener()
     return InitializationResult.ok
 }()
 

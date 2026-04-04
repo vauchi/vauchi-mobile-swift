@@ -5945,8 +5945,8 @@ public protocol VauchiPlatformProtocol: AnyObject {
     /**
      * Listen for incoming device link request via relay (existing device / initiator).
      *
-     * Connects to the relay, registers as a listener for this identity, and
-     * waits for a new device to send a device link request.
+     * Creates an exchange offer with our identity, then polls until the new
+     * device claims it. Returns the encrypted request and a token for the response.
      */
     func listenForDeviceLinkRequest(timeoutSecs: UInt64) throws -> MobileDeviceLinkRequest
 
@@ -6061,16 +6061,16 @@ public protocol VauchiPlatformProtocol: AnyObject {
     /**
      * Send device link request via relay and wait for response (new device / responder).
      *
-     * Connects to the relay, sends the encrypted request targeting the existing
-     * device's identity, and waits for the encrypted response.
+     * Uses two HTTP exchange cycles: creates a return channel, claims the
+     * existing device's offer with our request, then polls for the response.
      */
     func sendDeviceLinkRequest(targetIdentity: String, senderToken: String, encryptedRequest: Data, timeoutSecs: UInt64) throws -> Data
 
     /**
      * Send device link response back via relay (existing device / initiator).
      *
-     * After confirming a device link, sends the encrypted response back to the
-     * new device via the relay using the sender's token for routing.
+     * Claims the return channel created by the new device, depositing the
+     * encrypted response payload.
      */
     func sendDeviceLinkResponse(senderToken: String, encryptedResponse: Data) throws
 
@@ -6228,16 +6228,18 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func startDeviceLink() throws -> MobileDeviceLinkInitiator
 
     /**
-     * Sync with relay server.
+     * Sync with relay server via OHTTP-encrypted HTTP.
+     *
+     * Creates a temporary `Vauchi` instance, connects, syncs, and maps the
+     * outcome to `MobileSyncResult`. All synchronous — no tokio runtime needed.
      */
     func sync() throws -> MobileSyncResult
 
     /**
-     * Async version of sync using native async WebSocket.
+     * Async version of sync for mobile UI threads.
      *
-     * Use this from mobile UI threads to prevent freezing.
-     * Storage is opened in scoped blocks and dropped before `.await` to keep
-     * the future `Send` (required by UniFFI async exports).
+     * Delegates to the synchronous `sync()` via `spawn_blocking` so
+     * the core OHTTP HTTP calls don't block the async runtime.
      */
     func syncAsync() async throws -> MobileSyncResult
 
@@ -7641,8 +7643,8 @@ open class VauchiPlatform:
     /**
      * Listen for incoming device link request via relay (existing device / initiator).
      *
-     * Connects to the relay, registers as a listener for this identity, and
-     * waits for a new device to send a device link request.
+     * Creates an exchange offer with our identity, then polls until the new
+     * device claims it. Returns the encrypted request and a token for the response.
      */
     open func listenForDeviceLinkRequest(timeoutSecs: UInt64) throws -> MobileDeviceLinkRequest {
         return try FfiConverterTypeMobileDeviceLinkRequest.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
@@ -7848,8 +7850,8 @@ open class VauchiPlatform:
     /**
      * Send device link request via relay and wait for response (new device / responder).
      *
-     * Connects to the relay, sends the encrypted request targeting the existing
-     * device's identity, and waits for the encrypted response.
+     * Uses two HTTP exchange cycles: creates a return channel, claims the
+     * existing device's offer with our request, then polls for the response.
      */
     open func sendDeviceLinkRequest(targetIdentity: String, senderToken: String, encryptedRequest: Data, timeoutSecs: UInt64) throws -> Data {
         return try FfiConverterData.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
@@ -7864,8 +7866,8 @@ open class VauchiPlatform:
     /**
      * Send device link response back via relay (existing device / initiator).
      *
-     * After confirming a device link, sends the encrypted response back to the
-     * new device via the relay using the sender's token for routing.
+     * Claims the return channel created by the new device, depositing the
+     * encrypted response payload.
      */
     open func sendDeviceLinkResponse(senderToken: String, encryptedResponse: Data) throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
@@ -8138,7 +8140,10 @@ open class VauchiPlatform:
     }
 
     /**
-     * Sync with relay server.
+     * Sync with relay server via OHTTP-encrypted HTTP.
+     *
+     * Creates a temporary `Vauchi` instance, connects, syncs, and maps the
+     * outcome to `MobileSyncResult`. All synchronous — no tokio runtime needed.
      */
     open func sync() throws -> MobileSyncResult {
         return try FfiConverterTypeMobileSyncResult.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
@@ -8147,11 +8152,10 @@ open class VauchiPlatform:
     }
 
     /**
-     * Async version of sync using native async WebSocket.
+     * Async version of sync for mobile UI threads.
      *
-     * Use this from mobile UI threads to prevent freezing.
-     * Storage is opened in scoped blocks and dropped before `.await` to keep
-     * the future `Send` (required by UniFFI async exports).
+     * Delegates to the synchronous `sync()` via `spawn_blocking` so
+     * the core OHTTP HTTP calls don't block the async runtime.
      */
     open func syncAsync() async throws -> MobileSyncResult {
         return
@@ -22460,7 +22464,7 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_list_social_networks() != 13035 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_listen_for_device_link_request() != 58889 {
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_listen_for_device_link_request() != 53597 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_manual_retry() != 41082 {
@@ -22517,10 +22521,10 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_search_social_networks() != 3893 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_send_device_link_request() != 24045 {
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_send_device_link_request() != 28891 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_send_device_link_response() != 10363 {
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_send_device_link_response() != 37545 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_send_emergency_broadcast() != 15809 {
@@ -22586,10 +22590,10 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_start_device_link() != 37441 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_sync() != 3166 {
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_sync() != 58241 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_sync_async() != 11620 {
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_sync_async() != 5141 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_trigger_demo_update() != 2004 {

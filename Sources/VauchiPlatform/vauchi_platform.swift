@@ -8399,16 +8399,16 @@ public struct MobileAhaMoment {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * The type of milestone
          */ momentType: MobileAhaMomentType,
-        /*
+        /* 
             * Title to display
             */ title: String,
-        /*
+        /* 
             * Message to display
             */ message: String,
-        /*
+        /* 
             * Whether to show animation
             */ hasAnimation: Bool
     ) {
@@ -8568,10 +8568,10 @@ public struct MobileApplyFailure {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * The content type that failed
          */ contentType: MobileContentType,
-        /*
+        /* 
             * The error message
             */ error: String
     ) {
@@ -8877,10 +8877,10 @@ public struct MobileBroadcastResult {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * Number of alerts successfully queued for delivery.
          */ sent: UInt32,
-        /*
+        /* 
             * Total number of trusted contacts in the config.
             */ total: UInt32
     ) {
@@ -9091,19 +9091,19 @@ public struct MobileConsentRecord {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * Unique record ID.
          */ id: String,
-        /*
+        /* 
             * Type of consent.
             */ consentType: MobileConsentType,
-        /*
+        /* 
             * Whether consent was granted.
             */ granted: Bool,
-        /*
+        /* 
             * Unix timestamp of the decision.
             */ timestamp: UInt64,
-        /*
+        /* 
             * Privacy policy version at time of consent.
             */ policyVersion: String?
     ) {
@@ -9202,13 +9202,13 @@ public struct MobileConsentStatus {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * Whether consent is currently granted.
          */ granted: Bool,
-        /*
+        /* 
             * Unix timestamp of the most recent grant or revocation, if any.
             */ lastChangedAt: UInt64?,
-        /*
+        /* 
             * Privacy policy version from the most recent consent record, if any.
             */ policyVersion: String?
     ) {
@@ -9317,25 +9317,25 @@ public struct MobileContact {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(id: String, displayName: String, fingerprint: String, isVerified: Bool, isRecoveryTrusted: Bool, isHidden: Bool, card: MobileContactCard, addedAt: UInt64,
-                /*
+                /* 
                     * Cryptographic trust level derived from exchange facts.
                     */ trustLevel: MobileContactTrustLevel,
-                /*
+                /* 
                     * Transport used during the original exchange (e.g. "qr", "nfc", "ble").
                     */ exchangeTransport: String,
-                /*
+                /* 
                     * Proximity confidence from the original exchange (e.g. "high", "medium", "low", "unknown").
                     */ proximityConfidence: String,
-                /*
+                /* 
                     * Whether this contact is trusted for simplified contact proposals (local-only flag).
                     */ proposalTrusted: Bool,
-                /*
+                /* 
                     * Transport proximity level from the original exchange (e.g. "physical", "contact_range", "proximate", "none", "unknown").
                     */ transportProximity: String,
-                /*
+                /* 
                     * Whether this contact has trust metrics recorded from a full exchange session.
                     */ hasTrustMetrics: Bool,
-                /*
+                /* 
                     * Exchange reciprocity status (orthogonal to trust level).
                     */ reciprocity: MobileReciprocity)
     {
@@ -9564,7 +9564,7 @@ public struct MobileContactField {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(id: String, fieldType: MobileFieldType, label: String, value: String,
-                /*
+                /* 
                     * Private per-field annotation (your eyes only — never sent to other contacts).
                     */ note: String?)
     {
@@ -9663,13 +9663,13 @@ public struct MobileContentConfig {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * Whether remote updates are enabled
          */ remoteUpdatesEnabled: Bool,
-        /*
+        /* 
             * Content server URL
             */ contentUrl: String,
-        /*
+        /* 
             * Optional SOCKS5 proxy URL (e.g., for SOCKS5 proxy)
             */ proxyUrl: String?
     ) {
@@ -9750,10 +9750,10 @@ public struct MobileDecoyContact {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * Unique identifier for the decoy contact.
          */ id: String,
-        /*
+        /* 
             * Display name shown in the contact list.
             */ displayName: String
     ) {
@@ -9835,16 +9835,16 @@ public struct MobileDeletionInfo {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * Current deletion state.
          */ state: MobileDeletionState,
-        /*
+        /* 
             * When deletion was scheduled (0 if not scheduled).
             */ scheduledAt: UInt64,
-        /*
+        /* 
             * When deletion can be executed (0 if not scheduled).
             */ executeAt: UInt64,
-        /*
+        /* 
             * Days remaining in grace period (0 if not scheduled).
             */ daysRemaining: UInt32
     ) {
@@ -9952,25 +9952,25 @@ public struct MobileDeliveryRecord {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * Unique message ID.
          */ messageId: String,
-        /*
+        /* 
             * Recipient's contact ID.
             */ recipientId: String,
-        /*
+        /* 
             * Current delivery status.
             */ status: MobileDeliveryStatus,
-        /*
+        /* 
             * Error reason if failed.
             */ errorReason: String?,
-        /*
+        /* 
             * When the message was created (Unix timestamp).
             */ createdAt: UInt64,
-        /*
+        /* 
             * When the status was last updated (Unix timestamp).
             */ updatedAt: UInt64,
-        /*
+        /* 
             * When the message expires (Unix timestamp, optional).
             */ expiresAt: UInt64?
     ) {
@@ -10099,25 +10099,25 @@ public struct MobileDeliverySummary {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * Message ID.
          */ messageId: String,
-        /*
+        /* 
             * Total number of target devices.
             */ totalDevices: UInt32,
-        /*
+        /* 
             * Number of devices that received the message.
             */ deliveredDevices: UInt32,
-        /*
+        /* 
             * Number of devices still pending.
             */ pendingDevices: UInt32,
-        /*
+        /* 
             * Number of devices where delivery failed.
             */ failedDevices: UInt32,
-        /*
+        /* 
             * Whether all devices have received the message.
             */ isFullyDelivered: Bool,
-        /*
+        /* 
             * Progress as percentage (0-100).
             */ progressPercent: UInt32
     ) {
@@ -10242,22 +10242,22 @@ public struct MobileDemoContact {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * Contact ID
          */ id: String,
-        /*
+        /* 
             * Display name
             */ displayName: String,
-        /*
+        /* 
             * Flag indicating this is a demo
             */ isDemo: Bool,
-        /*
+        /* 
             * Current tip title
             */ tipTitle: String,
-        /*
+        /* 
             * Current tip content
             */ tipContent: String,
-        /*
+        /* 
             * Tip category
             */ tipCategory: String
     ) {
@@ -10367,16 +10367,16 @@ public struct MobileDemoContactState {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * Whether the demo contact is active
          */ isActive: Bool,
-        /*
+        /* 
             * Whether it was manually dismissed
             */ wasDismissed: Bool,
-        /*
+        /* 
             * Whether it was auto-removed after first real exchange
             */ autoRemoved: Bool,
-        /*
+        /* 
             * Number of updates sent
             */ updateCount: UInt32
     ) {
@@ -10713,19 +10713,19 @@ public struct MobileDeviceDeliveryRecord {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * Message ID being tracked.
          */ messageId: String,
-        /*
+        /* 
             * Recipient's contact ID.
             */ recipientId: String,
-        /*
+        /* 
             * Target device ID.
             */ deviceId: String,
-        /*
+        /* 
             * Delivery status for this device.
             */ status: MobileDeviceDeliveryStatus,
-        /*
+        /* 
             * When the status was last updated (Unix timestamp).
             */ updatedAt: UInt64
     ) {
@@ -10836,22 +10836,22 @@ public struct MobileDeviceInfo {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * Device index (0 = primary device).
          */ deviceIndex: UInt32,
-        /*
+        /* 
             * Device name.
             */ deviceName: String,
-        /*
+        /* 
             * Whether this is the current device.
             */ isCurrent: Bool,
-        /*
+        /* 
             * Whether the device is active (not revoked).
             */ isActive: Bool,
-        /*
+        /* 
             * Public key prefix (hex, first 16 chars).
             */ publicKeyPrefix: String,
-        /*
+        /* 
             * Unix timestamp when the device was created.
             */ createdAt: UInt64
     ) {
@@ -10961,16 +10961,16 @@ public struct MobileDeviceJoinResult {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * Whether joining was successful.
          */ success: Bool,
-        /*
+        /* 
             * Display name of the identity.
             */ displayName: String,
-        /*
+        /* 
             * Assigned device index.
             */ deviceIndex: UInt32,
-        /*
+        /* 
             * Error message if failed.
             */ errorMessage: String?
     ) {
@@ -11062,13 +11062,13 @@ public struct MobileDeviceLinkConfirmation {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * The new device's proposed name.
          */ deviceName: String,
-        /*
+        /* 
             * 6-digit confirmation code (formatted as `XXX-XXX`).
             */ confirmationCode: String,
-        /*
+        /* 
             * Identity fingerprint (e.g. `AB12-CD34-EF56-7890`).
             */ identityFingerprint: String
     ) {
@@ -11157,16 +11157,16 @@ public struct MobileDeviceLinkData {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * QR code content (base64-encoded link data).
          */ qrData: String,
-        /*
+        /* 
             * Identity public key (hex).
             */ identityPublicKey: String,
-        /*
+        /* 
             * Unix timestamp when QR was generated.
             */ timestamp: UInt64,
-        /*
+        /* 
             * Unix timestamp when QR expires.
             */ expiresAt: UInt64
     ) {
@@ -11258,13 +11258,13 @@ public struct MobileDeviceLinkInfo {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * Identity public key (hex).
          */ identityPublicKey: String,
-        /*
+        /* 
             * Unix timestamp when QR was generated.
             */ timestamp: UInt64,
-        /*
+        /* 
             * Whether the QR code has expired.
             */ isExpired: Bool
     ) {
@@ -11347,10 +11347,10 @@ public struct MobileDeviceLinkRequest {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * Encrypted device link request payload.
          */ encryptedPayload: Data,
-        /*
+        /* 
             * Sender token for routing the response back.
             */ senderToken: String
     ) {
@@ -11436,19 +11436,19 @@ public struct MobileDeviceLinkResult {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * Whether linking was successful.
          */ success: Bool,
-        /*
+        /* 
             * New device's name.
             */ deviceName: String,
-        /*
+        /* 
             * New device's index.
             */ deviceIndex: UInt32,
-        /*
+        /* 
             * Error message if failed.
             */ errorMessage: String?,
-        /*
+        /* 
             * Encrypted response bytes for the new device (base64-encoded).
             */ encryptedResponse: Data?
     ) {
@@ -11547,13 +11547,13 @@ public struct MobileDuressSettings {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * Contact IDs of trusted contacts who receive duress alerts.
          */ alertContactIds: [String],
-        /*
+        /* 
             * Custom alert message included in the alert payload.
             */ alertMessage: String,
-        /*
+        /* 
             * Whether to include device location in the alert.
             */ includeLocation: Bool
     ) {
@@ -11638,13 +11638,13 @@ public struct MobileEmergencyConfig {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * Contact IDs of trusted contacts who receive emergency alerts.
          */ trustedContactIds: [String],
-        /*
+        /* 
             * Custom alert message included in the alert payload.
             */ message: String,
-        /*
+        /* 
             * Whether to include device location in the alert.
             */ includeLocation: Bool
     ) {
@@ -11817,19 +11817,19 @@ public struct MobileFaqItem {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * Unique identifier.
          */ id: String,
-        /*
+        /* 
             * Category this FAQ belongs to.
             */ category: MobileHelpCategory,
-        /*
+        /* 
             * The question.
             */ question: String,
-        /*
+        /* 
             * The answer (may contain markdown).
             */ answer: String,
-        /*
+        /* 
             * Related FAQ IDs.
             */ related: [String]
     ) {
@@ -12055,13 +12055,13 @@ public struct MobileGdprExport {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * Exported data as JSON string.
          */ jsonData: String,
-        /*
+        /* 
             * When the export was created (Unix timestamp).
             */ exportedAt: UInt64,
-        /*
+        /* 
             * Export format version.
             */ version: UInt32
     ) {
@@ -12142,10 +12142,10 @@ public struct MobileHelpCategoryInfo {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * Category identifier.
          */ category: MobileHelpCategory,
-        /*
+        /* 
             * Display name for the category.
             */ displayName: String
     ) {
@@ -12223,13 +12223,13 @@ public struct MobileImportResult {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * Number of contacts successfully imported.
          */ imported: UInt32,
-        /*
+        /* 
             * Number of contacts skipped (malformed or duplicate).
             */ skipped: UInt32,
-        /*
+        /* 
             * Warning messages for skipped contacts.
             */ warnings: [String]
     ) {
@@ -12318,16 +12318,16 @@ public struct MobileLocaleInfo {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * ISO 639-1 language code.
          */ code: String,
-        /*
+        /* 
             * Native name of the language.
             */ name: String,
-        /*
+        /* 
             * English name of the language.
             */ englishName: String,
-        /*
+        /* 
             * Whether the language is right-to-left.
             */ isRtl: Bool
     ) {
@@ -12651,25 +12651,25 @@ public struct MobileOnboardingProgress {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * The step the user is currently on
          */ currentStep: MobileOnboardingStep,
-        /*
+        /* 
             * Steps that have been completed
             */ completedSteps: [MobileOnboardingStep],
-        /*
+        /* 
             * Timestamp when onboarding was started (Unix epoch seconds)
             */ startedAt: UInt64?,
-        /*
+        /* 
             * Timestamp when onboarding was completed (Unix epoch seconds)
             */ completedAt: UInt64?,
-        /*
+        /* 
             * Whether the user skipped the backup step
             */ skippedBackup: Bool,
-        /*
+        /* 
             * Completion percentage (0-100)
             */ completionPercentage: UInt8,
-        /*
+        /* 
             * Whether onboarding is complete
             */ isComplete: Bool
     ) {
@@ -12786,16 +12786,16 @@ public struct MobilePasswordCheck {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * The strength level
          */ strength: MobilePasswordStrength,
-        /*
+        /* 
             * Human-readable description
             */ description: String,
-        /*
+        /* 
             * Feedback/suggestions for improvement (empty if strong enough)
             */ feedback: String,
-        /*
+        /* 
             * Whether the password is acceptable for backup
             */ isAcceptable: Bool
     ) {
@@ -12883,10 +12883,10 @@ public struct MobileProximityResult {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * Whether verification succeeded
          */ success: Bool,
-        /*
+        /* 
             * Error message if failed
             */ error: String
     ) {
@@ -13170,16 +13170,16 @@ public struct MobileRecoveryClaim {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * Old identity's public key (hex).
          */ oldPublicKey: String,
-        /*
+        /* 
             * New identity's public key (hex).
             */ newPublicKey: String,
-        /*
+        /* 
             * Base64-encoded claim data.
             */ claimData: String,
-        /*
+        /* 
             * Whether the claim has expired.
             */ isExpired: Bool
     ) {
@@ -13279,19 +13279,19 @@ public struct MobileRecoveryProgress {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * Old identity's public key (hex).
          */ oldPublicKey: String,
-        /*
+        /* 
             * New identity's public key (hex).
             */ newPublicKey: String,
-        /*
+        /* 
             * Number of vouchers collected.
             */ vouchersCollected: UInt32,
-        /*
+        /* 
             * Number of vouchers needed (threshold).
             */ vouchersNeeded: UInt32,
-        /*
+        /* 
             * Whether recovery is complete.
             */ isComplete: Bool
     ) {
@@ -13402,22 +13402,22 @@ public struct MobileRecoveryVerification {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * Old identity's public key (hex).
          */ oldPublicKey: String,
-        /*
+        /* 
             * New identity's public key (hex).
             */ newPublicKey: String,
-        /*
+        /* 
             * Number of vouchers in the proof.
             */ voucherCount: UInt32,
-        /*
+        /* 
             * Number of vouchers from known contacts.
             */ knownVouchers: UInt32,
-        /*
+        /* 
             * Confidence level: "high", "medium", or "low".
             */ confidence: String,
-        /*
+        /* 
             * Recommendation for the user.
             */ recommendation: String
     ) {
@@ -13519,10 +13519,10 @@ public struct MobileRecoveryVoucher {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * Voucher public key (hex) - identifies who vouched.
          */ voucherPublicKey: String,
-        /*
+        /* 
             * Base64-encoded voucher data.
             */ voucherData: String
     ) {
@@ -13616,25 +13616,25 @@ public struct MobileRetryEntry {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * Unique message ID.
          */ messageId: String,
-        /*
+        /* 
             * Recipient's contact ID.
             */ recipientId: String,
-        /*
+        /* 
             * Current retry attempt (0 = first attempt).
             */ attempt: UInt32,
-        /*
+        /* 
             * Unix timestamp for next retry.
             */ nextRetry: UInt64,
-        /*
+        /* 
             * When the entry was created (Unix timestamp).
             */ createdAt: UInt64,
-        /*
+        /* 
             * Maximum number of retry attempts.
             */ maxAttempts: UInt32,
-        /*
+        /* 
             * Whether max attempts have been exceeded.
             */ isMaxExceeded: Bool
     ) {
@@ -13840,37 +13840,37 @@ public struct MobileShredReport {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * Number of contacts notified of deletion.
          */ contactsNotified: UInt32,
-        /*
+        /* 
             * Whether the relay purge was sent successfully.
             */ relayPurgeSent: Bool,
-        /*
+        /* 
             * Number of linked devices notified.
             */ devicesNotified: UInt32,
-        /*
+        /* 
             * Whether SMK was destroyed from SecureStorage.
             */ smkDestroyed: Bool,
-        /*
+        /* 
             * Whether the identity backup file was securely deleted.
             */ identityFileDestroyed: Bool,
-        /*
+        /* 
             * Number of key files deleted.
             */ keyFilesDestroyed: UInt32,
-        /*
+        /* 
             * Whether the SQLite database was securely deleted.
             */ sqliteDestroyed: Bool,
-        /*
+        /* 
             * Whether the pre-signed messages file was deleted.
             */ preSignedDeleted: Bool,
-        /*
+        /* 
             * Whether the data directory was removed.
             */ dataDirDeleted: Bool,
-        /*
+        /* 
             * Whether revocation sender construction failed.
             */ revocationFailed: Bool,
-        /*
+        /* 
             * Error message if revocation sender failed to construct.
             */ revocationError: String?
     ) {
@@ -14003,7 +14003,7 @@ public struct MobileShredToken {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * When the token was created (unix seconds).
          */ createdAt: UInt64
     ) {
@@ -14082,19 +14082,19 @@ public struct MobileShredVerification {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * Whether SMK is absent from SecureStorage.
          */ smkAbsent: Bool,
-        /*
+        /* 
             * Whether the database file is absent.
             */ databaseAbsent: Bool,
-        /*
+        /* 
             * Whether the data directory is absent.
             */ dataDirAbsent: Bool,
-        /*
+        /* 
             * Whether the pre-signed messages file is absent.
             */ preSignedAbsent: Bool,
-        /*
+        /* 
             * Overall: all checks passed.
             */ allClear: Bool
     ) {
@@ -14506,22 +14506,22 @@ public struct MobileSyncResult {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * Number of new contacts added from exchange messages.
          */ contactsAdded: UInt32,
-        /*
+        /* 
             * Number of contact cards updated.
             */ cardsUpdated: UInt32,
-        /*
+        /* 
             * Number of outbound updates sent.
             */ updatesSent: UInt32,
-        /*
+        /* 
             * Total number of operations (contacts_added + cards_updated + updates_sent).
             */ total: UInt32,
-        /*
+        /* 
             * Whether any changes were synced.
             */ hasChanges: Bool,
-        /*
+        /* 
             * Display names of contacts whose cards were updated (for UI notification).
             */ updatedContactNames: [String]
     ) {
@@ -14651,31 +14651,31 @@ public struct MobileTheme {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * Theme identifier.
          */ id: String,
-        /*
+        /* 
             * Theme display name.
             */ name: String,
-        /*
+        /* 
             * Theme version.
             */ version: String,
-        /*
+        /* 
             * Theme author (optional).
             */ author: String?,
-        /*
+        /* 
             * Theme license (optional).
             */ license: String?,
-        /*
+        /* 
             * Theme source URL (optional).
             */ source: String?,
-        /*
+        /* 
             * Theme mode (light or dark).
             */ mode: MobileThemeMode,
-        /*
+        /* 
             * Theme colors.
             */ colors: MobileThemeColors,
-        /*
+        /* 
             * Design tokens for layout consistency.
             */ tokens: MobileDesignTokens
     ) {
@@ -14834,37 +14834,37 @@ public struct MobileThemeColors {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * Primary background color (hex).
          */ bgPrimary: String,
-        /*
+        /* 
             * Secondary background color (hex).
             */ bgSecondary: String,
-        /*
+        /* 
             * Tertiary background color (hex).
             */ bgTertiary: String,
-        /*
+        /* 
             * Primary text color (hex).
             */ textPrimary: String,
-        /*
+        /* 
             * Secondary text color (hex).
             */ textSecondary: String,
-        /*
+        /* 
             * Accent color (hex).
             */ accent: String,
-        /*
+        /* 
             * Dark accent color (hex).
             */ accentDark: String,
-        /*
+        /* 
             * Success color (hex).
             */ success: String,
-        /*
+        /* 
             * Error color (hex).
             */ error: String,
-        /*
+        /* 
             * Warning color (hex).
             */ warning: String,
-        /*
+        /* 
             * Border color (hex).
             */ border: String
     ) {
@@ -15294,22 +15294,22 @@ public struct MobileVisibilityLabel {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * Unique label ID.
          */ id: String,
-        /*
+        /* 
             * Human-readable label name.
             */ name: String,
-        /*
+        /* 
             * Number of contacts in this label.
             */ contactCount: UInt32,
-        /*
+        /* 
             * Number of visible fields for this label.
             */ visibleFieldCount: UInt32,
-        /*
+        /* 
             * Timestamp when created.
             */ createdAt: UInt64,
-        /*
+        /* 
             * Timestamp when last modified.
             */ modifiedAt: UInt64
     ) {
@@ -15418,13 +15418,13 @@ public struct MobileVisibilityLabelDetail {
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(
-        /*
+        /* 
          * Basic label info.
          */ id: String, name: String,
-        /*
+        /* 
             * Contact IDs in this label.
             */ contactIds: [String],
-        /*
+        /* 
             * Field IDs visible to contacts in this label.
             */ visibleFieldIds: [String], createdAt: UInt64, modifiedAt: UInt64
     ) {
@@ -15620,7 +15620,7 @@ extension KeychainError: Foundation.LocalizedError {
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/*
+/* 
  * Type of aha moment milestone.
  */
 
@@ -15785,7 +15785,7 @@ extension MobileAnimatedQrError: Foundation.LocalizedError {
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/*
+/* 
  * Progress update for animated QR reception.
  */
 
@@ -15842,7 +15842,7 @@ extension MobileAnimatedQrProgress: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/*
+/* 
  * Result of applying content updates.
  */
 
@@ -15855,10 +15855,10 @@ public enum MobileApplyResult {
      * Updates were applied (some may have failed)
      */
     case applied(
-        /*
+        /* 
          * Content types that were successfully updated
          */ applied: [MobileContentType],
-        /*
+        /* 
             * Content types that failed with error messages
             */ failed: [MobileApplyFailure]
     )
@@ -15931,7 +15931,7 @@ extension MobileApplyResult: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/*
+/* 
  * Authentication mode result for mobile platforms.
  */
 
@@ -16039,7 +16039,7 @@ extension MobileBleError: Foundation.LocalizedError {
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/*
+/* 
  * Status of BLE exchange availability on this device.
  */
 
@@ -16101,7 +16101,7 @@ extension MobileBleExchangeStatus: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/*
+/* 
  * Mobile-friendly BLE exchange state.
  */
 
@@ -16228,7 +16228,7 @@ extension MobileBleTransportError: Foundation.LocalizedError {
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/*
+/* 
  * Types of consent that can be granted or revoked.
  */
 
@@ -16298,7 +16298,7 @@ extension MobileConsentType: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/*
+/* 
  * Mobile-friendly contact trust level derived from cryptographic exchange facts.
  *
  * This is distinct from `MobileTrustLevel` (which reflects social validation counts).
@@ -16381,7 +16381,7 @@ extension MobileContactTrustLevel: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/*
+/* 
  * Content type for mobile platforms.
  */
 
@@ -16460,7 +16460,7 @@ extension MobileContentType: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/*
+/* 
  * Deletion state for mobile.
  */
 
@@ -16530,7 +16530,7 @@ extension MobileDeletionState: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/*
+/* 
  * Delivery status for tracking message delivery progression.
  */
 
@@ -16627,7 +16627,7 @@ extension MobileDeliveryStatus: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/*
+/* 
  * Delivery status for a specific device.
  */
 
@@ -16706,7 +16706,7 @@ extension MobileDeviceDeliveryStatus: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/*
+/* 
  * Device type classification for UI icon selection.
  *
  * Core classifies the device name into a type so all platforms
@@ -16809,7 +16809,7 @@ public enum MobileError {
     case Internal(String)
     case BleNotAvailable(String)
     case RateLimited(
-        /*
+        /* 
          * Seconds to wait before retrying.
          */ retryAfterSecs: UInt64
     )
@@ -17028,7 +17028,7 @@ extension MobileErrorCorrectionLevel: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/*
+/* 
  * Exchange command sent from core to the frontend (ADR-031).
  *
  * Mobile apps match on these and dispatch to platform-specific APIs
@@ -17208,7 +17208,7 @@ extension MobileExchangeCommand: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/*
+/* 
  * Hardware event reported by the frontend back to core (ADR-031).
  *
  * Mobile apps create these after executing a command (e.g., QR scanned,
@@ -17383,7 +17383,7 @@ extension MobileExchangeHardwareEvent: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/*
+/* 
  * Mobile-friendly exchange state (no raw bytes or core types).
  */
 
@@ -17472,7 +17472,7 @@ extension MobileExchangeState: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/*
+/* 
  * Mobile-friendly field type enum.
  */
 
@@ -17557,7 +17557,7 @@ extension MobileFieldType: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/*
+/* 
  * Categories of help content.
  */
 
@@ -17636,7 +17636,7 @@ extension MobileHelpCategory: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/*
+/* 
  * Supported locales for the app.
  */
 
@@ -17709,7 +17709,7 @@ extension MobileLocale: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/*
+/* 
  * Mobile-friendly NFC handshake state.
  */
 
@@ -17844,7 +17844,7 @@ extension MobileNfcTransportError: Foundation.LocalizedError {
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/*
+/* 
  * Steps in the onboarding wizard (UniFFI-compatible).
  */
 
@@ -17986,7 +17986,7 @@ extension MobileOnboardingStep: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/*
+/* 
  * Password strength level for display to users.
  */
 
@@ -18117,7 +18117,7 @@ extension MobilePlatform: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/*
+/* 
  * Mobile-friendly protocol state enum (UniFFI-compatible).
  */
 
@@ -18219,7 +18219,7 @@ extension MobileProtocolState: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/*
+/* 
  * Mobile-friendly proximity confidence level.
  */
 
@@ -18286,7 +18286,7 @@ extension MobileProximityConfidence: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/*
+/* 
  * Events emitted during proximity verification for mobile UI consumption.
  *
  * The mobile platform layer observes these to update the user interface:
@@ -18305,7 +18305,7 @@ public enum MobileProximityVerifierEvent {
      * Verification is in progress for the given method.
      */
     case inProgress(method: MobileVerifierMethod,
-                    /*
+                    /* 
                         * 0–100 percent.
                         */ progressPct: UInt8)
     /**
@@ -18402,7 +18402,7 @@ extension MobileProximityVerifierEvent: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/*
+/* 
  * Exchange reciprocity status — whether the other party also completed the exchange.
  */
 
@@ -18469,7 +18469,7 @@ extension MobileReciprocity: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/*
+/* 
  * Current shred status for the identity.
  */
 
@@ -18482,7 +18482,7 @@ public enum MobileShredStatus {
      * Soft shred scheduled — waiting for grace period to elapse.
      */
     case scheduled(
-        /*
+        /* 
          * Seconds remaining in grace period.
          */ remainingSecs: UInt64
     )
@@ -18544,7 +18544,7 @@ extension MobileShredStatus: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/*
+/* 
  * Sync status.
  */
 
@@ -18605,7 +18605,7 @@ extension MobileSyncStatus: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/*
+/* 
  * Theme mode (light or dark)
  */
 
@@ -18660,7 +18660,7 @@ extension MobileThemeMode: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/*
+/* 
  * Result of checking for content updates.
  */
 
@@ -18741,7 +18741,7 @@ extension MobileUpdateStatus: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/*
+/* 
  * Identifies which proximity verification method is active.
  */
 
@@ -18820,7 +18820,7 @@ extension MobileVerifierMethod: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/*
+/* 
  * Widget confirmation mode for panic shred activation.
  *
  * Defines how the user confirms a panic shred from the home screen widget.

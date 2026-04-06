@@ -6,8 +6,8 @@
 
 import PackageDescription
 
-let version = "0.18.8"
-let checksum = "d7787288d5160ea8632e414789f79695ffe5cd86c8a3809be0f60d1231fbd2ee" // Updated by CI on release
+let version = "0.18.9"
+let checksum = "bc216a825d76e7c5c5c038b6964a070dd14ef355580ada47ddb8a64d9fcf5491" // Updated by CI on release
 
 let package = Package(
     name: "VauchiPlatform",
@@ -28,17 +28,10 @@ let package = Package(
             dependencies: ["VauchiPlatformFFI"],
             path: "Sources/VauchiPlatform"
         ),
-        // Binary XCFramework containing the native Rust library
-        // REMOTE (original, restored by wire-bindings-remote.sh):
-        // .binaryTarget(
-        //     name: "VauchiPlatformFFI",
-        //     url: "...",
-        //     checksum: checksum
-        // ),
-        // LOCAL (set by wire-bindings-local.sh):
         .binaryTarget(
-            name: "VauchiPlatformFFI",
-            path: "VauchiPlatformFFI.xcframework"
+            name: \"VauchiPlatformFFI\",
+            url: \"https://gitlab.com/api/v4/projects/vauchi%2Fcore/packages/generic/vauchi-platform/\(version)/VauchiPlatformFFI.xcframework.zip\",
+            checksum: checksum
         ),
     ]
 )

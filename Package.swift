@@ -28,9 +28,10 @@ let package = Package(
             dependencies: ["VauchiPlatformFFI"],
             path: "Sources/VauchiPlatform"
         ),
+        // Binary XCFramework containing the native Rust library
         .binaryTarget(
-            name: \"VauchiPlatformFFI\",
-            url: \"https://gitlab.com/api/v4/projects/vauchi%2Fcore/packages/generic/vauchi-platform/\(version)/VauchiPlatformFFI.xcframework.zip\",
+            name: "VauchiPlatformFFI",
+            url: "https://gitlab.com/api/v4/projects/vauchi%2Fcore/packages/generic/vauchi-platform/\(version)/VauchiPlatformFFI.xcframework.zip",
             checksum: checksum
         ),
     ]

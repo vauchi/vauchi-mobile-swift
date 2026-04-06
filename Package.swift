@@ -6,8 +6,8 @@
 
 import PackageDescription
 
-let version = "0.18.9"
-let checksum = "bc216a825d76e7c5c5c038b6964a070dd14ef355580ada47ddb8a64d9fcf5491" // Updated by CI on release
+let version = "0.18.10"
+let checksum = "cfe2c6355bd037f1e5b673dc3c521d451dca09e991160133df1971b8f3fbb55d" // Updated by CI on release
 
 let package = Package(
     name: "VauchiPlatform",
@@ -28,7 +28,6 @@ let package = Package(
             dependencies: ["VauchiPlatformFFI"],
             path: "Sources/VauchiPlatform"
         ),
-        // Binary XCFramework containing the native Rust library
         .binaryTarget(
             name: "VauchiPlatformFFI",
             url: "https://gitlab.com/api/v4/projects/vauchi%2Fcore/packages/generic/vauchi-platform/\(version)/VauchiPlatformFFI.xcframework.zip",

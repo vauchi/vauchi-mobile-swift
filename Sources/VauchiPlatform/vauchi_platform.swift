@@ -1741,6 +1741,11 @@ public protocol MobileDeviceLinkInitiatorProtocol: AnyObject {
     func confirmLinkUltrasonic(challengeResponse: Data, verifiedAt: UInt64) throws -> MobileDeviceLinkResult
 
     /**
+     * Returns the Unix timestamp (seconds) when the QR code expires.
+     */
+    func expiresAt() -> UInt64
+
+    /**
      * Decrypts an incoming link request and returns confirmation details.
      *
      * The caller displays the confirmation code and device name to the user.
@@ -1845,6 +1850,15 @@ open class MobileDeviceLinkInitiator:
             uniffi_vauchi_platform_fn_method_mobiledevicelinkinitiator_confirm_link_ultrasonic(self.uniffiClonePointer(),
                                                                                                FfiConverterData.lower(challengeResponse),
                                                                                                FfiConverterUInt64.lower(verifiedAt), $0)
+        })
+    }
+
+    /**
+     * Returns the Unix timestamp (seconds) when the QR code expires.
+     */
+    open func expiresAt() -> UInt64 {
+        return try! FfiConverterUInt64.lift(try! rustCall {
+            uniffi_vauchi_platform_fn_method_mobiledevicelinkinitiator_expires_at(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -4790,6 +4804,16 @@ public protocol PlatformAppEngineProtocol: AnyObject {
     func handleActionJson(actionJson: String) throws -> String
 
     /**
+     * Notify core that the app was backgrounded.
+     *
+     * If a password is set and the app is not already locked,
+     * returns the lock screen JSON. Otherwise returns null.
+     * Frontends should call on `scenePhase == .background` (iOS)
+     * or `onPause()` (Android).
+     */
+    func handleAppBackgrounded() throws -> String?
+
+    /**
      * Handle a hardware event from the frontend during an exchange (ADR-031).
      *
      * Frontends call this when hardware reports results (QR scanned, BLE
@@ -5070,6 +5094,20 @@ open class PlatformAppEngine:
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_platformappengine_handle_action_json(self.uniffiClonePointer(),
                                                                                   FfiConverterString.lower(actionJson), $0)
+        })
+    }
+
+    /**
+     * Notify core that the app was backgrounded.
+     *
+     * If a password is set and the app is not already locked,
+     * returns the lock screen JSON. Otherwise returns null.
+     * Frontends should call on `scenePhase == .background` (iOS)
+     * or `onPause()` (Android).
+     */
+    open func handleAppBackgrounded() throws -> String? {
+        return try FfiConverterOptionString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_handle_app_backgrounded(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -5622,7 +5660,7 @@ public protocol VauchiPlatformProtocol: AnyObject {
      * Generate a device link QR code.
      *
      * Display this QR code on the existing device for a new device to scan.
-     * The QR expires after 10 minutes.
+     * The QR expires after 5 minutes (per ADR-035).
      */
     func generateDeviceLinkQr() throws -> MobileDeviceLinkData
 
@@ -7032,7 +7070,7 @@ open class VauchiPlatform:
      * Generate a device link QR code.
      *
      * Display this QR code on the existing device for a new device to scan.
-     * The QR expires after 10 minutes.
+     * The QR expires after 5 minutes (per ADR-035).
      */
     open func generateDeviceLinkQr() throws -> MobileDeviceLinkData {
         return try FfiConverterTypeMobileDeviceLinkData.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
@@ -9360,6 +9398,11 @@ public struct MobileContact {
      * Exchange reciprocity status (orthogonal to trust level).
      */
     public var reciprocity: MobileReciprocity
+    /**
+     * Whether this is an imported (non-exchanged) contact.
+     * Imported contacts use soft-delete; exchanged contacts use archive.
+     */
+    public var isImported: Bool
 
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
@@ -9384,7 +9427,11 @@ public struct MobileContact {
                     */ hasTrustMetrics: Bool,
                 /* 
                     * Exchange reciprocity status (orthogonal to trust level).
-                    */ reciprocity: MobileReciprocity)
+                    */ reciprocity: MobileReciprocity,
+                /* 
+                    * Whether this is an imported (non-exchanged) contact.
+                    * Imported contacts use soft-delete; exchanged contacts use archive.
+                    */ isImported: Bool)
     {
         self.id = id
         self.displayName = displayName
@@ -9401,6 +9448,7 @@ public struct MobileContact {
         self.transportProximity = transportProximity
         self.hasTrustMetrics = hasTrustMetrics
         self.reciprocity = reciprocity
+        self.isImported = isImported
     }
 }
 
@@ -9451,6 +9499,9 @@ extension MobileContact: Equatable, Hashable {
         if lhs.reciprocity != rhs.reciprocity {
             return false
         }
+        if lhs.isImported != rhs.isImported {
+            return false
+        }
         return true
     }
 
@@ -9470,6 +9521,7 @@ extension MobileContact: Equatable, Hashable {
         hasher.combine(transportProximity)
         hasher.combine(hasTrustMetrics)
         hasher.combine(reciprocity)
+        hasher.combine(isImported)
     }
 }
 
@@ -9494,7 +9546,8 @@ public struct FfiConverterTypeMobileContact: FfiConverterRustBuffer {
                 proposalTrusted: FfiConverterBool.read(from: &buf),
                 transportProximity: FfiConverterString.read(from: &buf),
                 hasTrustMetrics: FfiConverterBool.read(from: &buf),
-                reciprocity: FfiConverterTypeMobileReciprocity.read(from: &buf)
+                reciprocity: FfiConverterTypeMobileReciprocity.read(from: &buf),
+                isImported: FfiConverterBool.read(from: &buf)
             )
     }
 
@@ -9514,6 +9567,7 @@ public struct FfiConverterTypeMobileContact: FfiConverterRustBuffer {
         FfiConverterString.write(value.transportProximity, into: &buf)
         FfiConverterBool.write(value.hasTrustMetrics, into: &buf)
         FfiConverterTypeMobileReciprocity.write(value.reciprocity, into: &buf)
+        FfiConverterBool.write(value.isImported, into: &buf)
     }
 }
 
@@ -22001,6 +22055,9 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_mobiledevicelinkinitiator_confirm_link_ultrasonic() != 8563 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_method_mobiledevicelinkinitiator_expires_at() != 10836 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_platform_checksum_method_mobiledevicelinkinitiator_prepare_confirmation() != 7092 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -22238,6 +22295,9 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_platformappengine_handle_action_json() != 42243 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_handle_app_backgrounded() != 5133 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_platform_checksum_method_platformappengine_handle_hardware_event() != 34688 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -22406,7 +22466,7 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_finalize_multistage_exchange() != 47774 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_generate_device_link_qr() != 3761 {
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_generate_device_link_qr() != 28443 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_all_delivery_records() != 31518 {

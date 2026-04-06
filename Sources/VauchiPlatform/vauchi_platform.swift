@@ -4790,6 +4790,27 @@ public protocol PlatformAppEngineProtocol: AnyObject {
     func handleActionJson(actionJson: String) throws -> String
 
     /**
+     * Handle a hardware event from the frontend during an exchange (ADR-031).
+     *
+     * Frontends call this when hardware reports results (QR scanned, BLE
+     * data received, etc.). Returns the serialized `ActionResult` JSON if
+     * the event produced a result, or `None` if the current screen doesn't
+     * handle hardware events.
+     *
+     * # Usage from Swift
+     *
+     * ```swift
+     * if let resultJson = try engine.handleHardwareEvent(
+     * event: .qrScanned(data: scannedData)
+     * ) {
+     * let result = try decoder.decode(ActionResult.self, from: resultJson.data(using: .utf8)!)
+     * applyResult(result)
+     * }
+     * ```
+     */
+    func handleHardwareEvent(event: MobileExchangeHardwareEvent) throws -> String?
+
+    /**
      * Returns whether the user has created an identity.
      *
      * Used by frontends to decide between onboarding and main UI.
@@ -5049,6 +5070,32 @@ open class PlatformAppEngine:
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_platformappengine_handle_action_json(self.uniffiClonePointer(),
                                                                                   FfiConverterString.lower(actionJson), $0)
+        })
+    }
+
+    /**
+     * Handle a hardware event from the frontend during an exchange (ADR-031).
+     *
+     * Frontends call this when hardware reports results (QR scanned, BLE
+     * data received, etc.). Returns the serialized `ActionResult` JSON if
+     * the event produced a result, or `None` if the current screen doesn't
+     * handle hardware events.
+     *
+     * # Usage from Swift
+     *
+     * ```swift
+     * if let resultJson = try engine.handleHardwareEvent(
+     * event: .qrScanned(data: scannedData)
+     * ) {
+     * let result = try decoder.decode(ActionResult.self, from: resultJson.data(using: .utf8)!)
+     * applyResult(result)
+     * }
+     * ```
+     */
+    open func handleHardwareEvent(event: MobileExchangeHardwareEvent) throws -> String? {
+        return try FfiConverterOptionString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_handle_hardware_event(self.uniffiClonePointer(),
+                                                                                     FfiConverterTypeMobileExchangeHardwareEvent.lower(event), $0)
         })
     }
 
@@ -17040,6 +17087,7 @@ public enum MobileExchangeCommand {
     case qrRequestScan
     case bleStartAdvertising(serviceUuid: String, payload: Data)
     case bleStartScanning(serviceUuid: String)
+    case bleStopScanning
     case bleConnect(deviceId: String)
     case bleWriteCharacteristic(uuid: String, data: Data)
     case bleReadCharacteristic(uuid: String)
@@ -17074,35 +17122,37 @@ public struct FfiConverterTypeMobileExchangeCommand: FfiConverterRustBuffer {
 
         case 4: return try .bleStartScanning(serviceUuid: FfiConverterString.read(from: &buf))
 
-        case 5: return try .bleConnect(deviceId: FfiConverterString.read(from: &buf))
+        case 5: return .bleStopScanning
 
-        case 6: return try .bleWriteCharacteristic(uuid: FfiConverterString.read(from: &buf), data: FfiConverterData.read(from: &buf))
+        case 6: return try .bleConnect(deviceId: FfiConverterString.read(from: &buf))
 
-        case 7: return try .bleReadCharacteristic(uuid: FfiConverterString.read(from: &buf))
+        case 7: return try .bleWriteCharacteristic(uuid: FfiConverterString.read(from: &buf), data: FfiConverterData.read(from: &buf))
 
-        case 8: return .bleDisconnect
+        case 8: return try .bleReadCharacteristic(uuid: FfiConverterString.read(from: &buf))
 
-        case 9: return try .nfcActivate(payload: FfiConverterData.read(from: &buf))
+        case 9: return .bleDisconnect
 
-        case 10: return .nfcDeactivate
+        case 10: return try .nfcActivate(payload: FfiConverterData.read(from: &buf))
 
-        case 11: return try .audioEmitChallenge(data: FfiConverterData.read(from: &buf))
+        case 11: return .nfcDeactivate
 
-        case 12: return try .audioListenForResponse(timeoutMs: FfiConverterUInt64.read(from: &buf))
+        case 12: return try .audioEmitChallenge(data: FfiConverterData.read(from: &buf))
 
-        case 13: return .audioStop
+        case 13: return try .audioListenForResponse(timeoutMs: FfiConverterUInt64.read(from: &buf))
 
-        case 14: return .accelerometerStart
+        case 14: return .audioStop
 
-        case 15: return .accelerometerStop
+        case 15: return .accelerometerStart
 
-        case 16: return try .relayEscrowDeposit(gateHash: FfiConverterData.read(from: &buf), slotHash: FfiConverterData.read(from: &buf), encryptedCard: FfiConverterData.read(from: &buf), ttlSeconds: FfiConverterUInt32.read(from: &buf))
+        case 16: return .accelerometerStop
 
-        case 17: return try .relayEscrowCheck(gateHash: FfiConverterData.read(from: &buf), suggestedIntervalMs: FfiConverterUInt32.read(from: &buf))
+        case 17: return try .relayEscrowDeposit(gateHash: FfiConverterData.read(from: &buf), slotHash: FfiConverterData.read(from: &buf), encryptedCard: FfiConverterData.read(from: &buf), ttlSeconds: FfiConverterUInt32.read(from: &buf))
 
-        case 18: return try .relayEscrowRetrieve(gateHash: FfiConverterData.read(from: &buf), slotHash: FfiConverterData.read(from: &buf))
+        case 18: return try .relayEscrowCheck(gateHash: FfiConverterData.read(from: &buf), suggestedIntervalMs: FfiConverterUInt32.read(from: &buf))
 
-        case 19: return try .showShareSheet(url: FfiConverterString.read(from: &buf))
+        case 19: return try .relayEscrowRetrieve(gateHash: FfiConverterData.read(from: &buf), slotHash: FfiConverterData.read(from: &buf))
+
+        case 20: return try .showShareSheet(url: FfiConverterString.read(from: &buf))
 
         default: throw UniffiInternalError.unexpectedEnumCase
         }
@@ -17126,65 +17176,68 @@ public struct FfiConverterTypeMobileExchangeCommand: FfiConverterRustBuffer {
             writeInt(&buf, Int32(4))
             FfiConverterString.write(serviceUuid, into: &buf)
 
-        case let .bleConnect(deviceId):
+        case .bleStopScanning:
             writeInt(&buf, Int32(5))
+
+        case let .bleConnect(deviceId):
+            writeInt(&buf, Int32(6))
             FfiConverterString.write(deviceId, into: &buf)
 
         case let .bleWriteCharacteristic(uuid, data):
-            writeInt(&buf, Int32(6))
+            writeInt(&buf, Int32(7))
             FfiConverterString.write(uuid, into: &buf)
             FfiConverterData.write(data, into: &buf)
 
         case let .bleReadCharacteristic(uuid):
-            writeInt(&buf, Int32(7))
+            writeInt(&buf, Int32(8))
             FfiConverterString.write(uuid, into: &buf)
 
         case .bleDisconnect:
-            writeInt(&buf, Int32(8))
+            writeInt(&buf, Int32(9))
 
         case let .nfcActivate(payload):
-            writeInt(&buf, Int32(9))
+            writeInt(&buf, Int32(10))
             FfiConverterData.write(payload, into: &buf)
 
         case .nfcDeactivate:
-            writeInt(&buf, Int32(10))
+            writeInt(&buf, Int32(11))
 
         case let .audioEmitChallenge(data):
-            writeInt(&buf, Int32(11))
+            writeInt(&buf, Int32(12))
             FfiConverterData.write(data, into: &buf)
 
         case let .audioListenForResponse(timeoutMs):
-            writeInt(&buf, Int32(12))
+            writeInt(&buf, Int32(13))
             FfiConverterUInt64.write(timeoutMs, into: &buf)
 
         case .audioStop:
-            writeInt(&buf, Int32(13))
-
-        case .accelerometerStart:
             writeInt(&buf, Int32(14))
 
-        case .accelerometerStop:
+        case .accelerometerStart:
             writeInt(&buf, Int32(15))
 
-        case let .relayEscrowDeposit(gateHash, slotHash, encryptedCard, ttlSeconds):
+        case .accelerometerStop:
             writeInt(&buf, Int32(16))
+
+        case let .relayEscrowDeposit(gateHash, slotHash, encryptedCard, ttlSeconds):
+            writeInt(&buf, Int32(17))
             FfiConverterData.write(gateHash, into: &buf)
             FfiConverterData.write(slotHash, into: &buf)
             FfiConverterData.write(encryptedCard, into: &buf)
             FfiConverterUInt32.write(ttlSeconds, into: &buf)
 
         case let .relayEscrowCheck(gateHash, suggestedIntervalMs):
-            writeInt(&buf, Int32(17))
+            writeInt(&buf, Int32(18))
             FfiConverterData.write(gateHash, into: &buf)
             FfiConverterUInt32.write(suggestedIntervalMs, into: &buf)
 
         case let .relayEscrowRetrieve(gateHash, slotHash):
-            writeInt(&buf, Int32(18))
+            writeInt(&buf, Int32(19))
             FfiConverterData.write(gateHash, into: &buf)
             FfiConverterData.write(slotHash, into: &buf)
 
         case let .showShareSheet(url):
-            writeInt(&buf, Int32(19))
+            writeInt(&buf, Int32(20))
             FfiConverterString.write(url, into: &buf)
         }
     }
@@ -22183,6 +22236,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_platformappengine_handle_action_json() != 42243 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_handle_hardware_event() != 34688 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_platformappengine_has_identity() != 9989 {

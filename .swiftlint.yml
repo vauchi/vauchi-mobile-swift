@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: 2026 Mattia Egloff <mattia.egloff@pm.me>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+disabled_rules:
+  # SwiftFormat adds trailing commas (standard Swift style) — don't fight it
+  - trailing_comma
+
+# Generated bindings file is 23K+ lines — exempt from line length
+included:
+  - Sources
+  - Package.swift
+
+line_length:
+  warning: 150
+  error: 200
+  ignores_comments: true
+  ignores_urls: true

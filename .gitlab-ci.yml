@@ -12,11 +12,13 @@ include:
     ref: main
     file:
       - '/ci-templates/reuse.yml'
+      - '/ci-templates/badges.yml'
       - '/ci-templates/github-mirror.yml'
 
 stages:
   - lint
   - validate
+  - deploy
 
 workflow:
   auto_cancel:
@@ -32,6 +34,9 @@ validate:package:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == "main"
+
+pages:
+  extends: .badges-pages
 
 github-mirror:
   extends: .github-mirror

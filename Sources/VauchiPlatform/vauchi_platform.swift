@@ -4786,6 +4786,18 @@ public protocol PlatformAppEngineProtocol: AnyObject {
     func defaultScreenJson() throws -> String
 
     /**
+     * Drain pending OS notifications.
+     *
+     * Returns notifications that should be shown to the user via the
+     * platform's native notification system. Each call clears the buffer,
+     * so notifications are never returned twice.
+     *
+     * Call this after receiving `on_screens_invalidated` from your
+     * `PlatformEventListener`.
+     */
+    func drainPendingNotifications() throws -> [MobilePendingNotification]
+
+    /**
      * Returns whether the current form has unsaved user data.
      *
      * Used by frontends to show a "discard changes?" prompt on back navigation.
@@ -5072,6 +5084,22 @@ open class PlatformAppEngine:
     open func defaultScreenJson() throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_platformappengine_default_screen_json(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Drain pending OS notifications.
+     *
+     * Returns notifications that should be shown to the user via the
+     * platform's native notification system. Each call clears the buffer,
+     * so notifications are never returned twice.
+     *
+     * Call this after receiving `on_screens_invalidated` from your
+     * `PlatformEventListener`.
+     */
+    open func drainPendingNotifications() throws -> [MobilePendingNotification] {
+        return try FfiConverterSequenceTypeMobilePendingNotification.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_drain_pending_notifications(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -22511,6 +22539,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_platformappengine_default_screen_json() != 8108 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_drain_pending_notifications() != 45375 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_platformappengine_form_has_data() != 43012 {

@@ -4737,7 +4737,7 @@ public func FfiConverterTypeMobileSettingsWorkflow_lower(_ value: MobileSettings
  * ```swift
  * let engine = try PlatformAppEngine(
  * dataDir: dataDir,
- * relayUrl: "wss://relay.vauchi.app",
+ * relayUrl: "https://relay.vauchi.app",
  * storageKeyBytes: keyBytes
  * )
  *
@@ -4958,7 +4958,7 @@ public protocol PlatformAppEngineProtocol: AnyObject {
  * ```swift
  * let engine = try PlatformAppEngine(
  * dataDir: dataDir,
- * relayUrl: "wss://relay.vauchi.app",
+ * relayUrl: "https://relay.vauchi.app",
  * storageKeyBytes: keyBytes
  * )
  *
@@ -22029,7 +22029,7 @@ public func isSafeUrl(url: String) -> Bool {
 /**
  * Validate a relay WebSocket URL.
  *
- * Accepts `wss://` for any host, `ws://` only for localhost/loopback.
+ * Accepts `https://` for any host, `http://` only for localhost/loopback.
  * Use this to validate user-entered relay URLs before saving.
  */
 public func isValidRelayUrl(url: String) -> Bool {
@@ -22217,7 +22217,7 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_func_is_safe_url() != 41241 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_func_is_valid_relay_url() != 49638 {
+    if uniffi_vauchi_platform_checksum_func_is_valid_relay_url() != 29387 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_func_parse_locale_code() != 8345 {

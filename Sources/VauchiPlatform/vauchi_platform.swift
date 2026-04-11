@@ -962,11 +962,12 @@ open class MobileBackupRecoveryWorkflow:
         return try! rustCall { uniffi_vauchi_platform_fn_clone_mobilebackuprecoveryworkflow(self.pointer, $0) }
     }
 
-    public convenience init(modeJson: String) throws {
+    public convenience init(modeJson: String, hasIdentity: Bool) throws {
         let pointer =
             try rustCallWithError(FfiConverterTypeMobileError.lift) {
                 uniffi_vauchi_platform_fn_constructor_mobilebackuprecoveryworkflow_new(
-                    FfiConverterString.lower(modeJson), $0
+                    FfiConverterString.lower(modeJson),
+                    FfiConverterBool.lower(hasIdentity), $0
                 )
             }
         self.init(unsafeFromRawPointer: pointer)
@@ -23106,7 +23107,7 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_constructor_mobileanimatedqrsender_new() != 16961 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_constructor_mobilebackuprecoveryworkflow_new() != 29341 {
+    if uniffi_vauchi_platform_checksum_constructor_mobilebackuprecoveryworkflow_new() != 13465 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_constructor_mobilebleexchangesession_new() != 46873 {

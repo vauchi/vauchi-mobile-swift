@@ -17498,6 +17498,7 @@ public enum MobileExchangeHardwareEvent {
     case linkOpened(peerPublicKey: Data)
     case hardwareError(transport: String, error: String)
     case hardwareUnavailable(transport: String)
+    case permissionDenied(transport: String)
 }
 
 #if swift(>=5.8)
@@ -17542,6 +17543,8 @@ public struct FfiConverterTypeMobileExchangeHardwareEvent: FfiConverterRustBuffe
         case 16: return try .hardwareError(transport: FfiConverterString.read(from: &buf), error: FfiConverterString.read(from: &buf))
 
         case 17: return try .hardwareUnavailable(transport: FfiConverterString.read(from: &buf))
+
+        case 18: return try .permissionDenied(transport: FfiConverterString.read(from: &buf))
 
         default: throw UniffiInternalError.unexpectedEnumCase
         }
@@ -17625,6 +17628,10 @@ public struct FfiConverterTypeMobileExchangeHardwareEvent: FfiConverterRustBuffe
 
         case let .hardwareUnavailable(transport):
             writeInt(&buf, Int32(17))
+            FfiConverterString.write(transport, into: &buf)
+
+        case let .permissionDenied(transport):
+            writeInt(&buf, Int32(18))
             FfiConverterString.write(transport, into: &buf)
         }
     }

@@ -526,6 +526,22 @@ private struct FfiConverterFloat: FfiConverterPrimitive {
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
+private struct FfiConverterDouble: FfiConverterPrimitive {
+    typealias FfiType = Double
+    typealias SwiftType = Double
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Double {
+        return try lift(readDouble(&buf))
+    }
+
+    static func write(_ value: Double, into buf: inout [UInt8]) {
+        writeDouble(&buf, lower(value))
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
 private struct FfiConverterBool: FfiConverter {
     typealias FfiType = Int8
     typealias SwiftType = Bool
@@ -5623,6 +5639,11 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func dismissDemoContact() throws
 
     /**
+     * Dismiss a duplicate pair so it no longer appears in `find_duplicates` results.
+     */
+    func dismissDuplicate(id1: String, id2: String) throws
+
+    /**
      * Get display name suggestions from a full name.
      *
      * Given "Alexandra Johnson", returns suggestions like
@@ -5698,6 +5719,11 @@ public protocol VauchiPlatformProtocol: AnyObject {
      * The session must be in the Complete state with received data available.
      */
     func finalizeMultistageExchange(session: MobileMultiStageSession) throws -> MobileExchangeResult
+
+    /**
+     * Find potential duplicate contacts based on name and field similarity.
+     */
+    func findDuplicates() throws -> [MobileDuplicatePair]
 
     /**
      * Generate a device link QR code.
@@ -6084,6 +6110,14 @@ public protocol VauchiPlatformProtocol: AnyObject {
      * Returns true if the retry entry was found and rescheduled.
      */
     func manualRetry(messageId: String) throws -> Bool
+
+    /**
+     * Merge two contacts, keeping the primary contact's identity.
+     *
+     * The secondary contact's unique fields are merged into the primary.
+     * The secondary contact is removed from storage.
+     */
+    func mergeContacts(primaryId: String, secondaryId: String) throws -> MobileContact
 
     /**
      * Execute immediate crypto-shredding without grace period (Panic Shred).
@@ -6996,6 +7030,17 @@ open class VauchiPlatform:
     }
 
     /**
+     * Dismiss a duplicate pair so it no longer appears in `find_duplicates` results.
+     */
+    open func dismissDuplicate(id1: String, id2: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_vauchiplatform_dismiss_duplicate(self.uniffiClonePointer(),
+                                                                              FfiConverterString.lower(id1),
+                                                                              FfiConverterString.lower(id2), $0)
+        }
+    }
+
+    /**
      * Get display name suggestions from a full name.
      *
      * Given "Alexandra Johnson", returns suggestions like
@@ -7106,6 +7151,15 @@ open class VauchiPlatform:
         return try FfiConverterTypeMobileExchangeResult.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_vauchiplatform_finalize_multistage_exchange(self.uniffiClonePointer(),
                                                                                          FfiConverterTypeMobileMultiStageSession.lower(session), $0)
+        })
+    }
+
+    /**
+     * Find potential duplicate contacts based on name and field similarity.
+     */
+    open func findDuplicates() throws -> [MobileDuplicatePair] {
+        return try FfiConverterSequenceTypeMobileDuplicatePair.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_vauchiplatform_find_duplicates(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -7790,6 +7844,20 @@ open class VauchiPlatform:
         return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_vauchiplatform_manual_retry(self.uniffiClonePointer(),
                                                                          FfiConverterString.lower(messageId), $0)
+        })
+    }
+
+    /**
+     * Merge two contacts, keeping the primary contact's identity.
+     *
+     * The secondary contact's unique fields are merged into the primary.
+     * The secondary contact is removed from storage.
+     */
+    open func mergeContacts(primaryId: String, secondaryId: String) throws -> MobileContact {
+        return try FfiConverterTypeMobileContact.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_vauchiplatform_merge_contacts(self.uniffiClonePointer(),
+                                                                           FfiConverterString.lower(primaryId),
+                                                                           FfiConverterString.lower(secondaryId), $0)
         })
     }
 
@@ -11669,6 +11737,78 @@ public func FfiConverterTypeMobileDeviceLinkResult_lift(_ buf: RustBuffer) throw
 #endif
 public func FfiConverterTypeMobileDeviceLinkResult_lower(_ value: MobileDeviceLinkResult) -> RustBuffer {
     return FfiConverterTypeMobileDeviceLinkResult.lower(value)
+}
+
+/**
+ * A pair of potentially duplicate contacts with similarity score.
+ */
+public struct MobileDuplicatePair {
+    public var id1: String
+    public var id2: String
+    public var similarity: Double
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(id1: String, id2: String, similarity: Double) {
+        self.id1 = id1
+        self.id2 = id2
+        self.similarity = similarity
+    }
+}
+
+extension MobileDuplicatePair: Equatable, Hashable {
+    public static func == (lhs: MobileDuplicatePair, rhs: MobileDuplicatePair) -> Bool {
+        if lhs.id1 != rhs.id1 {
+            return false
+        }
+        if lhs.id2 != rhs.id2 {
+            return false
+        }
+        if lhs.similarity != rhs.similarity {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id1)
+        hasher.combine(id2)
+        hasher.combine(similarity)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileDuplicatePair: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileDuplicatePair {
+        return
+            try MobileDuplicatePair(
+                id1: FfiConverterString.read(from: &buf),
+                id2: FfiConverterString.read(from: &buf),
+                similarity: FfiConverterDouble.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileDuplicatePair, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.id1, into: &buf)
+        FfiConverterString.write(value.id2, into: &buf)
+        FfiConverterDouble.write(value.similarity, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileDuplicatePair_lift(_ buf: RustBuffer) throws -> MobileDuplicatePair {
+    return try FfiConverterTypeMobileDuplicatePair.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileDuplicatePair_lower(_ value: MobileDuplicatePair) -> RustBuffer {
+    return FfiConverterTypeMobileDuplicatePair.lower(value)
 }
 
 /**
@@ -21187,6 +21327,31 @@ private struct FfiConverterSequenceTypeMobileDeviceInfo: FfiConverterRustBuffer 
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
+private struct FfiConverterSequenceTypeMobileDuplicatePair: FfiConverterRustBuffer {
+    typealias SwiftType = [MobileDuplicatePair]
+
+    static func write(_ value: [MobileDuplicatePair], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeMobileDuplicatePair.write(item, into: &buf)
+        }
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileDuplicatePair] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [MobileDuplicatePair]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            try seq.append(FfiConverterTypeMobileDuplicatePair.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
 private struct FfiConverterSequenceTypeMobileFaqItem: FfiConverterRustBuffer {
     typealias SwiftType = [MobileFaqItem]
 
@@ -22723,6 +22888,9 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_dismiss_demo_contact() != 13148 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_dismiss_duplicate() != 7377 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_display_name_suggestions() != 41563 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -22745,6 +22913,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_finalize_multistage_exchange() != 47774 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_find_duplicates() != 13598 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_generate_device_link_qr() != 28443 {
@@ -22946,6 +23117,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_manual_retry() != 41082 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_merge_contacts() != 9627 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_panic_shred() != 56390 {

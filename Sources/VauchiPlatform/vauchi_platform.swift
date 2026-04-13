@@ -5488,6 +5488,21 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func checkContentUpdates() -> MobileUpdateStatus
 
     /**
+     * Clear the custom avatar for a contact.
+     */
+    func clearContactCustomAvatar(contactId: String) throws
+
+    /**
+     * Clear the local nickname for a contact.
+     */
+    func clearContactNickname(contactId: String) throws
+
+    /**
+     * Clear own avatar image.
+     */
+    func clearOwnAvatar() throws
+
+    /**
      * Clear all pending updates for a contact.
      *
      * Returns the number of cleared updates.
@@ -5755,6 +5770,16 @@ public protocol VauchiPlatformProtocol: AnyObject {
      * Get single contact by ID.
      */
     func getContact(id: String) throws -> MobileContact?
+
+    /**
+     * Get the custom avatar for a contact, if set.
+     */
+    func getContactCustomAvatar(contactId: String) throws -> Data?
+
+    /**
+     * Get all display options for a contact (for the chooser screen).
+     */
+    func getContactDisplayOptions(contactId: String) throws -> MobileContactDisplayOptions
 
     /**
      * Load all private field notes for a contact.
@@ -6244,6 +6269,19 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func sendEmergencyBroadcast() throws -> MobileBroadcastResult
 
     /**
+     * Set the avatar preference for a contact.
+     *
+     * `pref_json` is a JSON-serialized `AvatarPreference`:
+     * `"primary"`, `{"shared_avatar":{"hash":"abc..."}}`, `"custom"`.
+     */
+    func setAvatarPreference(contactId: String, prefJson: String) throws
+
+    /**
+     * Set a custom avatar for a contact (must be WebP, <= 32 KB).
+     */
+    func setContactCustomAvatar(contactId: String, data: Data) throws
+
+    /**
      * Save a private note on a specific field of a contact.
      *
      * Notes are private ("your eyes only") — they are never sent to the contact.
@@ -6257,6 +6295,11 @@ public protocol VauchiPlatformProtocol: AnyObject {
      * Per-contact overrides take precedence over label-based visibility.
      */
     func setContactFieldOverride(contactId: String, fieldLabel: String, isVisible: Bool) throws
+
+    /**
+     * Set a local nickname for a contact.
+     */
+    func setContactNickname(contactId: String, name: String) throws
 
     /**
      * Save a personal note for a contact.
@@ -6277,9 +6320,25 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func setDisplayName(name: String) throws
 
     /**
+     * Set the display name preference for a contact.
+     *
+     * `pref_json` is a JSON-serialized `DisplayNamePreference`:
+     * `"primary"`, `{"shared_name":{"name":"Alice"}}`, `"custom"`.
+     */
+    func setDisplayNamePreference(contactId: String, prefJson: String) throws
+
+    /**
      * Set whether a field is visible to contacts in a label.
      */
     func setGroupFieldVisibility(labelId: String, fieldLabel: String, isVisible: Bool) throws
+
+    /**
+     * Set own avatar image.
+     *
+     * Accepts any supported image format (PNG, JPEG, BMP, WebP).
+     * The image is normalized to WebP <= 32 KB internally (ADR-042).
+     */
+    func setOwnAvatar(avatarBytes: Data) throws
 
     /**
      * Set the pinned certificate for relay TLS connections.
@@ -6766,6 +6825,35 @@ open class VauchiPlatform:
     }
 
     /**
+     * Clear the custom avatar for a contact.
+     */
+    open func clearContactCustomAvatar(contactId: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_vauchiplatform_clear_contact_custom_avatar(self.uniffiClonePointer(),
+                                                                                        FfiConverterString.lower(contactId), $0)
+        }
+    }
+
+    /**
+     * Clear the local nickname for a contact.
+     */
+    open func clearContactNickname(contactId: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_vauchiplatform_clear_contact_nickname(self.uniffiClonePointer(),
+                                                                                   FfiConverterString.lower(contactId), $0)
+        }
+    }
+
+    /**
+     * Clear own avatar image.
+     */
+    open func clearOwnAvatar() throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_vauchiplatform_clear_own_avatar(self.uniffiClonePointer(), $0)
+        }
+    }
+
+    /**
      * Clear all pending updates for a contact.
      *
      * Returns the number of cleared updates.
@@ -7213,6 +7301,26 @@ open class VauchiPlatform:
         return try FfiConverterOptionTypeMobileContact.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_vauchiplatform_get_contact(self.uniffiClonePointer(),
                                                                         FfiConverterString.lower(id), $0)
+        })
+    }
+
+    /**
+     * Get the custom avatar for a contact, if set.
+     */
+    open func getContactCustomAvatar(contactId: String) throws -> Data? {
+        return try FfiConverterOptionData.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_vauchiplatform_get_contact_custom_avatar(self.uniffiClonePointer(),
+                                                                                      FfiConverterString.lower(contactId), $0)
+        })
+    }
+
+    /**
+     * Get all display options for a contact (for the chooser screen).
+     */
+    open func getContactDisplayOptions(contactId: String) throws -> MobileContactDisplayOptions {
+        return try FfiConverterTypeMobileContactDisplayOptions.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_vauchiplatform_get_contact_display_options(self.uniffiClonePointer(),
+                                                                                        FfiConverterString.lower(contactId), $0)
         })
     }
 
@@ -8085,6 +8193,31 @@ open class VauchiPlatform:
     }
 
     /**
+     * Set the avatar preference for a contact.
+     *
+     * `pref_json` is a JSON-serialized `AvatarPreference`:
+     * `"primary"`, `{"shared_avatar":{"hash":"abc..."}}`, `"custom"`.
+     */
+    open func setAvatarPreference(contactId: String, prefJson: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_vauchiplatform_set_avatar_preference(self.uniffiClonePointer(),
+                                                                                  FfiConverterString.lower(contactId),
+                                                                                  FfiConverterString.lower(prefJson), $0)
+        }
+    }
+
+    /**
+     * Set a custom avatar for a contact (must be WebP, <= 32 KB).
+     */
+    open func setContactCustomAvatar(contactId: String, data: Data) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_vauchiplatform_set_contact_custom_avatar(self.uniffiClonePointer(),
+                                                                                      FfiConverterString.lower(contactId),
+                                                                                      FfiConverterData.lower(data), $0)
+        }
+    }
+
+    /**
      * Save a private note on a specific field of a contact.
      *
      * Notes are private ("your eyes only") — they are never sent to the contact.
@@ -8110,6 +8243,17 @@ open class VauchiPlatform:
                                                                                        FfiConverterString.lower(contactId),
                                                                                        FfiConverterString.lower(fieldLabel),
                                                                                        FfiConverterBool.lower(isVisible), $0)
+        }
+    }
+
+    /**
+     * Set a local nickname for a contact.
+     */
+    open func setContactNickname(contactId: String, name: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_vauchiplatform_set_contact_nickname(self.uniffiClonePointer(),
+                                                                                 FfiConverterString.lower(contactId),
+                                                                                 FfiConverterString.lower(name), $0)
         }
     }
 
@@ -8148,6 +8292,20 @@ open class VauchiPlatform:
     }
 
     /**
+     * Set the display name preference for a contact.
+     *
+     * `pref_json` is a JSON-serialized `DisplayNamePreference`:
+     * `"primary"`, `{"shared_name":{"name":"Alice"}}`, `"custom"`.
+     */
+    open func setDisplayNamePreference(contactId: String, prefJson: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_vauchiplatform_set_display_name_preference(self.uniffiClonePointer(),
+                                                                                        FfiConverterString.lower(contactId),
+                                                                                        FfiConverterString.lower(prefJson), $0)
+        }
+    }
+
+    /**
      * Set whether a field is visible to contacts in a label.
      */
     open func setGroupFieldVisibility(labelId: String, fieldLabel: String, isVisible: Bool) throws {
@@ -8156,6 +8314,19 @@ open class VauchiPlatform:
                                                                                        FfiConverterString.lower(labelId),
                                                                                        FfiConverterString.lower(fieldLabel),
                                                                                        FfiConverterBool.lower(isVisible), $0)
+        }
+    }
+
+    /**
+     * Set own avatar image.
+     *
+     * Accepts any supported image format (PNG, JPEG, BMP, WebP).
+     * The image is normalized to WebP <= 32 KB internally (ADR-042).
+     */
+    open func setOwnAvatar(avatarBytes: Data) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_vauchiplatform_set_own_avatar(self.uniffiClonePointer(),
+                                                                           FfiConverterData.lower(avatarBytes), $0)
         }
     }
 
@@ -8823,6 +8994,78 @@ public func FfiConverterTypeMobileApplyFailure_lift(_ buf: RustBuffer) throws ->
 #endif
 public func FfiConverterTypeMobileApplyFailure_lower(_ value: MobileApplyFailure) -> RustBuffer {
     return FfiConverterTypeMobileApplyFailure.lower(value)
+}
+
+/**
+ * One avatar choice in the display options list.
+ */
+public struct MobileAvatarOption {
+    public var source: String
+    public var hasData: Bool
+    public var isPrimary: Bool
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(source: String, hasData: Bool, isPrimary: Bool) {
+        self.source = source
+        self.hasData = hasData
+        self.isPrimary = isPrimary
+    }
+}
+
+extension MobileAvatarOption: Equatable, Hashable {
+    public static func == (lhs: MobileAvatarOption, rhs: MobileAvatarOption) -> Bool {
+        if lhs.source != rhs.source {
+            return false
+        }
+        if lhs.hasData != rhs.hasData {
+            return false
+        }
+        if lhs.isPrimary != rhs.isPrimary {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(source)
+        hasher.combine(hasData)
+        hasher.combine(isPrimary)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileAvatarOption: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileAvatarOption {
+        return
+            try MobileAvatarOption(
+                source: FfiConverterString.read(from: &buf),
+                hasData: FfiConverterBool.read(from: &buf),
+                isPrimary: FfiConverterBool.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileAvatarOption, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.source, into: &buf)
+        FfiConverterBool.write(value.hasData, into: &buf)
+        FfiConverterBool.write(value.isPrimary, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileAvatarOption_lift(_ buf: RustBuffer) throws -> MobileAvatarOption {
+    return try FfiConverterTypeMobileAvatarOption.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileAvatarOption_lower(_ value: MobileAvatarOption) -> RustBuffer {
+    return FfiConverterTypeMobileAvatarOption.lower(value)
 }
 
 /**
@@ -9514,6 +9757,18 @@ public struct MobileContact {
      * Imported contacts use soft-delete; exchanged contacts use archive.
      */
     public var isImported: Bool
+    /**
+     * Custom local nickname, if set.
+     */
+    public var nickname: String?
+    /**
+     * The name to display, resolved from preferences (card default, variant, or nickname).
+     */
+    public var resolvedDisplayName: String
+    /**
+     * Whether a custom avatar has been uploaded for this contact.
+     */
+    public var hasCustomAvatar: Bool
 
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
@@ -9542,7 +9797,16 @@ public struct MobileContact {
                 /*
                     * Whether this is an imported (non-exchanged) contact.
                     * Imported contacts use soft-delete; exchanged contacts use archive.
-                    */ isImported: Bool)
+                    */ isImported: Bool,
+                /*
+                    * Custom local nickname, if set.
+                    */ nickname: String?,
+                /*
+                    * The name to display, resolved from preferences (card default, variant, or nickname).
+                    */ resolvedDisplayName: String,
+                /*
+                    * Whether a custom avatar has been uploaded for this contact.
+                    */ hasCustomAvatar: Bool)
     {
         self.id = id
         self.displayName = displayName
@@ -9560,6 +9824,9 @@ public struct MobileContact {
         self.hasTrustMetrics = hasTrustMetrics
         self.reciprocity = reciprocity
         self.isImported = isImported
+        self.nickname = nickname
+        self.resolvedDisplayName = resolvedDisplayName
+        self.hasCustomAvatar = hasCustomAvatar
     }
 }
 
@@ -9613,6 +9880,15 @@ extension MobileContact: Equatable, Hashable {
         if lhs.isImported != rhs.isImported {
             return false
         }
+        if lhs.nickname != rhs.nickname {
+            return false
+        }
+        if lhs.resolvedDisplayName != rhs.resolvedDisplayName {
+            return false
+        }
+        if lhs.hasCustomAvatar != rhs.hasCustomAvatar {
+            return false
+        }
         return true
     }
 
@@ -9633,6 +9909,9 @@ extension MobileContact: Equatable, Hashable {
         hasher.combine(hasTrustMetrics)
         hasher.combine(reciprocity)
         hasher.combine(isImported)
+        hasher.combine(nickname)
+        hasher.combine(resolvedDisplayName)
+        hasher.combine(hasCustomAvatar)
     }
 }
 
@@ -9658,7 +9937,10 @@ public struct FfiConverterTypeMobileContact: FfiConverterRustBuffer {
                 transportProximity: FfiConverterString.read(from: &buf),
                 hasTrustMetrics: FfiConverterBool.read(from: &buf),
                 reciprocity: FfiConverterTypeMobileReciprocity.read(from: &buf),
-                isImported: FfiConverterBool.read(from: &buf)
+                isImported: FfiConverterBool.read(from: &buf),
+                nickname: FfiConverterOptionString.read(from: &buf),
+                resolvedDisplayName: FfiConverterString.read(from: &buf),
+                hasCustomAvatar: FfiConverterBool.read(from: &buf)
             )
     }
 
@@ -9679,6 +9961,9 @@ public struct FfiConverterTypeMobileContact: FfiConverterRustBuffer {
         FfiConverterBool.write(value.hasTrustMetrics, into: &buf)
         FfiConverterTypeMobileReciprocity.write(value.reciprocity, into: &buf)
         FfiConverterBool.write(value.isImported, into: &buf)
+        FfiConverterOptionString.write(value.nickname, into: &buf)
+        FfiConverterString.write(value.resolvedDisplayName, into: &buf)
+        FfiConverterBool.write(value.hasCustomAvatar, into: &buf)
     }
 }
 
@@ -9758,6 +10043,86 @@ public func FfiConverterTypeMobileContactCard_lift(_ buf: RustBuffer) throws -> 
 #endif
 public func FfiConverterTypeMobileContactCard_lower(_ value: MobileContactCard) -> RustBuffer {
     return FfiConverterTypeMobileContactCard.lower(value)
+}
+
+/**
+ * Display options for a contact (name and avatar choices).
+ */
+public struct MobileContactDisplayOptions {
+    public var names: [MobileNameOption]
+    public var avatars: [MobileAvatarOption]
+    public var activeNamePreference: String
+    public var activeAvatarPreference: String
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(names: [MobileNameOption], avatars: [MobileAvatarOption], activeNamePreference: String, activeAvatarPreference: String) {
+        self.names = names
+        self.avatars = avatars
+        self.activeNamePreference = activeNamePreference
+        self.activeAvatarPreference = activeAvatarPreference
+    }
+}
+
+extension MobileContactDisplayOptions: Equatable, Hashable {
+    public static func == (lhs: MobileContactDisplayOptions, rhs: MobileContactDisplayOptions) -> Bool {
+        if lhs.names != rhs.names {
+            return false
+        }
+        if lhs.avatars != rhs.avatars {
+            return false
+        }
+        if lhs.activeNamePreference != rhs.activeNamePreference {
+            return false
+        }
+        if lhs.activeAvatarPreference != rhs.activeAvatarPreference {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(names)
+        hasher.combine(avatars)
+        hasher.combine(activeNamePreference)
+        hasher.combine(activeAvatarPreference)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileContactDisplayOptions: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileContactDisplayOptions {
+        return
+            try MobileContactDisplayOptions(
+                names: FfiConverterSequenceTypeMobileNameOption.read(from: &buf),
+                avatars: FfiConverterSequenceTypeMobileAvatarOption.read(from: &buf),
+                activeNamePreference: FfiConverterString.read(from: &buf),
+                activeAvatarPreference: FfiConverterString.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileContactDisplayOptions, into buf: inout [UInt8]) {
+        FfiConverterSequenceTypeMobileNameOption.write(value.names, into: &buf)
+        FfiConverterSequenceTypeMobileAvatarOption.write(value.avatars, into: &buf)
+        FfiConverterString.write(value.activeNamePreference, into: &buf)
+        FfiConverterString.write(value.activeAvatarPreference, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileContactDisplayOptions_lift(_ buf: RustBuffer) throws -> MobileContactDisplayOptions {
+    return try FfiConverterTypeMobileContactDisplayOptions.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileContactDisplayOptions_lower(_ value: MobileContactDisplayOptions) -> RustBuffer {
+    return FfiConverterTypeMobileContactDisplayOptions.lower(value)
 }
 
 /**
@@ -12753,6 +13118,78 @@ public func FfiConverterTypeMobileMotionTokens_lift(_ buf: RustBuffer) throws ->
 #endif
 public func FfiConverterTypeMobileMotionTokens_lower(_ value: MobileMotionTokens) -> RustBuffer {
     return FfiConverterTypeMobileMotionTokens.lower(value)
+}
+
+/**
+ * One name choice in the display options list.
+ */
+public struct MobileNameOption {
+    public var source: String
+    public var name: String
+    public var isPrimary: Bool
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(source: String, name: String, isPrimary: Bool) {
+        self.source = source
+        self.name = name
+        self.isPrimary = isPrimary
+    }
+}
+
+extension MobileNameOption: Equatable, Hashable {
+    public static func == (lhs: MobileNameOption, rhs: MobileNameOption) -> Bool {
+        if lhs.source != rhs.source {
+            return false
+        }
+        if lhs.name != rhs.name {
+            return false
+        }
+        if lhs.isPrimary != rhs.isPrimary {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(source)
+        hasher.combine(name)
+        hasher.combine(isPrimary)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileNameOption: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileNameOption {
+        return
+            try MobileNameOption(
+                source: FfiConverterString.read(from: &buf),
+                name: FfiConverterString.read(from: &buf),
+                isPrimary: FfiConverterBool.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileNameOption, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.source, into: &buf)
+        FfiConverterString.write(value.name, into: &buf)
+        FfiConverterBool.write(value.isPrimary, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileNameOption_lift(_ buf: RustBuffer) throws -> MobileNameOption {
+    return try FfiConverterTypeMobileNameOption.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileNameOption_lower(_ value: MobileNameOption) -> RustBuffer {
+    return FfiConverterTypeMobileNameOption.lower(value)
 }
 
 /**
@@ -21102,6 +21539,31 @@ private struct FfiConverterSequenceTypeMobileApplyFailure: FfiConverterRustBuffe
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
+private struct FfiConverterSequenceTypeMobileAvatarOption: FfiConverterRustBuffer {
+    typealias SwiftType = [MobileAvatarOption]
+
+    static func write(_ value: [MobileAvatarOption], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeMobileAvatarOption.write(item, into: &buf)
+        }
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileAvatarOption] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [MobileAvatarOption]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            try seq.append(FfiConverterTypeMobileAvatarOption.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
 private struct FfiConverterSequenceTypeMobileBleField: FfiConverterRustBuffer {
     typealias SwiftType = [MobileBleField]
 
@@ -21469,6 +21931,31 @@ private struct FfiConverterSequenceTypeMobileLocaleInfo: FfiConverterRustBuffer 
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
             try seq.append(FfiConverterTypeMobileLocaleInfo.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+private struct FfiConverterSequenceTypeMobileNameOption: FfiConverterRustBuffer {
+    typealias SwiftType = [MobileNameOption]
+
+    static func write(_ value: [MobileNameOption], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeMobileNameOption.write(item, into: &buf)
+        }
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileNameOption] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [MobileNameOption]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            try seq.append(FfiConverterTypeMobileNameOption.read(from: &buf))
         }
         return seq
     }
@@ -22816,6 +23303,15 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_check_content_updates() != 7133 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_clear_contact_custom_avatar() != 12998 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_clear_contact_nickname() != 30008 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_clear_own_avatar() != 52581 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_clear_pending_updates_for_contact() != 29099 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -22931,6 +23427,12 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_contact() != 64699 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_contact_custom_avatar() != 10642 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_contact_display_options() != 58347 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_contact_field_notes() != 60654 {
@@ -23182,10 +23684,19 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_send_emergency_broadcast() != 15809 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_set_avatar_preference() != 44295 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_set_contact_custom_avatar() != 23955 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_set_contact_field_note() != 34512 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_set_contact_field_override() != 40155 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_set_contact_nickname() != 41465 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_set_contact_note() != 7169 {
@@ -23197,7 +23708,13 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_set_display_name() != 30292 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_set_display_name_preference() != 36504 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_set_group_field_visibility() != 38564 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_set_own_avatar() != 25569 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_set_pinned_certificate() != 8876 {

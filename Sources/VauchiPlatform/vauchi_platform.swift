@@ -18083,6 +18083,8 @@ public enum MobileExchangeHardwareEvent {
     case linkShared
     case linkOpened(peerPublicKey: Data)
     case directPayloadReceived(data: Data)
+    case imageReceived(data: Data)
+    case imagePickCancelled
     case hardwareError(transport: String, error: String)
     case hardwareUnavailable(transport: String)
     case permissionDenied(transport: String)
@@ -18129,11 +18131,15 @@ public struct FfiConverterTypeMobileExchangeHardwareEvent: FfiConverterRustBuffe
 
         case 16: return try .directPayloadReceived(data: FfiConverterData.read(from: &buf))
 
-        case 17: return try .hardwareError(transport: FfiConverterString.read(from: &buf), error: FfiConverterString.read(from: &buf))
+        case 17: return try .imageReceived(data: FfiConverterData.read(from: &buf))
 
-        case 18: return try .hardwareUnavailable(transport: FfiConverterString.read(from: &buf))
+        case 18: return .imagePickCancelled
 
-        case 19: return try .permissionDenied(transport: FfiConverterString.read(from: &buf))
+        case 19: return try .hardwareError(transport: FfiConverterString.read(from: &buf), error: FfiConverterString.read(from: &buf))
+
+        case 20: return try .hardwareUnavailable(transport: FfiConverterString.read(from: &buf))
+
+        case 21: return try .permissionDenied(transport: FfiConverterString.read(from: &buf))
 
         default: throw UniffiInternalError.unexpectedEnumCase
         }
@@ -18214,17 +18220,24 @@ public struct FfiConverterTypeMobileExchangeHardwareEvent: FfiConverterRustBuffe
             writeInt(&buf, Int32(16))
             FfiConverterData.write(data, into: &buf)
 
-        case let .hardwareError(transport, error):
+        case let .imageReceived(data):
             writeInt(&buf, Int32(17))
+            FfiConverterData.write(data, into: &buf)
+
+        case .imagePickCancelled:
+            writeInt(&buf, Int32(18))
+
+        case let .hardwareError(transport, error):
+            writeInt(&buf, Int32(19))
             FfiConverterString.write(transport, into: &buf)
             FfiConverterString.write(error, into: &buf)
 
         case let .hardwareUnavailable(transport):
-            writeInt(&buf, Int32(18))
+            writeInt(&buf, Int32(20))
             FfiConverterString.write(transport, into: &buf)
 
         case let .permissionDenied(transport):
-            writeInt(&buf, Int32(19))
+            writeInt(&buf, Int32(21))
             FfiConverterString.write(transport, into: &buf)
         }
     }

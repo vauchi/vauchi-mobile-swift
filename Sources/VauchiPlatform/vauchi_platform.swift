@@ -6202,19 +6202,9 @@ public protocol VauchiPlatformProtocol: AnyObject {
     /**
      * Skip the current onboarding step without marking it completed.
      *
-     * If the current step is BackupPrompt, records that backup was skipped.
      * Returns the updated progress.
      */
     func skipOnboardingStep() throws -> MobileOnboardingProgress
-
-    /**
-     * Skip from SkipGate directly to SecurityExplanation.
-     *
-     * Called when the user chooses "Skip to finish" at the skip gate,
-     * bypassing GroupsSetup, ContactInfo, and PreviewCard.
-     * Returns the updated progress.
-     */
-    func skipOnboardingToFinish() throws -> MobileOnboardingProgress
 
     /**
      * Soft-delete an imported contact (30-second undo window).
@@ -8258,25 +8248,11 @@ open class VauchiPlatform:
     /**
      * Skip the current onboarding step without marking it completed.
      *
-     * If the current step is BackupPrompt, records that backup was skipped.
      * Returns the updated progress.
      */
     open func skipOnboardingStep() throws -> MobileOnboardingProgress {
         return try FfiConverterTypeMobileOnboardingProgress.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_vauchiplatform_skip_onboarding_step(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Skip from SkipGate directly to SecurityExplanation.
-     *
-     * Called when the user chooses "Skip to finish" at the skip gate,
-     * bypassing GroupsSetup, ContactInfo, and PreviewCard.
-     * Returns the updated progress.
-     */
-    open func skipOnboardingToFinish() throws -> MobileOnboardingProgress {
-        return try FfiConverterTypeMobileOnboardingProgress.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_skip_onboarding_to_finish(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -18542,17 +18518,9 @@ public enum MobileOnboardingStep {
      */
     case linkChoice
     /**
-     * Welcome screen showing value proposition
-     */
-    case welcome
-    /**
      * Default display name entry
      */
     case defaultName
-    /**
-     * Skip gate: user can skip to finish or continue setup
-     */
-    case skipGate
     /**
      * Groups setup: create contact groups
      */
@@ -18562,21 +18530,9 @@ public enum MobileOnboardingStep {
      */
     case contactInfo
     /**
-     * Preview the contact card before continuing
+     * Choose what to do after onboarding
      */
-    case previewCard
-    /**
-     * Security explanation screen
-     */
-    case securityExplanation
-    /**
-     * Prompt to set up backup
-     */
-    case backupPrompt
-    /**
-     * Onboarding complete, ready to use
-     */
-    case ready
+    case whatNext
 }
 
 #if swift(>=5.8)
@@ -18592,23 +18548,13 @@ public struct FfiConverterTypeMobileOnboardingStep: FfiConverterRustBuffer {
 
         case 2: return .linkChoice
 
-        case 3: return .welcome
+        case 3: return .defaultName
 
-        case 4: return .defaultName
+        case 4: return .groupsSetup
 
-        case 5: return .skipGate
+        case 5: return .contactInfo
 
-        case 6: return .groupsSetup
-
-        case 7: return .contactInfo
-
-        case 8: return .previewCard
-
-        case 9: return .securityExplanation
-
-        case 10: return .backupPrompt
-
-        case 11: return .ready
+        case 6: return .whatNext
 
         default: throw UniffiInternalError.unexpectedEnumCase
         }
@@ -18622,32 +18568,17 @@ public struct FfiConverterTypeMobileOnboardingStep: FfiConverterRustBuffer {
         case .linkChoice:
             writeInt(&buf, Int32(2))
 
-        case .welcome:
+        case .defaultName:
             writeInt(&buf, Int32(3))
 
-        case .defaultName:
+        case .groupsSetup:
             writeInt(&buf, Int32(4))
 
-        case .skipGate:
+        case .contactInfo:
             writeInt(&buf, Int32(5))
 
-        case .groupsSetup:
+        case .whatNext:
             writeInt(&buf, Int32(6))
-
-        case .contactInfo:
-            writeInt(&buf, Int32(7))
-
-        case .previewCard:
-            writeInt(&buf, Int32(8))
-
-        case .securityExplanation:
-            writeInt(&buf, Int32(9))
-
-        case .backupPrompt:
-            writeInt(&buf, Int32(10))
-
-        case .ready:
-            writeInt(&buf, Int32(11))
         }
     }
 }
@@ -23250,10 +23181,7 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_shred_status() != 22132 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_skip_onboarding_step() != 23703 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_skip_onboarding_to_finish() != 61406 {
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_skip_onboarding_step() != 29792 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_soft_delete_imported_contact() != 3809 {

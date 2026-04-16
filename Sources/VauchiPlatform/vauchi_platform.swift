@@ -4408,217 +4408,6 @@ public func FfiConverterTypeMobileOnboardingWorkflow_lower(_ value: MobileOnboar
     return FfiConverterTypeMobileOnboardingWorkflow.lower(value)
 }
 
-/**
- * Mobile-friendly proximity verification API.
- */
-public protocol MobileProximityVerifierProtocol: AnyObject {
-    /**
-     * Emit a proximity challenge.
-     *
-     * The challenge should be 16 bytes from the QR code.
-     */
-    func emitChallenge(challenge: Data) -> MobileProximityResult
-
-    /**
-     * Get device capability.
-     *
-     * Returns: "full", "emit_only", "receive_only", or "none"
-     */
-    func getCapability() -> String
-
-    /**
-     * Check if proximity verification is supported.
-     */
-    func isSupported() -> Bool
-
-    /**
-     * Listen for a proximity response.
-     *
-     * Returns the received challenge bytes, or empty on timeout.
-     */
-    func listenForResponse(timeoutMs: UInt64) -> Data
-
-    /**
-     * Stop any ongoing audio operation.
-     */
-    func stop()
-}
-
-/**
- * Mobile-friendly proximity verification API.
- */
-open class MobileProximityVerifier:
-    MobileProximityVerifierProtocol
-{
-    fileprivate let pointer: UnsafeMutableRawPointer!
-
-    // Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
-    #if swift(>=5.8)
-        @_documentation(visibility: private)
-    #endif
-    public struct NoPointer {
-        public init() {}
-    }
-
-    // TODO: We'd like this to be `private` but for Swifty reasons,
-    // we can't implement `FfiConverter` without making this `required` and we can't
-    // make it `required` without making it `public`.
-    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
-        self.pointer = pointer
-    }
-
-    // This constructor can be used to instantiate a fake object.
-    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
-    //
-    // - Warning:
-    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
-    #if swift(>=5.8)
-        @_documentation(visibility: private)
-    #endif
-    public init(noPointer _: NoPointer) {
-        pointer = nil
-    }
-
-    #if swift(>=5.8)
-        @_documentation(visibility: private)
-    #endif
-    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
-        return try! rustCall { uniffi_vauchi_platform_fn_clone_mobileproximityverifier(self.pointer, $0) }
-    }
-
-    /**
-     * Create a new proximity verifier with a platform audio handler.
-     */
-    public convenience init(handler: PlatformAudioHandler) {
-        let pointer =
-            try! rustCall {
-                uniffi_vauchi_platform_fn_constructor_mobileproximityverifier_new(
-                    FfiConverterCallbackInterfacePlatformAudioHandler.lower(handler), $0
-                )
-            }
-        self.init(unsafeFromRawPointer: pointer)
-    }
-
-    deinit {
-        guard let pointer = pointer else {
-            return
-        }
-
-        try! rustCall { uniffi_vauchi_platform_fn_free_mobileproximityverifier(pointer, $0) }
-    }
-
-    /**
-     * Create a proximity verifier without an audio handler.
-     *
-     * Will report as unsupported until a handler is provided.
-     */
-    public static func withoutHandler() -> MobileProximityVerifier {
-        return try! FfiConverterTypeMobileProximityVerifier.lift(try! rustCall {
-            uniffi_vauchi_platform_fn_constructor_mobileproximityverifier_without_handler($0)
-        })
-    }
-
-    /**
-     * Emit a proximity challenge.
-     *
-     * The challenge should be 16 bytes from the QR code.
-     */
-    open func emitChallenge(challenge: Data) -> MobileProximityResult {
-        return try! FfiConverterTypeMobileProximityResult.lift(try! rustCall {
-            uniffi_vauchi_platform_fn_method_mobileproximityverifier_emit_challenge(self.uniffiClonePointer(),
-                                                                                    FfiConverterData.lower(challenge), $0)
-        })
-    }
-
-    /**
-     * Get device capability.
-     *
-     * Returns: "full", "emit_only", "receive_only", or "none"
-     */
-    open func getCapability() -> String {
-        return try! FfiConverterString.lift(try! rustCall {
-            uniffi_vauchi_platform_fn_method_mobileproximityverifier_get_capability(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Check if proximity verification is supported.
-     */
-    open func isSupported() -> Bool {
-        return try! FfiConverterBool.lift(try! rustCall {
-            uniffi_vauchi_platform_fn_method_mobileproximityverifier_is_supported(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Listen for a proximity response.
-     *
-     * Returns the received challenge bytes, or empty on timeout.
-     */
-    open func listenForResponse(timeoutMs: UInt64) -> Data {
-        return try! FfiConverterData.lift(try! rustCall {
-            uniffi_vauchi_platform_fn_method_mobileproximityverifier_listen_for_response(self.uniffiClonePointer(),
-                                                                                         FfiConverterUInt64.lower(timeoutMs), $0)
-        })
-    }
-
-    /**
-     * Stop any ongoing audio operation.
-     */
-    open func stop() {
-        try! rustCall {
-            uniffi_vauchi_platform_fn_method_mobileproximityverifier_stop(self.uniffiClonePointer(), $0)
-        }
-    }
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public struct FfiConverterTypeMobileProximityVerifier: FfiConverter {
-    typealias FfiType = UnsafeMutableRawPointer
-    typealias SwiftType = MobileProximityVerifier
-
-    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileProximityVerifier {
-        return MobileProximityVerifier(unsafeFromRawPointer: pointer)
-    }
-
-    public static func lower(_ value: MobileProximityVerifier) -> UnsafeMutableRawPointer {
-        return value.uniffiClonePointer()
-    }
-
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileProximityVerifier {
-        let v: UInt64 = try readInt(&buf)
-        // The Rust code won't compile if a pointer won't fit in a UInt64.
-        // We have to go via `UInt` because that's the thing that's the size of a pointer.
-        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
-        if ptr == nil {
-            throw UniffiInternalError.unexpectedNullPointer
-        }
-        return try lift(ptr!)
-    }
-
-    public static func write(_ value: MobileProximityVerifier, into buf: inout [UInt8]) {
-        // This fiddling is because `Int` is the thing that's the same size as a pointer.
-        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
-        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
-    }
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMobileProximityVerifier_lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileProximityVerifier {
-    return try FfiConverterTypeMobileProximityVerifier.lift(pointer)
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMobileProximityVerifier_lower(_ value: MobileProximityVerifier) -> UnsafeMutableRawPointer {
-    return FfiConverterTypeMobileProximityVerifier.lower(value)
-}
-
 public protocol MobileSettingsWorkflowProtocol: AnyObject {
     func currentScreenJson() throws -> String
 
@@ -5690,6 +5479,13 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func exportBackup(password: String) throws -> String
 
     /**
+     * Export full v3 backup (identity + contacts + own card + labels).
+     *
+     * Returns base64-encoded backup data.
+     */
+    func exportFullBackup(password: String) throws -> String
+
+    /**
      * Export all user data for GDPR compliance.
      */
     func exportGdprData() throws -> MobileGdprExport
@@ -6019,6 +5815,13 @@ public protocol VauchiPlatformProtocol: AnyObject {
      * and per-contact warnings.
      */
     func importContactsFromVcf(data: Data) throws -> MobileImportResult
+
+    /**
+     * Import full v3 backup (identity + contacts + own card + labels).
+     *
+     * Accepts base64-encoded backup data from `export_full_backup`.
+     */
+    func importFullBackup(backupData: String, password: String) throws
 
     /**
      * Initialize the demo contact if user has no real contacts.
@@ -7179,6 +6982,18 @@ open class VauchiPlatform:
     }
 
     /**
+     * Export full v3 backup (identity + contacts + own card + labels).
+     *
+     * Returns base64-encoded backup data.
+     */
+    open func exportFullBackup(password: String) throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_vauchiplatform_export_full_backup(self.uniffiClonePointer(),
+                                                                               FfiConverterString.lower(password), $0)
+        })
+    }
+
+    /**
      * Export all user data for GDPR compliance.
      */
     open func exportGdprData() throws -> MobileGdprExport {
@@ -7747,6 +7562,19 @@ open class VauchiPlatform:
             uniffi_vauchi_platform_fn_method_vauchiplatform_import_contacts_from_vcf(self.uniffiClonePointer(),
                                                                                      FfiConverterData.lower(data), $0)
         })
+    }
+
+    /**
+     * Import full v3 backup (identity + contacts + own card + labels).
+     *
+     * Accepts base64-encoded backup data from `export_full_backup`.
+     */
+    open func importFullBackup(backupData: String, password: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_vauchiplatform_import_full_backup(self.uniffiClonePointer(),
+                                                                               FfiConverterString.lower(backupData),
+                                                                               FfiConverterString.lower(password), $0)
+        }
     }
 
     /**
@@ -13674,83 +13502,6 @@ public func FfiConverterTypeMobilePendingNotification_lift(_ buf: RustBuffer) th
 #endif
 public func FfiConverterTypeMobilePendingNotification_lower(_ value: MobilePendingNotification) -> RustBuffer {
     return FfiConverterTypeMobilePendingNotification.lower(value)
-}
-
-/**
- * Result of proximity verification.
- */
-public struct MobileProximityResult {
-    /**
-     * Whether verification succeeded
-     */
-    public var success: Bool
-    /**
-     * Error message if failed
-     */
-    public var error: String
-
-    /// Default memberwise initializers are never public by default, so we
-    /// declare one manually.
-    public init(
-        /*
-         * Whether verification succeeded
-         */ success: Bool,
-        /*
-            * Error message if failed
-            */ error: String
-    ) {
-        self.success = success
-        self.error = error
-    }
-}
-
-extension MobileProximityResult: Equatable, Hashable {
-    public static func == (lhs: MobileProximityResult, rhs: MobileProximityResult) -> Bool {
-        if lhs.success != rhs.success {
-            return false
-        }
-        if lhs.error != rhs.error {
-            return false
-        }
-        return true
-    }
-
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(success)
-        hasher.combine(error)
-    }
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public struct FfiConverterTypeMobileProximityResult: FfiConverterRustBuffer {
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileProximityResult {
-        return
-            try MobileProximityResult(
-                success: FfiConverterBool.read(from: &buf),
-                error: FfiConverterString.read(from: &buf)
-            )
-    }
-
-    public static func write(_ value: MobileProximityResult, into buf: inout [UInt8]) {
-        FfiConverterBool.write(value.success, into: &buf)
-        FfiConverterString.write(value.error, into: &buf)
-    }
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMobileProximityResult_lift(_ buf: RustBuffer) throws -> MobileProximityResult {
-    return try FfiConverterTypeMobileProximityResult.lift(buf)
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMobileProximityResult_lower(_ value: MobileProximityResult) -> RustBuffer {
-    return FfiConverterTypeMobileProximityResult.lower(value)
 }
 
 public struct MobileQrConfig {
@@ -20740,227 +20491,6 @@ extension FfiConverterCallbackInterfaceMobileWifiAwareHandler: FfiConverter {
 }
 
 /**
- * Callback interface for platform-specific audio operations.
- *
- * Implement this trait in Swift (iOS) or Kotlin (Android) to provide
- * native audio functionality for ultrasonic proximity verification.
- */
-public protocol PlatformAudioHandler: AnyObject {
-    /**
-     * Check if the device supports ultrasonic audio.
-     *
-     * Returns: "full", "emit_only", "receive_only", or "none"
-     */
-    func checkCapability() -> String
-
-    /**
-     * Emit an ultrasonic signal encoding the given data.
-     *
-     * The data is already FSK-encoded samples at the configured sample rate.
-     * Platform should play these samples through the speaker.
-     *
-     * Returns empty string on success, error message on failure.
-     */
-    func emitSignal(samples: [Float], sampleRate: UInt32) -> String
-
-    /**
-     * Record audio and return samples.
-     *
-     * Record for up to `timeout_ms` milliseconds at the given sample rate.
-     * Return the recorded samples as f32 values normalized to [-1.0, 1.0].
-     *
-     * Returns recorded samples, or empty vec on timeout/error.
-     */
-    func receiveSignal(timeoutMs: UInt64, sampleRate: UInt32) -> [Float]
-
-    /**
-     * Check if audio is currently active.
-     */
-    func isActive() -> Bool
-
-    /**
-     * Stop any ongoing audio operation.
-     */
-    func stop()
-}
-
-/// Put the implementation in a struct so we don't pollute the top-level namespace
-private enum UniffiCallbackInterfacePlatformAudioHandler {
-    /// Create the VTable using a series of closures.
-    /// Swift automatically converts these into C callback functions.
-    static var vtable: UniffiVTableCallbackInterfacePlatformAudioHandler = .init(
-        checkCapability: { (
-            uniffiHandle: UInt64,
-            uniffiOutReturn: UnsafeMutablePointer<RustBuffer>,
-            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
-        ) in
-            let makeCall = {
-                () throws -> String in
-                guard let uniffiObj = try? FfiConverterCallbackInterfacePlatformAudioHandler.handleMap.get(handle: uniffiHandle) else {
-                    throw UniffiInternalError.unexpectedStaleHandle
-                }
-                return uniffiObj.checkCapability(
-                )
-            }
-
-            let writeReturn = { uniffiOutReturn.pointee = FfiConverterString.lower($0) }
-            uniffiTraitInterfaceCall(
-                callStatus: uniffiCallStatus,
-                makeCall: makeCall,
-                writeReturn: writeReturn
-            )
-        },
-        emitSignal: { (
-            uniffiHandle: UInt64,
-            samples: RustBuffer,
-            sampleRate: UInt32,
-            uniffiOutReturn: UnsafeMutablePointer<RustBuffer>,
-            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
-        ) in
-            let makeCall = {
-                () throws -> String in
-                guard let uniffiObj = try? FfiConverterCallbackInterfacePlatformAudioHandler.handleMap.get(handle: uniffiHandle) else {
-                    throw UniffiInternalError.unexpectedStaleHandle
-                }
-                return try uniffiObj.emitSignal(
-                    samples: FfiConverterSequenceFloat.lift(samples),
-                    sampleRate: FfiConverterUInt32.lift(sampleRate)
-                )
-            }
-
-            let writeReturn = { uniffiOutReturn.pointee = FfiConverterString.lower($0) }
-            uniffiTraitInterfaceCall(
-                callStatus: uniffiCallStatus,
-                makeCall: makeCall,
-                writeReturn: writeReturn
-            )
-        },
-        receiveSignal: { (
-            uniffiHandle: UInt64,
-            timeoutMs: UInt64,
-            sampleRate: UInt32,
-            uniffiOutReturn: UnsafeMutablePointer<RustBuffer>,
-            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
-        ) in
-            let makeCall = {
-                () throws -> [Float] in
-                guard let uniffiObj = try? FfiConverterCallbackInterfacePlatformAudioHandler.handleMap.get(handle: uniffiHandle) else {
-                    throw UniffiInternalError.unexpectedStaleHandle
-                }
-                return try uniffiObj.receiveSignal(
-                    timeoutMs: FfiConverterUInt64.lift(timeoutMs),
-                    sampleRate: FfiConverterUInt32.lift(sampleRate)
-                )
-            }
-
-            let writeReturn = { uniffiOutReturn.pointee = FfiConverterSequenceFloat.lower($0) }
-            uniffiTraitInterfaceCall(
-                callStatus: uniffiCallStatus,
-                makeCall: makeCall,
-                writeReturn: writeReturn
-            )
-        },
-        isActive: { (
-            uniffiHandle: UInt64,
-            uniffiOutReturn: UnsafeMutablePointer<Int8>,
-            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
-        ) in
-            let makeCall = {
-                () throws -> Bool in
-                guard let uniffiObj = try? FfiConverterCallbackInterfacePlatformAudioHandler.handleMap.get(handle: uniffiHandle) else {
-                    throw UniffiInternalError.unexpectedStaleHandle
-                }
-                return uniffiObj.isActive(
-                )
-            }
-
-            let writeReturn = { uniffiOutReturn.pointee = FfiConverterBool.lower($0) }
-            uniffiTraitInterfaceCall(
-                callStatus: uniffiCallStatus,
-                makeCall: makeCall,
-                writeReturn: writeReturn
-            )
-        },
-        stop: { (
-            uniffiHandle: UInt64,
-            _: UnsafeMutableRawPointer,
-            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
-        ) in
-            let makeCall = {
-                () throws in
-                guard let uniffiObj = try? FfiConverterCallbackInterfacePlatformAudioHandler.handleMap.get(handle: uniffiHandle) else {
-                    throw UniffiInternalError.unexpectedStaleHandle
-                }
-                return uniffiObj.stop(
-                )
-            }
-
-            let writeReturn = { () }
-            uniffiTraitInterfaceCall(
-                callStatus: uniffiCallStatus,
-                makeCall: makeCall,
-                writeReturn: writeReturn
-            )
-        },
-        uniffiFree: { (uniffiHandle: UInt64) in
-            let result = try? FfiConverterCallbackInterfacePlatformAudioHandler.handleMap.remove(handle: uniffiHandle)
-            if result == nil {
-                print("Uniffi callback interface PlatformAudioHandler: handle missing in uniffiFree")
-            }
-        }
-    )
-}
-
-private func uniffiCallbackInitPlatformAudioHandler() {
-    uniffi_vauchi_platform_fn_init_callback_vtable_platformaudiohandler(&UniffiCallbackInterfacePlatformAudioHandler.vtable)
-}
-
-// FfiConverter protocol for callback interfaces
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-private enum FfiConverterCallbackInterfacePlatformAudioHandler {
-    fileprivate static var handleMap = UniffiHandleMap<PlatformAudioHandler>()
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-extension FfiConverterCallbackInterfacePlatformAudioHandler: FfiConverter {
-    typealias SwiftType = PlatformAudioHandler
-    typealias FfiType = UInt64
-
-    #if swift(>=5.8)
-        @_documentation(visibility: private)
-    #endif
-    public static func lift(_ handle: UInt64) throws -> SwiftType {
-        try handleMap.get(handle: handle)
-    }
-
-    #if swift(>=5.8)
-        @_documentation(visibility: private)
-    #endif
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
-        let handle: UInt64 = try readInt(&buf)
-        return try lift(handle)
-    }
-
-    #if swift(>=5.8)
-        @_documentation(visibility: private)
-    #endif
-    public static func lower(_ v: SwiftType) -> UInt64 {
-        return handleMap.insert(obj: v)
-    }
-
-    #if swift(>=5.8)
-        @_documentation(visibility: private)
-    #endif
-    public static func write(_ v: SwiftType, into buf: inout [UInt8]) {
-        writeInt(&buf, lower(v))
-    }
-}
-
-/**
  * Callback interface for async state-change notifications from core.
  *
  * Frontends implement this trait (in Swift/Kotlin via UniFFI) and register
@@ -21471,31 +21001,6 @@ private struct FfiConverterOptionTypeMobileLocale: FfiConverterRustBuffer {
         case 1: return try FfiConverterTypeMobileLocale.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
-    }
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-private struct FfiConverterSequenceFloat: FfiConverterRustBuffer {
-    typealias SwiftType = [Float]
-
-    static func write(_ value: [Float], into buf: inout [UInt8]) {
-        let len = Int32(value.count)
-        writeInt(&buf, len)
-        for item in value {
-            FfiConverterFloat.write(item, into: &buf)
-        }
-    }
-
-    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [Float] {
-        let len: Int32 = try readInt(&buf)
-        var seq = [Float]()
-        seq.reserveCapacity(Int(len))
-        for _ in 0 ..< len {
-            try seq.append(FfiConverterFloat.read(from: &buf))
-        }
-        return seq
     }
 }
 
@@ -23196,21 +22701,6 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_mobileonboardingworkflow_onboarding_data_json() != 59270 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_mobileproximityverifier_emit_challenge() != 58060 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_mobileproximityverifier_get_capability() != 46807 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_mobileproximityverifier_is_supported() != 8257 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_mobileproximityverifier_listen_for_response() != 36186 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_mobileproximityverifier_stop() != 8836 {
-        return InitializationResult.apiChecksumMismatch
-    }
     if uniffi_vauchi_platform_checksum_method_mobilesettingsworkflow_current_screen_json() != 45894 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -23412,6 +22902,9 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_export_backup() != 28538 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_export_full_backup() != 21038 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_export_gdpr_data() != 57382 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -23569,6 +23062,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_import_contacts_from_vcf() != 44226 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_import_full_backup() != 62517 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_init_demo_contact_if_needed() != 25750 {
@@ -23871,12 +23367,6 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_constructor_mobileonboardingworkflow_new() != 56781 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_constructor_mobileproximityverifier_new() != 24621 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_constructor_mobileproximityverifier_without_handler() != 58448 {
-        return InitializationResult.apiChecksumMismatch
-    }
     if uniffi_vauchi_platform_checksum_constructor_mobilesettingsworkflow_new() != 19685 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -23943,21 +23433,6 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_mobilewifiawarehandler_on_error() != 2429 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_platformaudiohandler_check_capability() != 20321 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_platformaudiohandler_emit_signal() != 14710 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_platformaudiohandler_receive_signal() != 59807 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_platformaudiohandler_is_active() != 43622 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_platformaudiohandler_stop() != 64303 {
-        return InitializationResult.apiChecksumMismatch
-    }
     if uniffi_vauchi_platform_checksum_method_platformeventlistener_on_screens_invalidated() != 40829 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -23967,7 +23442,6 @@ private var initializationResult: InitializationResult = {
     uniffiCallbackInitMobilePlatformKeychain()
     uniffiCallbackInitMobileProximityHandler()
     uniffiCallbackInitMobileWifiAwareHandler()
-    uniffiCallbackInitPlatformAudioHandler()
     uniffiCallbackInitPlatformEventListener()
     return InitializationResult.ok
 }()

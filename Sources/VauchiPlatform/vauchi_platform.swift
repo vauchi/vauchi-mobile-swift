@@ -15571,6 +15571,75 @@ public func FfiConverterTypeMobileThemeColors_lower(_ value: MobileThemeColors) 
     return FfiConverterTypeMobileThemeColors.lower(value)
 }
 
+public struct MobileThroughputFrame {
+    public var frameIndex: UInt32
+    public var totalFrames: UInt32
+    public var data: String
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(frameIndex: UInt32, totalFrames: UInt32, data: String) {
+        self.frameIndex = frameIndex
+        self.totalFrames = totalFrames
+        self.data = data
+    }
+}
+
+extension MobileThroughputFrame: Equatable, Hashable {
+    public static func == (lhs: MobileThroughputFrame, rhs: MobileThroughputFrame) -> Bool {
+        if lhs.frameIndex != rhs.frameIndex {
+            return false
+        }
+        if lhs.totalFrames != rhs.totalFrames {
+            return false
+        }
+        if lhs.data != rhs.data {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(frameIndex)
+        hasher.combine(totalFrames)
+        hasher.combine(data)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileThroughputFrame: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileThroughputFrame {
+        return
+            try MobileThroughputFrame(
+                frameIndex: FfiConverterUInt32.read(from: &buf),
+                totalFrames: FfiConverterUInt32.read(from: &buf),
+                data: FfiConverterString.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileThroughputFrame, into buf: inout [UInt8]) {
+        FfiConverterUInt32.write(value.frameIndex, into: &buf)
+        FfiConverterUInt32.write(value.totalFrames, into: &buf)
+        FfiConverterString.write(value.data, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileThroughputFrame_lift(_ buf: RustBuffer) throws -> MobileThroughputFrame {
+    return try FfiConverterTypeMobileThroughputFrame.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileThroughputFrame_lower(_ value: MobileThroughputFrame) -> RustBuffer {
+    return FfiConverterTypeMobileThroughputFrame.lower(value)
+}
+
 /**
  * Design tokens: touch target sizes.
  */
@@ -21610,6 +21679,31 @@ private struct FfiConverterSequenceTypeMobileTheme: FfiConverterRustBuffer {
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
+private struct FfiConverterSequenceTypeMobileThroughputFrame: FfiConverterRustBuffer {
+    typealias SwiftType = [MobileThroughputFrame]
+
+    static func write(_ value: [MobileThroughputFrame], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeMobileThroughputFrame.write(item, into: &buf)
+        }
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileThroughputFrame] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [MobileThroughputFrame]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            try seq.append(FfiConverterTypeMobileThroughputFrame.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
 private struct FfiConverterSequenceTypeMobileTuningResult: FfiConverterRustBuffer {
     typealias SwiftType = [MobileTuningResult]
 
@@ -21891,6 +21985,12 @@ public func coreVersion() -> String {
     })
 }
 
+public func diagnosticGenerateExtendedQrTestPatterns() -> [MobileQrTestPattern] {
+    return try! FfiConverterSequenceTypeMobileQrTestPattern.lift(try! rustCall {
+        uniffi_vauchi_platform_fn_func_diagnostic_generate_extended_qr_test_patterns($0)
+    })
+}
+
 public func diagnosticGenerateQrTestPatterns() -> [MobileQrTestPattern] {
     return try! FfiConverterSequenceTypeMobileQrTestPattern.lift(try! rustCall {
         uniffi_vauchi_platform_fn_func_diagnostic_generate_qr_test_patterns($0)
@@ -21901,6 +22001,15 @@ public func diagnosticGenerateSweepMatrix(profile: MobileDeviceCapabilityProfile
     return try! FfiConverterTypeMobileSweepMatrix.lift(try! rustCall {
         uniffi_vauchi_platform_fn_func_diagnostic_generate_sweep_matrix(
             FfiConverterTypeMobileDeviceCapabilityProfile.lower(profile), $0
+        )
+    })
+}
+
+public func diagnosticGenerateThroughputSequence(totalBytes: UInt32, frameCapacity: UInt32) -> [MobileThroughputFrame] {
+    return try! FfiConverterSequenceTypeMobileThroughputFrame.lift(try! rustCall {
+        uniffi_vauchi_platform_fn_func_diagnostic_generate_throughput_sequence(
+            FfiConverterUInt32.lower(totalBytes),
+            FfiConverterUInt32.lower(frameCapacity), $0
         )
     })
 }
@@ -22291,10 +22400,16 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_func_core_version() != 30520 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_func_diagnostic_generate_extended_qr_test_patterns() != 60841 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_platform_checksum_func_diagnostic_generate_qr_test_patterns() != 59325 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_func_diagnostic_generate_sweep_matrix() != 30556 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_func_diagnostic_generate_throughput_sequence() != 1647 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_func_diagnostic_rank_configs() != 56769 {

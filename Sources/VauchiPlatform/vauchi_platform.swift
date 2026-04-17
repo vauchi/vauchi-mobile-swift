@@ -2624,6 +2624,15 @@ public protocol MobileExchangeSessionProtocol: AnyObject {
     func getExchangeDebugMarkdown() -> String?
 
     /**
+     * Returns the exchange latency summary as JSON, if debug logging is enabled.
+     *
+     * Computes deltas between milestone events (session start → QR generated
+     * → QR scanned → key agreement → exchange completed). Each segment is
+     * null when the corresponding milestone was not recorded.
+     */
+    func getLatencySummaryJson() -> String?
+
+    /**
      * Returns the event log from the last proximity verification.
      *
      * Returns an empty list before any verification has occurred.
@@ -2828,6 +2837,19 @@ open class MobileExchangeSession:
     open func getExchangeDebugMarkdown() -> String? {
         return try! FfiConverterOptionString.lift(try! rustCall {
             uniffi_vauchi_platform_fn_method_mobileexchangesession_get_exchange_debug_markdown(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Returns the exchange latency summary as JSON, if debug logging is enabled.
+     *
+     * Computes deltas between milestone events (session start → QR generated
+     * → QR scanned → key agreement → exchange completed). Each segment is
+     * null when the corresponding milestone was not recorded.
+     */
+    open func getLatencySummaryJson() -> String? {
+        return try! FfiConverterOptionString.lift(try! rustCall {
+            uniffi_vauchi_platform_fn_method_mobileexchangesession_get_latency_summary_json(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -22507,6 +22529,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_mobileexchangesession_get_exchange_debug_markdown() != 19273 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_mobileexchangesession_get_latency_summary_json() != 50510 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_mobileexchangesession_get_verification_events() != 37397 {

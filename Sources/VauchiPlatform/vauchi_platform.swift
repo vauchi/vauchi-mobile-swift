@@ -6056,6 +6056,13 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func revokeConsent(consentType: MobileConsentType) throws
 
     /**
+     * Save a recovery response (accept, reject, or remind_me_later).
+     *
+     * Used by the RecoveryClaimReviewEngine to persist the user's decision.
+     */
+    func saveRecoveryResponse(claimId: String, contactId: String, response: String, remindAt: UInt64?) throws
+
+    /**
      * Schedule identity deletion with 7-day grace period.
      */
     func scheduleIdentityDeletion() throws -> MobileDeletionInfo
@@ -6343,6 +6350,15 @@ public protocol VauchiPlatformProtocol: AnyObject {
      * Update field value.
      */
     func updateField(label: String, newValue: String) throws
+
+    /**
+     * Upload encrypted guardian entries to the relay.
+     *
+     * Creates guardian tokens for each recovery-trusted contact and uploads
+     * them encrypted (sealed-box) to the relay. Called after toggling
+     * recovery trust on a contact.
+     */
+    func uploadGuardianEntries() throws
 
     /**
      * Verify contact fingerprint.
@@ -7963,6 +7979,21 @@ open class VauchiPlatform:
     }
 
     /**
+     * Save a recovery response (accept, reject, or remind_me_later).
+     *
+     * Used by the RecoveryClaimReviewEngine to persist the user's decision.
+     */
+    open func saveRecoveryResponse(claimId: String, contactId: String, response: String, remindAt: UInt64?) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_vauchiplatform_save_recovery_response(self.uniffiClonePointer(),
+                                                                                   FfiConverterString.lower(claimId),
+                                                                                   FfiConverterString.lower(contactId),
+                                                                                   FfiConverterString.lower(response),
+                                                                                   FfiConverterOptionUInt64.lower(remindAt), $0)
+        }
+    }
+
+    /**
      * Schedule identity deletion with 7-day grace period.
      */
     open func scheduleIdentityDeletion() throws -> MobileDeletionInfo {
@@ -8483,6 +8514,19 @@ open class VauchiPlatform:
             uniffi_vauchi_platform_fn_method_vauchiplatform_update_field(self.uniffiClonePointer(),
                                                                          FfiConverterString.lower(label),
                                                                          FfiConverterString.lower(newValue), $0)
+        }
+    }
+
+    /**
+     * Upload encrypted guardian entries to the relay.
+     *
+     * Creates guardian tokens for each recovery-trusted contact and uploads
+     * them encrypted (sealed-box) to the relay. Called after toggling
+     * recovery trust on a contact.
+     */
+    open func uploadGuardianEntries() throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_vauchiplatform_upload_guardian_entries(self.uniffiClonePointer(), $0)
         }
     }
 
@@ -13502,6 +13546,131 @@ public func FfiConverterTypeMobilePendingNotification_lower(_ value: MobilePendi
     return FfiConverterTypeMobilePendingNotification.lower(value)
 }
 
+public struct MobilePreprocessConfig {
+    public var targetWidth: UInt32
+    public var claheClipLimit: Float
+    public var claheTileSize: UInt32
+    public var thresholdWindow: UInt32
+    public var unsharpSigma: Float
+    public var unsharpAmount: Float
+    public var sharpnessThreshold: Float
+    public var applyClahe: Bool
+    public var applyUnsharp: Bool
+    public var applyThreshold: Bool
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(targetWidth: UInt32, claheClipLimit: Float, claheTileSize: UInt32, thresholdWindow: UInt32, unsharpSigma: Float, unsharpAmount: Float, sharpnessThreshold: Float, applyClahe: Bool, applyUnsharp: Bool, applyThreshold: Bool) {
+        self.targetWidth = targetWidth
+        self.claheClipLimit = claheClipLimit
+        self.claheTileSize = claheTileSize
+        self.thresholdWindow = thresholdWindow
+        self.unsharpSigma = unsharpSigma
+        self.unsharpAmount = unsharpAmount
+        self.sharpnessThreshold = sharpnessThreshold
+        self.applyClahe = applyClahe
+        self.applyUnsharp = applyUnsharp
+        self.applyThreshold = applyThreshold
+    }
+}
+
+extension MobilePreprocessConfig: Equatable, Hashable {
+    public static func == (lhs: MobilePreprocessConfig, rhs: MobilePreprocessConfig) -> Bool {
+        if lhs.targetWidth != rhs.targetWidth {
+            return false
+        }
+        if lhs.claheClipLimit != rhs.claheClipLimit {
+            return false
+        }
+        if lhs.claheTileSize != rhs.claheTileSize {
+            return false
+        }
+        if lhs.thresholdWindow != rhs.thresholdWindow {
+            return false
+        }
+        if lhs.unsharpSigma != rhs.unsharpSigma {
+            return false
+        }
+        if lhs.unsharpAmount != rhs.unsharpAmount {
+            return false
+        }
+        if lhs.sharpnessThreshold != rhs.sharpnessThreshold {
+            return false
+        }
+        if lhs.applyClahe != rhs.applyClahe {
+            return false
+        }
+        if lhs.applyUnsharp != rhs.applyUnsharp {
+            return false
+        }
+        if lhs.applyThreshold != rhs.applyThreshold {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(targetWidth)
+        hasher.combine(claheClipLimit)
+        hasher.combine(claheTileSize)
+        hasher.combine(thresholdWindow)
+        hasher.combine(unsharpSigma)
+        hasher.combine(unsharpAmount)
+        hasher.combine(sharpnessThreshold)
+        hasher.combine(applyClahe)
+        hasher.combine(applyUnsharp)
+        hasher.combine(applyThreshold)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobilePreprocessConfig: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobilePreprocessConfig {
+        return
+            try MobilePreprocessConfig(
+                targetWidth: FfiConverterUInt32.read(from: &buf),
+                claheClipLimit: FfiConverterFloat.read(from: &buf),
+                claheTileSize: FfiConverterUInt32.read(from: &buf),
+                thresholdWindow: FfiConverterUInt32.read(from: &buf),
+                unsharpSigma: FfiConverterFloat.read(from: &buf),
+                unsharpAmount: FfiConverterFloat.read(from: &buf),
+                sharpnessThreshold: FfiConverterFloat.read(from: &buf),
+                applyClahe: FfiConverterBool.read(from: &buf),
+                applyUnsharp: FfiConverterBool.read(from: &buf),
+                applyThreshold: FfiConverterBool.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobilePreprocessConfig, into buf: inout [UInt8]) {
+        FfiConverterUInt32.write(value.targetWidth, into: &buf)
+        FfiConverterFloat.write(value.claheClipLimit, into: &buf)
+        FfiConverterUInt32.write(value.claheTileSize, into: &buf)
+        FfiConverterUInt32.write(value.thresholdWindow, into: &buf)
+        FfiConverterFloat.write(value.unsharpSigma, into: &buf)
+        FfiConverterFloat.write(value.unsharpAmount, into: &buf)
+        FfiConverterFloat.write(value.sharpnessThreshold, into: &buf)
+        FfiConverterBool.write(value.applyClahe, into: &buf)
+        FfiConverterBool.write(value.applyUnsharp, into: &buf)
+        FfiConverterBool.write(value.applyThreshold, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobilePreprocessConfig_lift(_ buf: RustBuffer) throws -> MobilePreprocessConfig {
+    return try FfiConverterTypeMobilePreprocessConfig.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobilePreprocessConfig_lower(_ value: MobilePreprocessConfig) -> RustBuffer {
+    return FfiConverterTypeMobilePreprocessConfig.lower(value)
+}
+
 public struct MobileQrConfig {
     public var errorCorrection: MobileErrorCorrectionLevel
     public var payloadSizeBytes: UInt32
@@ -14283,6 +14452,99 @@ public func FfiConverterTypeMobileRetryEntry_lift(_ buf: RustBuffer) throws -> M
 #endif
 public func FfiConverterTypeMobileRetryEntry_lower(_ value: MobileRetryEntry) -> RustBuffer {
     return FfiConverterTypeMobileRetryEntry.lower(value)
+}
+
+public struct MobileScanResult {
+    public var decoded: String?
+    public var totalUs: UInt64
+    public var preprocessingUs: UInt64
+    public var decodeUs: UInt64
+    public var frameSkipped: Bool
+    public var laplacianVariance: Float
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(decoded: String?, totalUs: UInt64, preprocessingUs: UInt64, decodeUs: UInt64, frameSkipped: Bool, laplacianVariance: Float) {
+        self.decoded = decoded
+        self.totalUs = totalUs
+        self.preprocessingUs = preprocessingUs
+        self.decodeUs = decodeUs
+        self.frameSkipped = frameSkipped
+        self.laplacianVariance = laplacianVariance
+    }
+}
+
+extension MobileScanResult: Equatable, Hashable {
+    public static func == (lhs: MobileScanResult, rhs: MobileScanResult) -> Bool {
+        if lhs.decoded != rhs.decoded {
+            return false
+        }
+        if lhs.totalUs != rhs.totalUs {
+            return false
+        }
+        if lhs.preprocessingUs != rhs.preprocessingUs {
+            return false
+        }
+        if lhs.decodeUs != rhs.decodeUs {
+            return false
+        }
+        if lhs.frameSkipped != rhs.frameSkipped {
+            return false
+        }
+        if lhs.laplacianVariance != rhs.laplacianVariance {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(decoded)
+        hasher.combine(totalUs)
+        hasher.combine(preprocessingUs)
+        hasher.combine(decodeUs)
+        hasher.combine(frameSkipped)
+        hasher.combine(laplacianVariance)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileScanResult: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileScanResult {
+        return
+            try MobileScanResult(
+                decoded: FfiConverterOptionString.read(from: &buf),
+                totalUs: FfiConverterUInt64.read(from: &buf),
+                preprocessingUs: FfiConverterUInt64.read(from: &buf),
+                decodeUs: FfiConverterUInt64.read(from: &buf),
+                frameSkipped: FfiConverterBool.read(from: &buf),
+                laplacianVariance: FfiConverterFloat.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileScanResult, into buf: inout [UInt8]) {
+        FfiConverterOptionString.write(value.decoded, into: &buf)
+        FfiConverterUInt64.write(value.totalUs, into: &buf)
+        FfiConverterUInt64.write(value.preprocessingUs, into: &buf)
+        FfiConverterUInt64.write(value.decodeUs, into: &buf)
+        FfiConverterBool.write(value.frameSkipped, into: &buf)
+        FfiConverterFloat.write(value.laplacianVariance, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileScanResult_lift(_ buf: RustBuffer) throws -> MobileScanResult {
+    return try FfiConverterTypeMobileScanResult.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileScanResult_lower(_ value: MobileScanResult) -> RustBuffer {
+    return FfiConverterTypeMobileScanResult.lower(value)
 }
 
 public struct MobileScoredConfig {
@@ -18831,7 +19093,7 @@ public enum MobileProtocolState {
     case idle
     case advertising
     case discovered
-    case transferring(chunksSent: UInt8, chunksTotal: UInt8, chunksReceived: UInt8, peerChunksTotal: UInt8)
+    case transferring(chunksSent: UInt16, chunksTotal: UInt16, chunksReceived: UInt16, peerChunksTotal: UInt16)
     case verifying
     case confirming
     case complete
@@ -18854,7 +19116,7 @@ public struct FfiConverterTypeMobileProtocolState: FfiConverterRustBuffer {
 
         case 3: return .discovered
 
-        case 4: return try .transferring(chunksSent: FfiConverterUInt8.read(from: &buf), chunksTotal: FfiConverterUInt8.read(from: &buf), chunksReceived: FfiConverterUInt8.read(from: &buf), peerChunksTotal: FfiConverterUInt8.read(from: &buf))
+        case 4: return try .transferring(chunksSent: FfiConverterUInt16.read(from: &buf), chunksTotal: FfiConverterUInt16.read(from: &buf), chunksReceived: FfiConverterUInt16.read(from: &buf), peerChunksTotal: FfiConverterUInt16.read(from: &buf))
 
         case 5: return .verifying
 
@@ -18883,10 +19145,10 @@ public struct FfiConverterTypeMobileProtocolState: FfiConverterRustBuffer {
 
         case let .transferring(chunksSent, chunksTotal, chunksReceived, peerChunksTotal):
             writeInt(&buf, Int32(4))
-            FfiConverterUInt8.write(chunksSent, into: &buf)
-            FfiConverterUInt8.write(chunksTotal, into: &buf)
-            FfiConverterUInt8.write(chunksReceived, into: &buf)
-            FfiConverterUInt8.write(peerChunksTotal, into: &buf)
+            FfiConverterUInt16.write(chunksSent, into: &buf)
+            FfiConverterUInt16.write(chunksTotal, into: &buf)
+            FfiConverterUInt16.write(chunksReceived, into: &buf)
+            FfiConverterUInt16.write(peerChunksTotal, into: &buf)
 
         case .verifying:
             writeInt(&buf, Int32(5))
@@ -19172,6 +19434,58 @@ public func FfiConverterTypeMobileReciprocity_lower(_ value: MobileReciprocity) 
 }
 
 extension MobileReciprocity: Equatable, Hashable {}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
+public enum MobileScannerBackend {
+    case rqrrRaw
+    case rqrrPreprocessed
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileScannerBackend: FfiConverterRustBuffer {
+    typealias SwiftType = MobileScannerBackend
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileScannerBackend {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return .rqrrRaw
+
+        case 2: return .rqrrPreprocessed
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileScannerBackend, into buf: inout [UInt8]) {
+        switch value {
+        case .rqrrRaw:
+            writeInt(&buf, Int32(1))
+
+        case .rqrrPreprocessed:
+            writeInt(&buf, Int32(2))
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileScannerBackend_lift(_ buf: RustBuffer) throws -> MobileScannerBackend {
+    return try FfiConverterTypeMobileScannerBackend.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileScannerBackend_lower(_ value: MobileScannerBackend) -> RustBuffer {
+    return FfiConverterTypeMobileScannerBackend.lower(value)
+}
+
+extension MobileScannerBackend: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
@@ -22022,6 +22336,29 @@ public func diagnosticRankConfigs(results: [MobileTuningResult]) -> [MobileScore
     })
 }
 
+public func diagnosticScanQr(backend: MobileScannerBackend, lumaData: Data, width: UInt32, height: UInt32) -> MobileScanResult {
+    return try! FfiConverterTypeMobileScanResult.lift(try! rustCall {
+        uniffi_vauchi_platform_fn_func_diagnostic_scan_qr(
+            FfiConverterTypeMobileScannerBackend.lower(backend),
+            FfiConverterData.lower(lumaData),
+            FfiConverterUInt32.lower(width),
+            FfiConverterUInt32.lower(height), $0
+        )
+    })
+}
+
+public func diagnosticScanQrWithConfig(backend: MobileScannerBackend, lumaData: Data, width: UInt32, height: UInt32, config: MobilePreprocessConfig) -> MobileScanResult {
+    return try! FfiConverterTypeMobileScanResult.lift(try! rustCall {
+        uniffi_vauchi_platform_fn_func_diagnostic_scan_qr_with_config(
+            FfiConverterTypeMobileScannerBackend.lower(backend),
+            FfiConverterData.lower(lumaData),
+            FfiConverterUInt32.lower(width),
+            FfiConverterUInt32.lower(height),
+            FfiConverterTypeMobilePreprocessConfig.lower(config), $0
+        )
+    })
+}
+
 public func diagnosticScoreConfig(result: MobileTuningResult) -> Float {
     return try! FfiConverterFloat.lift(try! rustCall {
         uniffi_vauchi_platform_fn_func_diagnostic_score_config(
@@ -22413,6 +22750,12 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_func_diagnostic_rank_configs() != 56769 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_func_diagnostic_scan_qr() != 48325 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_func_diagnostic_scan_qr_with_config() != 39291 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_func_diagnostic_score_config() != 13301 {
@@ -23246,6 +23589,9 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_revoke_consent() != 60709 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_save_recovery_response() != 1127 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_schedule_identity_deletion() != 54882 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -23373,6 +23719,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_update_field() != 13986 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_upload_guardian_entries() != 11363 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_verify_contact() != 22462 {

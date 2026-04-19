@@ -4586,6 +4586,25 @@ public func FfiConverterTypeMobileSettingsWorkflow_lower(_ value: MobileSettings
  */
 public protocol PlatformAppEngineProtocol: AnyObject {
     /**
+     * Advance the animated QR to the next frame.
+     *
+     * Returns the updated ScreenModel JSON when the active engine has animated
+     * frames to cycle (currently only `ExchangeEngine` on the ShowQr step), or
+     * `None` otherwise. Frontends call this on a ~100ms timer while displaying
+     * the "Share Your Code" screen to cycle V6-sized QR chunks for reliable
+     * 240p camera decode.
+     *
+     * # Usage from Swift
+     *
+     * ```swift
+     * if let frameJson = try engine.advanceQrFrameJson() {
+     * applyScreen(decode(frameJson))
+     * }
+     * ```
+     */
+    func advanceQrFrameJson() throws -> String?
+
+    /**
      * Returns the available navigation screens as a JSON array.
      *
      * These are the screens that should appear in the navigation bar/tabs.
@@ -4869,6 +4888,29 @@ open class PlatformAppEngine:
         }
 
         try! rustCall { uniffi_vauchi_platform_fn_free_platformappengine(pointer, $0) }
+    }
+
+    /**
+     * Advance the animated QR to the next frame.
+     *
+     * Returns the updated ScreenModel JSON when the active engine has animated
+     * frames to cycle (currently only `ExchangeEngine` on the ShowQr step), or
+     * `None` otherwise. Frontends call this on a ~100ms timer while displaying
+     * the "Share Your Code" screen to cycle V6-sized QR chunks for reliable
+     * 240p camera decode.
+     *
+     * # Usage from Swift
+     *
+     * ```swift
+     * if let frameJson = try engine.advanceQrFrameJson() {
+     * applyScreen(decode(frameJson))
+     * }
+     * ```
+     */
+    open func advanceQrFrameJson() throws -> String? {
+        return try FfiConverterOptionString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_advance_qr_frame_json(self.uniffiClonePointer(), $0)
+        })
     }
 
     /**
@@ -23234,6 +23276,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_mobilesettingsworkflow_handle_action_json() != 10389 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_advance_qr_frame_json() != 9415 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_platformappengine_available_screens_json() != 8671 {

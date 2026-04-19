@@ -13754,13 +13754,13 @@ public func FfiConverterTypeMobileQrBitmap_lower(_ value: MobileQrBitmap) -> Rus
 }
 
 public struct MobileQrConfig {
-    public var errorCorrection: MobileErrorCorrectionLevel
+    public var errorCorrection: MobileQrEccLevel
     public var payloadSizeBytes: UInt32
     public var moduleSizePx: UInt32
 
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
-    public init(errorCorrection: MobileErrorCorrectionLevel, payloadSizeBytes: UInt32, moduleSizePx: UInt32) {
+    public init(errorCorrection: MobileQrEccLevel, payloadSizeBytes: UInt32, moduleSizePx: UInt32) {
         self.errorCorrection = errorCorrection
         self.payloadSizeBytes = payloadSizeBytes
         self.moduleSizePx = moduleSizePx
@@ -13795,14 +13795,14 @@ public struct FfiConverterTypeMobileQrConfig: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileQrConfig {
         return
             try MobileQrConfig(
-                errorCorrection: FfiConverterTypeMobileErrorCorrectionLevel.read(from: &buf),
+                errorCorrection: FfiConverterTypeMobileQrEccLevel.read(from: &buf),
                 payloadSizeBytes: FfiConverterUInt32.read(from: &buf),
                 moduleSizePx: FfiConverterUInt32.read(from: &buf)
             )
     }
 
     public static func write(_ value: MobileQrConfig, into buf: inout [UInt8]) {
-        FfiConverterTypeMobileErrorCorrectionLevel.write(value.errorCorrection, into: &buf)
+        FfiConverterTypeMobileQrEccLevel.write(value.errorCorrection, into: &buf)
         FfiConverterUInt32.write(value.payloadSizeBytes, into: &buf)
         FfiConverterUInt32.write(value.moduleSizePx, into: &buf)
     }
@@ -13820,85 +13820,6 @@ public func FfiConverterTypeMobileQrConfig_lift(_ buf: RustBuffer) throws -> Mob
 #endif
 public func FfiConverterTypeMobileQrConfig_lower(_ value: MobileQrConfig) -> RustBuffer {
     return FfiConverterTypeMobileQrConfig.lower(value)
-}
-
-/**
- * QR code as a flat boolean matrix (row-major).
- */
-public struct MobileQrMatrix {
-    /**
-     * Module grid width (= height, QR codes are square).
-     */
-    public var width: UInt32
-    /**
-     * Row-major module data: `true` = dark module, `false` = light module.
-     * Length = width * width.
-     */
-    public var modules: [Bool]
-
-    /// Default memberwise initializers are never public by default, so we
-    /// declare one manually.
-    public init(
-        /*
-         * Module grid width (= height, QR codes are square).
-         */ width: UInt32,
-        /*
-            * Row-major module data: `true` = dark module, `false` = light module.
-            * Length = width * width.
-            */ modules: [Bool]
-    ) {
-        self.width = width
-        self.modules = modules
-    }
-}
-
-extension MobileQrMatrix: Equatable, Hashable {
-    public static func == (lhs: MobileQrMatrix, rhs: MobileQrMatrix) -> Bool {
-        if lhs.width != rhs.width {
-            return false
-        }
-        if lhs.modules != rhs.modules {
-            return false
-        }
-        return true
-    }
-
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(width)
-        hasher.combine(modules)
-    }
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public struct FfiConverterTypeMobileQrMatrix: FfiConverterRustBuffer {
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileQrMatrix {
-        return
-            try MobileQrMatrix(
-                width: FfiConverterUInt32.read(from: &buf),
-                modules: FfiConverterSequenceBool.read(from: &buf)
-            )
-    }
-
-    public static func write(_ value: MobileQrMatrix, into buf: inout [UInt8]) {
-        FfiConverterUInt32.write(value.width, into: &buf)
-        FfiConverterSequenceBool.write(value.modules, into: &buf)
-    }
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMobileQrMatrix_lift(_ buf: RustBuffer) throws -> MobileQrMatrix {
-    return try FfiConverterTypeMobileQrMatrix.lift(buf)
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMobileQrMatrix_lower(_ value: MobileQrMatrix) -> RustBuffer {
-    return FfiConverterTypeMobileQrMatrix.lower(value)
 }
 
 /**
@@ -16121,7 +16042,7 @@ public func FfiConverterTypeMobileTouchTargetTokens_lower(_ value: MobileTouchTa
 
 public struct MobileTuningResult {
     public var cameraConfigId: UInt32
-    public var qrErrorCorrection: MobileErrorCorrectionLevel
+    public var qrErrorCorrection: MobileQrEccLevel
     public var qrPayloadSizeBytes: UInt32
     public var qrModuleSizePx: UInt32
     public var decodeRate: Float
@@ -16135,7 +16056,7 @@ public struct MobileTuningResult {
 
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
-    public init(cameraConfigId: UInt32, qrErrorCorrection: MobileErrorCorrectionLevel, qrPayloadSizeBytes: UInt32, qrModuleSizePx: UInt32, decodeRate: Float, avgLatencyMs: Float, jitterMs: Float, thermalEvents: UInt32, framesTotal: UInt32, framesDecoded: UInt32, actualIso: Int32?, actualExposureEv: Int32?) {
+    public init(cameraConfigId: UInt32, qrErrorCorrection: MobileQrEccLevel, qrPayloadSizeBytes: UInt32, qrModuleSizePx: UInt32, decodeRate: Float, avgLatencyMs: Float, jitterMs: Float, thermalEvents: UInt32, framesTotal: UInt32, framesDecoded: UInt32, actualIso: Int32?, actualExposureEv: Int32?) {
         self.cameraConfigId = cameraConfigId
         self.qrErrorCorrection = qrErrorCorrection
         self.qrPayloadSizeBytes = qrPayloadSizeBytes
@@ -16216,7 +16137,7 @@ public struct FfiConverterTypeMobileTuningResult: FfiConverterRustBuffer {
         return
             try MobileTuningResult(
                 cameraConfigId: FfiConverterUInt32.read(from: &buf),
-                qrErrorCorrection: FfiConverterTypeMobileErrorCorrectionLevel.read(from: &buf),
+                qrErrorCorrection: FfiConverterTypeMobileQrEccLevel.read(from: &buf),
                 qrPayloadSizeBytes: FfiConverterUInt32.read(from: &buf),
                 qrModuleSizePx: FfiConverterUInt32.read(from: &buf),
                 decodeRate: FfiConverterFloat.read(from: &buf),
@@ -16232,7 +16153,7 @@ public struct FfiConverterTypeMobileTuningResult: FfiConverterRustBuffer {
 
     public static func write(_ value: MobileTuningResult, into buf: inout [UInt8]) {
         FfiConverterUInt32.write(value.cameraConfigId, into: &buf)
-        FfiConverterTypeMobileErrorCorrectionLevel.write(value.qrErrorCorrection, into: &buf)
+        FfiConverterTypeMobileQrEccLevel.write(value.qrErrorCorrection, into: &buf)
         FfiConverterUInt32.write(value.qrPayloadSizeBytes, into: &buf)
         FfiConverterUInt32.write(value.qrModuleSizePx, into: &buf)
         FfiConverterFloat.write(value.decodeRate, into: &buf)
@@ -18039,70 +17960,6 @@ extension MobileError: Foundation.LocalizedError {
         String(reflecting: self)
     }
 }
-
-// Note that we don't yet support `indirect` for enums.
-// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-
-public enum MobileErrorCorrectionLevel {
-    case l
-    case m
-    case q
-    case h
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public struct FfiConverterTypeMobileErrorCorrectionLevel: FfiConverterRustBuffer {
-    typealias SwiftType = MobileErrorCorrectionLevel
-
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileErrorCorrectionLevel {
-        let variant: Int32 = try readInt(&buf)
-        switch variant {
-        case 1: return .l
-
-        case 2: return .m
-
-        case 3: return .q
-
-        case 4: return .h
-
-        default: throw UniffiInternalError.unexpectedEnumCase
-        }
-    }
-
-    public static func write(_ value: MobileErrorCorrectionLevel, into buf: inout [UInt8]) {
-        switch value {
-        case .l:
-            writeInt(&buf, Int32(1))
-
-        case .m:
-            writeInt(&buf, Int32(2))
-
-        case .q:
-            writeInt(&buf, Int32(3))
-
-        case .h:
-            writeInt(&buf, Int32(4))
-        }
-    }
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMobileErrorCorrectionLevel_lift(_ buf: RustBuffer) throws -> MobileErrorCorrectionLevel {
-    return try FfiConverterTypeMobileErrorCorrectionLevel.lift(buf)
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMobileErrorCorrectionLevel_lower(_ value: MobileErrorCorrectionLevel) -> RustBuffer {
-    return FfiConverterTypeMobileErrorCorrectionLevel.lower(value)
-}
-
-extension MobileErrorCorrectionLevel: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
@@ -21571,31 +21428,6 @@ private struct FfiConverterOptionTypeMobileLocale: FfiConverterRustBuffer {
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
-private struct FfiConverterSequenceBool: FfiConverterRustBuffer {
-    typealias SwiftType = [Bool]
-
-    static func write(_ value: [Bool], into buf: inout [UInt8]) {
-        let len = Int32(value.count)
-        writeInt(&buf, len)
-        for item in value {
-            FfiConverterBool.write(item, into: &buf)
-        }
-    }
-
-    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [Bool] {
-        let len: Int32 = try readInt(&buf)
-        var seq = [Bool]()
-        seq.reserveCapacity(Int(len))
-        for _ in 0 ..< len {
-            try seq.append(FfiConverterBool.read(from: &buf))
-        }
-        return seq
-    }
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
 private struct FfiConverterSequenceString: FfiConverterRustBuffer {
     typealias SwiftType = [String]
 
@@ -22648,21 +22480,6 @@ public func generateQrBitmap(data: String, size: UInt32, ecc: MobileQrEccLevel, 
 }
 
 /**
- * Generate a QR code matrix from a data string.
- *
- * Returns the raw module grid with quiet zone included.
- * Frontends render each module as pixels at their chosen scale.
- */
-public func generateQrMatrix(data: String, ecc: MobileQrEccLevel) throws -> MobileQrMatrix {
-    return try FfiConverterTypeMobileQrMatrix.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-        uniffi_vauchi_platform_fn_func_generate_qr_matrix(
-            FfiConverterString.lower(data),
-            FfiConverterTypeMobileQrEccLevel.lower(ecc), $0
-        )
-    })
-}
-
-/**
  * Generate a new random storage key.
  *
  * Use this when setting up a new installation with secure storage.
@@ -23057,9 +22874,6 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_func_generate_qr_bitmap() != 23600 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_func_generate_qr_matrix() != 14277 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_func_generate_storage_key() != 5370 {

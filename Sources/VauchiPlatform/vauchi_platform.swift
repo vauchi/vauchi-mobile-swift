@@ -21262,24 +21262,6 @@ public func coreVersion() -> String {
 }
 
 /**
- * Deprecated alias for [`scan_qr`] — kept to let Android/iOS consumers
- * migrate from `diagnosticScanQr` → `scanQr` without a binding break.
- *
- * Scheduled for removal in 0.20.0 once consumers update (Phase 9 of
- * `2026-04-19-diagnostics-out-of-production-plan.md`).
- */
-public func diagnosticScanQr(backend: MobileScannerBackend, lumaData: Data, width: UInt32, height: UInt32) -> MobileScanResult {
-    return try! FfiConverterTypeMobileScanResult.lift(try! rustCall {
-        uniffi_vauchi_platform_fn_func_diagnostic_scan_qr(
-            FfiConverterTypeMobileScannerBackend.lower(backend),
-            FfiConverterData.lower(lumaData),
-            FfiConverterUInt32.lower(width),
-            FfiConverterUInt32.lower(height), $0
-        )
-    })
-}
-
-/**
  * Generate a ready-to-display QR code bitmap with quiet zone and scaling.
  *
  * Renders the QR modules into a grayscale pixel buffer at the requested
@@ -21691,9 +21673,6 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_func_core_version() != 30520 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_func_diagnostic_scan_qr() != 58489 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_func_generate_qr_bitmap() != 23600 {

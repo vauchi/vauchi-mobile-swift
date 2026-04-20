@@ -4792,6 +4792,15 @@ public protocol PlatformAppEngineProtocol: AnyObject {
      * ```
      */
     func setEventListener(listener: PlatformEventListener) throws
+
+    /**
+     * Returns top-level navigation tabs with id, label, icon, and badge count.
+     *
+     * Frontends consume this to render their bottom-nav / tab-bar without
+     * hardcoding labels, icons, or screen-to-tab mappings (G1 of the
+     * frontend pure-renderer remediation; ADR-021 / ADR-038).
+     */
+    func tabInfo() throws -> [MobileTabInfo]
 }
 
 /**
@@ -5174,6 +5183,19 @@ open class PlatformAppEngine:
             uniffi_vauchi_platform_fn_method_platformappengine_set_event_listener(self.uniffiClonePointer(),
                                                                                   FfiConverterCallbackInterfacePlatformEventListener.lower(listener), $0)
         }
+    }
+
+    /**
+     * Returns top-level navigation tabs with id, label, icon, and badge count.
+     *
+     * Frontends consume this to render their bottom-nav / tab-bar without
+     * hardcoding labels, icons, or screen-to-tab mappings (G1 of the
+     * frontend pure-renderer remediation; ADR-021 / ADR-038).
+     */
+    open func tabInfo() throws -> [MobileTabInfo] {
+        return try FfiConverterSequenceTypeMobileTabInfo.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_tab_info(self.uniffiClonePointer(), $0)
+        })
     }
 }
 
@@ -9290,6 +9312,84 @@ public func FfiConverterTypeMobileBroadcastResult_lower(_ value: MobileBroadcast
 }
 
 /**
+ * Clipboard retention policy used when the user copies contact fields
+ * (phone, email, address, etc.) to the OS pasteboard.
+ *
+ * Frontends copy the value to their platform clipboard and then, after
+ * `auto_clear_seconds`, re-read the clipboard and clear it **only if** the
+ * current value still matches what was copied. This prevents Vauchi from
+ * wiping clipboard content the user may have copied from another app
+ * between the copy and the timer fire.
+ */
+public struct MobileClipboardPolicy {
+    /**
+     * Seconds to retain sensitive clipboard content before auto-clearing.
+     *
+     * Zero means "never auto-clear" — used for debug builds or when the
+     * user opts out. Production default is 30 seconds: long enough to
+     * paste once, short enough that clipboard managers don't harvest PII.
+     */
+    public var autoClearSeconds: UInt32
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(
+        /*
+         * Seconds to retain sensitive clipboard content before auto-clearing.
+         *
+         * Zero means "never auto-clear" — used for debug builds or when the
+         * user opts out. Production default is 30 seconds: long enough to
+         * paste once, short enough that clipboard managers don't harvest PII.
+         */ autoClearSeconds: UInt32
+    ) {
+        self.autoClearSeconds = autoClearSeconds
+    }
+}
+
+extension MobileClipboardPolicy: Equatable, Hashable {
+    public static func == (lhs: MobileClipboardPolicy, rhs: MobileClipboardPolicy) -> Bool {
+        if lhs.autoClearSeconds != rhs.autoClearSeconds {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(autoClearSeconds)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileClipboardPolicy: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileClipboardPolicy {
+        return
+            try MobileClipboardPolicy(
+                autoClearSeconds: FfiConverterUInt32.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileClipboardPolicy, into buf: inout [UInt8]) {
+        FfiConverterUInt32.write(value.autoClearSeconds, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileClipboardPolicy_lift(_ buf: RustBuffer) throws -> MobileClipboardPolicy {
+    return try FfiConverterTypeMobileClipboardPolicy.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileClipboardPolicy_lower(_ value: MobileClipboardPolicy) -> RustBuffer {
+    return FfiConverterTypeMobileClipboardPolicy.lower(value)
+}
+
+/**
  * A recorded consent decision.
  */
 public struct MobileConsentRecord {
@@ -12450,9 +12550,11 @@ public struct MobileImportResult {
      */
     public var skipped: UInt32
     /**
-     * Warning messages for skipped contacts.
+     * Structured per-contact warnings. Frontends localize via
+     * `t(warning.key, warning.args)`; callers that do not yet
+     * localize can display `warning.legacy_text` verbatim.
      */
-    public var warnings: [String]
+    public var warnings: [MobileImportWarning]
 
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
@@ -12464,8 +12566,10 @@ public struct MobileImportResult {
             * Number of contacts skipped (malformed or duplicate).
             */ skipped: UInt32,
         /*
-            * Warning messages for skipped contacts.
-            */ warnings: [String]
+            * Structured per-contact warnings. Frontends localize via
+            * `t(warning.key, warning.args)`; callers that do not yet
+            * localize can display `warning.legacy_text` verbatim.
+            */ warnings: [MobileImportWarning]
     ) {
         self.imported = imported
         self.skipped = skipped
@@ -12503,14 +12607,14 @@ public struct FfiConverterTypeMobileImportResult: FfiConverterRustBuffer {
             try MobileImportResult(
                 imported: FfiConverterUInt32.read(from: &buf),
                 skipped: FfiConverterUInt32.read(from: &buf),
-                warnings: FfiConverterSequenceString.read(from: &buf)
+                warnings: FfiConverterSequenceTypeMobileImportWarning.read(from: &buf)
             )
     }
 
     public static func write(_ value: MobileImportResult, into buf: inout [UInt8]) {
         FfiConverterUInt32.write(value.imported, into: &buf)
         FfiConverterUInt32.write(value.skipped, into: &buf)
-        FfiConverterSequenceString.write(value.warnings, into: &buf)
+        FfiConverterSequenceTypeMobileImportWarning.write(value.warnings, into: &buf)
     }
 }
 
@@ -12526,6 +12630,100 @@ public func FfiConverterTypeMobileImportResult_lift(_ buf: RustBuffer) throws ->
 #endif
 public func FfiConverterTypeMobileImportResult_lower(_ value: MobileImportResult) -> RustBuffer {
     return FfiConverterTypeMobileImportResult.lower(value)
+}
+
+/**
+ * One localized-ready warning from a vCard import (G6 of the
+ * pure-renderer remediation). Frontends look up `key` in their
+ * localization store and substitute `args`; `legacy_text` keeps the
+ * English rendering for log paths and unmigrated display code.
+ */
+public struct MobileImportWarning {
+    /**
+     * Stable i18n key, e.g. `"import.warning.duplicate_uid"`.
+     */
+    public var key: String
+    /**
+     * Placeholder values (e.g. `{"uid": "abc123"}`).
+     */
+    public var args: [String: String]
+    /**
+     * Pre-rendered English text. Safe to display verbatim.
+     */
+    public var legacyText: String
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(
+        /*
+         * Stable i18n key, e.g. `"import.warning.duplicate_uid"`.
+         */ key: String,
+        /*
+            * Placeholder values (e.g. `{"uid": "abc123"}`).
+            */ args: [String: String],
+        /*
+            * Pre-rendered English text. Safe to display verbatim.
+            */ legacyText: String
+    ) {
+        self.key = key
+        self.args = args
+        self.legacyText = legacyText
+    }
+}
+
+extension MobileImportWarning: Equatable, Hashable {
+    public static func == (lhs: MobileImportWarning, rhs: MobileImportWarning) -> Bool {
+        if lhs.key != rhs.key {
+            return false
+        }
+        if lhs.args != rhs.args {
+            return false
+        }
+        if lhs.legacyText != rhs.legacyText {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(key)
+        hasher.combine(args)
+        hasher.combine(legacyText)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileImportWarning: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileImportWarning {
+        return
+            try MobileImportWarning(
+                key: FfiConverterString.read(from: &buf),
+                args: FfiConverterDictionaryStringString.read(from: &buf),
+                legacyText: FfiConverterString.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileImportWarning, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.key, into: &buf)
+        FfiConverterDictionaryStringString.write(value.args, into: &buf)
+        FfiConverterString.write(value.legacyText, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileImportWarning_lift(_ buf: RustBuffer) throws -> MobileImportWarning {
+    return try FfiConverterTypeMobileImportWarning.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileImportWarning_lower(_ value: MobileImportWarning) -> RustBuffer {
+    return FfiConverterTypeMobileImportWarning.lower(value)
 }
 
 /**
@@ -14876,6 +15074,117 @@ public func FfiConverterTypeMobileSyncResult_lower(_ value: MobileSyncResult) ->
 }
 
 /**
+ * Tab metadata for top-level navigation.
+ *
+ * Mirrors `vauchi_app::ui::TabInfo` for UniFFI consumers so frontends
+ * can render tabs without hardcoding labels or icons (G1 of the
+ * pure-renderer remediation; ADR-021 / ADR-038).
+ */
+public struct MobileTabInfo {
+    /**
+     * Stable identifier matching the screen's `screen_id()`.
+     */
+    public var id: String
+    /**
+     * Localized display label resolved by core.
+     */
+    public var label: String
+    /**
+     * Icon name in SF Symbol format. Frontends map to platform equivalents
+     * (Material Icons on Android, Win UI icons on Windows, etc.).
+     */
+    public var icon: String
+    /**
+     * Badge count (e.g. pending contact updates). Zero means no badge.
+     */
+    public var badgeCount: UInt32
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(
+        /*
+         * Stable identifier matching the screen's `screen_id()`.
+         */ id: String,
+        /*
+            * Localized display label resolved by core.
+            */ label: String,
+        /*
+            * Icon name in SF Symbol format. Frontends map to platform equivalents
+            * (Material Icons on Android, Win UI icons on Windows, etc.).
+            */ icon: String,
+        /*
+            * Badge count (e.g. pending contact updates). Zero means no badge.
+            */ badgeCount: UInt32
+    ) {
+        self.id = id
+        self.label = label
+        self.icon = icon
+        self.badgeCount = badgeCount
+    }
+}
+
+extension MobileTabInfo: Equatable, Hashable {
+    public static func == (lhs: MobileTabInfo, rhs: MobileTabInfo) -> Bool {
+        if lhs.id != rhs.id {
+            return false
+        }
+        if lhs.label != rhs.label {
+            return false
+        }
+        if lhs.icon != rhs.icon {
+            return false
+        }
+        if lhs.badgeCount != rhs.badgeCount {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+        hasher.combine(label)
+        hasher.combine(icon)
+        hasher.combine(badgeCount)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileTabInfo: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileTabInfo {
+        return
+            try MobileTabInfo(
+                id: FfiConverterString.read(from: &buf),
+                label: FfiConverterString.read(from: &buf),
+                icon: FfiConverterString.read(from: &buf),
+                badgeCount: FfiConverterUInt32.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileTabInfo, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.id, into: &buf)
+        FfiConverterString.write(value.label, into: &buf)
+        FfiConverterString.write(value.icon, into: &buf)
+        FfiConverterUInt32.write(value.badgeCount, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileTabInfo_lift(_ buf: RustBuffer) throws -> MobileTabInfo {
+    return try FfiConverterTypeMobileTabInfo.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileTabInfo_lower(_ value: MobileTabInfo) -> RustBuffer {
+    return FfiConverterTypeMobileTabInfo.lower(value)
+}
+
+/**
  * A complete theme definition.
  */
 public struct MobileTheme {
@@ -16914,32 +17223,62 @@ public func FfiConverterTypeMobileDeviceType_lower(_ value: MobileDeviceType) ->
 extension MobileDeviceType: Equatable, Hashable {}
 
 /**
- * Mobile-friendly error type.
+ * Mobile-friendly error type surfaced across the UniFFI boundary.
+ *
+ * Marked `#[non_exhaustive]`: adding a variant is non-breaking, but
+ * Swift/Kotlin consumers must include a default arm.
  */
 public enum MobileError {
-    case NotInitialized
-    case AlreadyInitialized
-    case IdentityNotFound
-    case ContactNotFound(String)
-    case InvalidQrCode
-    case ExchangeFailed(String)
-    case SyncFailed(String)
-    case StorageError(String)
-    case CryptoError(String)
-    case SerializationError(String)
-    case NetworkError(String)
-    case InvalidInput(String)
-    case GdprError(String)
-    case DeletionNotAllowed(String)
-    case ShredError(String)
-    case InitError(String)
-    case Internal(String)
-    case BleNotAvailable(String)
-    case RateLimited(
-        /*
-         * Seconds to wait before retrying.
-         */ retryAfterSecs: UInt64
-    )
+    /**
+     * Supplied password/PIN did not match the stored credential.
+     * Frontends show an inline "Incorrect password" hint and keep the
+     * dialog open.
+     */
+    case WrongPassword
+    /**
+     * Decryption produced an authentication-tag failure. Typically
+     * irrecoverable — the file/blob is either corrupt or was encrypted
+     * with a different key. Disable retry.
+     */
+    case DecryptFailed
+    /**
+     * Input failed a validation rule owned by core. `field` is a stable
+     * id (or empty when not applicable). `detail` is English and is for
+     * logs / the escape-hatch display path only — frontends localize
+     * via their own `t()` keyed by variant name.
+     *
+     * The field is named `detail` rather than `message` because UniFFI's
+     * Kotlin binding generates `MobileError` as a `Throwable` subclass,
+     * and a Record field called `message` collides with the inherited
+     * `Throwable.message`. Same reasoning for every other variant below.
+     */
+    case InvalidInput(field: String, detail: String)
+    /**
+     * Transient network failure (unreachable relay, DNS, timeout).
+     * Frontends show a "Check your connection" banner and enable retry.
+     */
+    case NetworkUnavailable
+    /**
+     * Non-transient network failure reported by the relay (4xx/5xx).
+     */
+    case RelayError(status: UInt16, detail: String)
+    /**
+     * Relay rate-limit in effect. Frontends show a cooldown timer and
+     * schedule automatic retry after `retry_after_secs`.
+     */
+    case RateLimited(retryAfterSecs: UInt64)
+    /**
+     * Local storage failure (SQLite, disk full, permission denied,
+     * corrupt keychain).
+     */
+    case StorageError(detail: String)
+    /**
+     * Escape hatch. Frontends display `detail` verbatim and log the
+     * full error. Promote recurring uses of `Other` to a dedicated
+     * variant in a follow-up ADR amendment when a real UI branch
+     * appears.
+     */
+    case Other(detail: String)
 }
 
 #if swift(>=5.8)
@@ -16951,54 +17290,25 @@ public struct FfiConverterTypeMobileError: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileError {
         let variant: Int32 = try readInt(&buf)
         switch variant {
-        case 1: return .NotInitialized
-        case 2: return .AlreadyInitialized
-        case 3: return .IdentityNotFound
-        case 4: return try .ContactNotFound(
-                FfiConverterString.read(from: &buf)
+        case 1: return .WrongPassword
+        case 2: return .DecryptFailed
+        case 3: return try .InvalidInput(
+                field: FfiConverterString.read(from: &buf),
+                detail: FfiConverterString.read(from: &buf)
             )
-        case 5: return .InvalidQrCode
-        case 6: return try .ExchangeFailed(
-                FfiConverterString.read(from: &buf)
+        case 4: return .NetworkUnavailable
+        case 5: return try .RelayError(
+                status: FfiConverterUInt16.read(from: &buf),
+                detail: FfiConverterString.read(from: &buf)
             )
-        case 7: return try .SyncFailed(
-                FfiConverterString.read(from: &buf)
-            )
-        case 8: return try .StorageError(
-                FfiConverterString.read(from: &buf)
-            )
-        case 9: return try .CryptoError(
-                FfiConverterString.read(from: &buf)
-            )
-        case 10: return try .SerializationError(
-                FfiConverterString.read(from: &buf)
-            )
-        case 11: return try .NetworkError(
-                FfiConverterString.read(from: &buf)
-            )
-        case 12: return try .InvalidInput(
-                FfiConverterString.read(from: &buf)
-            )
-        case 13: return try .GdprError(
-                FfiConverterString.read(from: &buf)
-            )
-        case 14: return try .DeletionNotAllowed(
-                FfiConverterString.read(from: &buf)
-            )
-        case 15: return try .ShredError(
-                FfiConverterString.read(from: &buf)
-            )
-        case 16: return try .InitError(
-                FfiConverterString.read(from: &buf)
-            )
-        case 17: return try .Internal(
-                FfiConverterString.read(from: &buf)
-            )
-        case 18: return try .BleNotAvailable(
-                FfiConverterString.read(from: &buf)
-            )
-        case 19: return try .RateLimited(
+        case 6: return try .RateLimited(
                 retryAfterSecs: FfiConverterUInt64.read(from: &buf)
+            )
+        case 7: return try .StorageError(
+                detail: FfiConverterString.read(from: &buf)
+            )
+        case 8: return try .Other(
+                detail: FfiConverterString.read(from: &buf)
             )
         default: throw UniffiInternalError.unexpectedEnumCase
         }
@@ -17006,77 +17316,36 @@ public struct FfiConverterTypeMobileError: FfiConverterRustBuffer {
 
     public static func write(_ value: MobileError, into buf: inout [UInt8]) {
         switch value {
-        case .NotInitialized:
+        case .WrongPassword:
             writeInt(&buf, Int32(1))
 
-        case .AlreadyInitialized:
+        case .DecryptFailed:
             writeInt(&buf, Int32(2))
 
-        case .IdentityNotFound:
+        case let .InvalidInput(field, detail):
             writeInt(&buf, Int32(3))
+            FfiConverterString.write(field, into: &buf)
+            FfiConverterString.write(detail, into: &buf)
 
-        case let .ContactNotFound(v1):
+        case .NetworkUnavailable:
             writeInt(&buf, Int32(4))
-            FfiConverterString.write(v1, into: &buf)
 
-        case .InvalidQrCode:
+        case let .RelayError(status, detail):
             writeInt(&buf, Int32(5))
-
-        case let .ExchangeFailed(v1):
-            writeInt(&buf, Int32(6))
-            FfiConverterString.write(v1, into: &buf)
-
-        case let .SyncFailed(v1):
-            writeInt(&buf, Int32(7))
-            FfiConverterString.write(v1, into: &buf)
-
-        case let .StorageError(v1):
-            writeInt(&buf, Int32(8))
-            FfiConverterString.write(v1, into: &buf)
-
-        case let .CryptoError(v1):
-            writeInt(&buf, Int32(9))
-            FfiConverterString.write(v1, into: &buf)
-
-        case let .SerializationError(v1):
-            writeInt(&buf, Int32(10))
-            FfiConverterString.write(v1, into: &buf)
-
-        case let .NetworkError(v1):
-            writeInt(&buf, Int32(11))
-            FfiConverterString.write(v1, into: &buf)
-
-        case let .InvalidInput(v1):
-            writeInt(&buf, Int32(12))
-            FfiConverterString.write(v1, into: &buf)
-
-        case let .GdprError(v1):
-            writeInt(&buf, Int32(13))
-            FfiConverterString.write(v1, into: &buf)
-
-        case let .DeletionNotAllowed(v1):
-            writeInt(&buf, Int32(14))
-            FfiConverterString.write(v1, into: &buf)
-
-        case let .ShredError(v1):
-            writeInt(&buf, Int32(15))
-            FfiConverterString.write(v1, into: &buf)
-
-        case let .InitError(v1):
-            writeInt(&buf, Int32(16))
-            FfiConverterString.write(v1, into: &buf)
-
-        case let .Internal(v1):
-            writeInt(&buf, Int32(17))
-            FfiConverterString.write(v1, into: &buf)
-
-        case let .BleNotAvailable(v1):
-            writeInt(&buf, Int32(18))
-            FfiConverterString.write(v1, into: &buf)
+            FfiConverterUInt16.write(status, into: &buf)
+            FfiConverterString.write(detail, into: &buf)
 
         case let .RateLimited(retryAfterSecs):
-            writeInt(&buf, Int32(19))
+            writeInt(&buf, Int32(6))
             FfiConverterUInt64.write(retryAfterSecs, into: &buf)
+
+        case let .StorageError(detail):
+            writeInt(&buf, Int32(7))
+            FfiConverterString.write(detail, into: &buf)
+
+        case let .Other(detail):
+            writeInt(&buf, Int32(8))
+            FfiConverterString.write(detail, into: &buf)
         }
     }
 }
@@ -20855,6 +21124,31 @@ private struct FfiConverterSequenceTypeMobileHelpCategoryInfo: FfiConverterRustB
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
+private struct FfiConverterSequenceTypeMobileImportWarning: FfiConverterRustBuffer {
+    typealias SwiftType = [MobileImportWarning]
+
+    static func write(_ value: [MobileImportWarning], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeMobileImportWarning.write(item, into: &buf)
+        }
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileImportWarning] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [MobileImportWarning]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            try seq.append(FfiConverterTypeMobileImportWarning.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
 private struct FfiConverterSequenceTypeMobileLocaleInfo: FfiConverterRustBuffer {
     typealias SwiftType = [MobileLocaleInfo]
 
@@ -20972,6 +21266,31 @@ private struct FfiConverterSequenceTypeMobileSocialNetwork: FfiConverterRustBuff
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
             try seq.append(FfiConverterTypeMobileSocialNetwork.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+private struct FfiConverterSequenceTypeMobileTabInfo: FfiConverterRustBuffer {
+    typealias SwiftType = [MobileTabInfo]
+
+    static func write(_ value: [MobileTabInfo], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeMobileTabInfo.write(item, into: &buf)
+        }
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileTabInfo] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [MobileTabInfo]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            try seq.append(FfiConverterTypeMobileTabInfo.read(from: &buf))
         }
         return seq
     }
@@ -21554,6 +21873,83 @@ public func isValidRelayUrl(url: String) -> Bool {
 }
 
 /**
+ * Returns the current clipboard retention policy.
+ *
+ * G5 of the frontend pure-renderer remediation: replaces
+ * `ios/Vauchi/Views/ContactActions.swift:199-214` hardcoded 30-second
+ * `Task.sleep(nanoseconds: 30_000_000_000)`.
+ */
+public func mobileClipboardPolicy() -> MobileClipboardPolicy {
+    return try! FfiConverterTypeMobileClipboardPolicy.lift(try! rustCall {
+        uniffi_vauchi_platform_fn_func_mobile_clipboard_policy($0)
+    })
+}
+
+/**
+ * Generates a fresh random 32-byte storage key using core's audited CSPRNG.
+ *
+ * Frontends call this on first launch and when a migration forces
+ * regeneration (e.g. stored key has the wrong length). Replaces per-frontend
+ * `SecRandomCopyBytes` / `SecureRandom.nextBytes` calls so the same RNG
+ * (aws-lc-rs via RustCrypto) is used everywhere and key derivation stays
+ * consistent across platforms.
+ */
+public func mobileGenerateStorageKey() -> Data {
+    return try! FfiConverterData.lift(try! rustCall {
+        uniffi_vauchi_platform_fn_func_mobile_generate_storage_key($0)
+    })
+}
+
+/**
+ * Check whether a string is a well-formed email address.
+ */
+public func mobileIsValidEmail(value: String) -> Bool {
+    return try! FfiConverterBool.lift(try! rustCall {
+        uniffi_vauchi_platform_fn_func_mobile_is_valid_email(
+            FfiConverterString.lower(value), $0
+        )
+    })
+}
+
+/**
+ * Check whether a string is a well-formed phone number.
+ */
+public func mobileIsValidPhone(value: String) -> Bool {
+    return try! FfiConverterBool.lift(try! rustCall {
+        uniffi_vauchi_platform_fn_func_mobile_is_valid_phone(
+            FfiConverterString.lower(value), $0
+        )
+    })
+}
+
+/**
+ * Check whether a relay URL is well-formed and uses an accepted scheme.
+ */
+public func mobileIsValidRelayUrl(url: String) -> Bool {
+    return try! FfiConverterBool.lift(try! rustCall {
+        uniffi_vauchi_platform_fn_func_mobile_is_valid_relay_url(
+            FfiConverterString.lower(url), $0
+        )
+    })
+}
+
+/**
+ * Returns the exact byte length of the database storage key.
+ *
+ * Used by frontends that cache the key in their platform keychain (iOS
+ * Keychain, Android Keystore) so they can validate length before handing
+ * the bytes to `PlatformAppEngine::new`. Replaces the
+ * `private static let storageKeyLength = 32` literal in
+ * `ios/Vauchi/Services/VauchiRepository.swift:456` (ADR-033 constant
+ * that was being duplicated on every frontend).
+ */
+public func mobileStorageKeyByteLength() -> UInt32 {
+    return try! FfiConverterUInt32.lift(try! rustCall {
+        uniffi_vauchi_platform_fn_func_mobile_storage_key_byte_length($0)
+    })
+}
+
+/**
  * Parse a locale code to MobileLocale.
  *
  * Supports codes like "en", "en-US", "de-DE", etc.
@@ -21564,6 +21960,42 @@ public func parseLocaleCode(code: String) -> MobileLocale? {
         uniffi_vauchi_platform_fn_func_parse_locale_code(
             FfiConverterString.lower(code), $0
         )
+    })
+}
+
+/**
+ * Maximum length accepted in passcode entry surfaces.
+ *
+ * Bounded so heap allocations stay sane and to keep timing-attack windows
+ * short. 64 bytes is comfortably above any realistic passphrase.
+ */
+public func passcodeMaxLength() -> UInt32 {
+    return try! FfiConverterUInt32.lift(try! rustCall {
+        uniffi_vauchi_platform_fn_func_passcode_max_length($0)
+    })
+}
+
+/**
+ * Minimum length accepted for a numeric PIN (e.g. duress PIN, app unlock PIN).
+ *
+ * Stays in sync with the per-platform `MIN_PASSCODE_LENGTH` once the
+ * frontends migrate to call this constant via UniFFI.
+ */
+public func passcodeMinLength() -> UInt32 {
+    return try! FfiConverterUInt32.lift(try! rustCall {
+        uniffi_vauchi_platform_fn_func_passcode_min_length($0)
+    })
+}
+
+/**
+ * Minimum length for an alphanumeric app password.
+ *
+ * Lower-bounds the password setup surfaces; passwords below this length are
+ * rejected before zxcvbn even runs.
+ */
+public func passwordMinLength() -> UInt32 {
+    return try! FfiConverterUInt32.lift(try! rustCall {
+        uniffi_vauchi_platform_fn_func_password_min_length($0)
     })
 }
 
@@ -21741,7 +22173,34 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_func_is_valid_relay_url() != 29387 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_func_mobile_clipboard_policy() != 21090 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_func_mobile_generate_storage_key() != 44955 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_func_mobile_is_valid_email() != 48521 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_func_mobile_is_valid_phone() != 6731 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_func_mobile_is_valid_relay_url() != 11338 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_func_mobile_storage_key_byte_length() != 20000 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_platform_checksum_func_parse_locale_code() != 8345 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_func_passcode_max_length() != 42662 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_func_passcode_min_length() != 19922 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_func_password_min_length() != 60280 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_func_scan_qr() != 28606 {
@@ -22093,6 +22552,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_platformappengine_set_event_listener() != 2450 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_tab_info() != 2544 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_add_contact_to_group() != 53515 {

@@ -661,6 +661,26 @@ public struct ContactItem: Decodable, Identifiable {
     public var actions: [ListItemAction] = []
     public var a11y: A11y?
 
+    public init(
+        id: String,
+        name: String,
+        subtitle: String? = nil,
+        avatarInitials: String,
+        status: String? = nil,
+        searchableFields: [String] = [],
+        actions: [ListItemAction] = [],
+        a11y: A11y? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.subtitle = subtitle
+        self.avatarInitials = avatarInitials
+        self.status = status
+        self.searchableFields = searchableFields
+        self.actions = actions
+        self.a11y = a11y
+    }
+
     /// Default Decodable synthesis matches: `coreJSONDecoder` above sets
     /// `.convertFromSnakeCase`, so wire keys like `avatar_initials` and
     /// `searchable_fields` are mapped automatically to their camelCase
@@ -710,6 +730,18 @@ public struct ListItemAction: Decodable, Identifiable {
     public let label: String
     public let kind: ListItemActionKind
     public let destructive: Bool
+
+    public init(
+        id: String,
+        label: String,
+        kind: ListItemActionKind,
+        destructive: Bool = false
+    ) {
+        self.id = id
+        self.label = label
+        self.kind = kind
+        self.destructive = destructive
+    }
 
     private enum CodingKeys: String, CodingKey {
         case id, label, kind, destructive

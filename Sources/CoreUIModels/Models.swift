@@ -1046,6 +1046,7 @@ public enum ExchangeCommandDTO: Decodable {
     case qrRequestScan
     case bleStartAdvertising(serviceUuid: String, payload: [UInt8])
     case bleStartScanning(serviceUuid: String)
+    case bleStopScanning
     case bleConnect(deviceId: String)
     case bleWriteCharacteristic(uuid: String, data: [UInt8])
     case bleReadCharacteristic(uuid: String)
@@ -1055,6 +1056,7 @@ public enum ExchangeCommandDTO: Decodable {
     case audioEmitChallenge(data: [UInt8])
     case audioListenForResponse(timeoutMs: UInt64)
     case audioStop
+    case directSend(payload: [UInt8], isInitiator: Bool)
     case imagePickFromLibrary
     case imageCaptureFromCamera
     case imagePickFromFile
@@ -1066,6 +1068,7 @@ public enum ExchangeCommandDTO: Decodable {
         {
             switch stringValue {
             case "QrRequestScan": self = .qrRequestScan
+            case "BleStopScanning": self = .bleStopScanning
             case "BleDisconnect": self = .bleDisconnect
             case "NfcDeactivate": self = .nfcDeactivate
             case "AudioStop": self = .audioStop
@@ -1105,6 +1108,9 @@ public enum ExchangeCommandDTO: Decodable {
         } else if container.contains(.audioListenForResponse) {
             let data = try container.decode(AudioListenData.self, forKey: .audioListenForResponse)
             self = .audioListenForResponse(timeoutMs: data.timeoutMs)
+        } else if container.contains(.directSend) {
+            let data = try container.decode(DirectSendData.self, forKey: .directSend)
+            self = .directSend(payload: data.payload, isInitiator: data.isInitiator)
         } else {
             self = .unknown
         }
@@ -1120,6 +1126,7 @@ public enum ExchangeCommandDTO: Decodable {
         case nfcActivate = "NfcActivate"
         case audioEmitChallenge = "AudioEmitChallenge"
         case audioListenForResponse = "AudioListenForResponse"
+        case directSend = "DirectSend"
     }
 
     private struct QrDisplayData: Decodable { let data: String }
@@ -1131,4 +1138,5 @@ public enum ExchangeCommandDTO: Decodable {
     private struct NfcActivateData: Decodable { let payload: [UInt8] }
     private struct AudioChallengeData: Decodable { let data: [UInt8] }
     private struct AudioListenData: Decodable { let timeoutMs: UInt64 }
+    private struct DirectSendData: Decodable { let payload: [UInt8]; let isInitiator: Bool }
 }

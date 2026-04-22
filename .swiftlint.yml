@@ -5,6 +5,15 @@
 disabled_rules:
   # SwiftFormat adds trailing commas (standard Swift style) — don't fight it
   - trailing_comma
+  # CoreUIModels uses design-token short names (`xs`, `sm`, `md`, `lg`, `xl`)
+  # that mirror `tokens.json` (ADR-038) and short decoder helpers (`c` for
+  # keyed containers). Enforcing 3+ char identifiers would force spelled-out
+  # names that contradict the design-token source of truth.
+  - identifier_name
+  # CoreUIModels uses multi-line guard/if conditions where the opening brace
+  # naturally lands on its own line after a trailing condition — SwiftFormat
+  # handles brace placement for us; matches iOS's same rule disable.
+  - opening_brace
 
 # Generated bindings file is 23K+ lines — exempt from line length
 included:
@@ -16,3 +25,25 @@ line_length:
   error: 200
   ignores_comments: true
   ignores_urls: true
+
+# CoreUIModels mirrors core's ScreenModel/Component/UserAction/ActionResult
+# surface — intentionally a single file so the decoder graph stays
+# co-located with the data definitions. iOS's Models.swift is 1126 LoC
+# under equivalent limits (warning 2200, error 3000); match those here.
+file_length:
+  warning: 2200
+  error: 3000
+
+# Component decoder (`decodeStructVariant`) covers 22 variants plus the
+# unknown fallback. Splitting the switch would fragment the decoder across
+# helpers without reducing the total branching — match iOS's limits.
+cyclomatic_complexity:
+  warning: 20
+  error: 30
+
+# SettingsGroupItem initializer + ScreenAction Decodable init run slightly
+# over 50 LoC because they enumerate every field's default-on-missing
+# handling in one place — match iOS's limits.
+function_body_length:
+  warning: 60
+  error: 100

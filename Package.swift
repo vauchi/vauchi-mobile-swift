@@ -20,6 +20,16 @@ let package = Package(
             name: "VauchiPlatform",
             targets: ["VauchiPlatform", "VauchiPlatformFFI"]
         ),
+        // Pure-Swift data types for core-driven screens (ScreenModel,
+        // Component, UserAction, ActionResult, DesignTokens, component
+        // payloads). Depended on by iOS and macOS so the two frontends
+        // share one canonical deserialization surface instead of
+        // maintaining parallel `Vauchi/CoreUI/Models.swift` copies.
+        // Problem: 2026-04-22-shared-coreui-models-package.
+        .library(
+            name: "CoreUIModels",
+            targets: ["CoreUIModels"]
+        ),
     ],
     targets: [
         // Swift bindings that wrap the FFI layer
@@ -27,6 +37,13 @@ let package = Package(
             name: "VauchiPlatform",
             dependencies: ["VauchiPlatformFFI"],
             path: "Sources/VauchiPlatform"
+        ),
+        // Shared core-UI data types (POD + Decodable). No dependency on
+        // VauchiPlatformFFI — pure Swift, built from source on every
+        // consumer build. Safe to reference from any Swift module.
+        .target(
+            name: "CoreUIModels",
+            path: "Sources/CoreUIModels"
         ),
         .binaryTarget(
             name: "VauchiPlatformFFI",

@@ -16,7 +16,7 @@ private struct DesignTokensKey: EnvironmentKey {
     static let defaultValue: DesignTokens = .defaults
 }
 
-extension EnvironmentValues {
+public extension EnvironmentValues {
     var designTokens: DesignTokens {
         get { self[DesignTokensKey.self] }
         set { self[DesignTokensKey.self] = newValue }
@@ -26,7 +26,7 @@ extension EnvironmentValues {
 // MARK: - JSON Decoding Strategy
 
 /// Shared decoder configured for serde snake_case output.
-let coreJSONDecoder: JSONDecoder = {
+public let coreJSONDecoder: JSONDecoder = {
     let decoder = JSONDecoder()
     decoder.keyDecodingStrategy = .convertFromSnakeCase
     return decoder
@@ -37,21 +37,21 @@ let coreJSONDecoder: JSONDecoder = {
 /// already emits the correct keys (PascalCase variant names like "TextChanged",
 /// snake_case field names like "component_id"). Applying `.convertToSnakeCase`
 /// would corrupt variant keys to "text_changed", breaking serde deserialization.
-let coreJSONEncoder: JSONEncoder = .init()
+public let coreJSONEncoder: JSONEncoder = .init()
 
 // MARK: - Design Tokens
 
 /// Layout tokens for consistent cross-platform rendering.
 /// Maps to: `vauchi-core::theme::DesignTokens`
-struct DesignTokens: Decodable {
-    let spacing: SpacingTokens
-    let spacingDirection: SpacingDirectionTokens
-    let typography: TypographyTokens
-    let borderRadius: BorderRadiusTokens
-    let touchTarget: TouchTargetTokens
-    let motion: MotionTokens
+public struct DesignTokens: Decodable {
+    public let spacing: SpacingTokens
+    public let spacingDirection: SpacingDirectionTokens
+    public let typography: TypographyTokens
+    public let borderRadius: BorderRadiusTokens
+    public let touchTarget: TouchTargetTokens
+    public let motion: MotionTokens
 
-    static let defaults = DesignTokens(
+    public static let defaults = DesignTokens(
         spacing: SpacingTokens(xs: 4, sm: 8, smMd: 12, md: 16, lg: 24, xl: 32),
         spacingDirection: SpacingDirectionTokens(
             contentStart: 16, contentEnd: 16,
@@ -65,15 +65,15 @@ struct DesignTokens: Decodable {
     )
 }
 
-struct SpacingTokens: Decodable {
-    let xs: UInt16
-    let sm: UInt16
-    let smMd: UInt16
-    let md: UInt16
-    let lg: UInt16
-    let xl: UInt16
+public struct SpacingTokens: Decodable {
+    public let xs: UInt16
+    public let sm: UInt16
+    public let smMd: UInt16
+    public let md: UInt16
+    public let lg: UInt16
+    public let xl: UInt16
 
-    init(xs: UInt16, sm: UInt16, smMd: UInt16 = 12, md: UInt16, lg: UInt16, xl: UInt16) {
+    public init(xs: UInt16, sm: UInt16, smMd: UInt16 = 12, md: UInt16, lg: UInt16, xl: UInt16) {
         self.xs = xs
         self.sm = sm
         self.smMd = smMd
@@ -82,7 +82,7 @@ struct SpacingTokens: Decodable {
         self.xl = xl
     }
 
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         xs = try container.decode(UInt16.self, forKey: .xs)
         sm = try container.decode(UInt16.self, forKey: .sm)
@@ -97,57 +97,57 @@ struct SpacingTokens: Decodable {
     }
 }
 
-struct SpacingDirectionTokens: Decodable {
-    let contentStart: UInt16
-    let contentEnd: UInt16
-    let listItemStart: UInt16
-    let listItemEnd: UInt16
-    let listItemInlineStart: UInt16
-    let listItemInlineEnd: UInt16
+public struct SpacingDirectionTokens: Decodable {
+    public let contentStart: UInt16
+    public let contentEnd: UInt16
+    public let listItemStart: UInt16
+    public let listItemEnd: UInt16
+    public let listItemInlineStart: UInt16
+    public let listItemInlineEnd: UInt16
 }
 
-struct TypographyTokens: Decodable {
-    let titleSize: UInt16
-    let subtitleSize: UInt16
-    let bodySize: UInt16
-    let captionSize: UInt16
+public struct TypographyTokens: Decodable {
+    public let titleSize: UInt16
+    public let subtitleSize: UInt16
+    public let bodySize: UInt16
+    public let captionSize: UInt16
 }
 
-struct BorderRadiusTokens: Decodable {
-    let sm: UInt16
-    let md: UInt16
-    let mdLg: UInt16
-    let lg: UInt16
+public struct BorderRadiusTokens: Decodable {
+    public let sm: UInt16
+    public let md: UInt16
+    public let mdLg: UInt16
+    public let lg: UInt16
 }
 
-struct TouchTargetTokens: Decodable {
-    let minimum: UInt16
+public struct TouchTargetTokens: Decodable {
+    public let minimum: UInt16
 }
 
-struct MotionTokens: Decodable {
-    let enterDurationMs: UInt16
-    let exitDurationMs: UInt16
-    let emphasisDurationMs: UInt16
+public struct MotionTokens: Decodable {
+    public let enterDurationMs: UInt16
+    public let exitDurationMs: UInt16
+    public let emphasisDurationMs: UInt16
 }
 
 // MARK: - ScreenModel
 
 /// Describes a full screen to render.
 /// Maps to: `vauchi-core::ui::screen::ScreenModel`
-struct ScreenModel: Decodable {
-    let screenId: String
-    let title: String
-    let subtitle: String?
-    let components: [Component]
-    let actions: [ScreenAction]
-    let progress: Progress?
-    let tokens: DesignTokens
+public struct ScreenModel: Decodable {
+    public let screenId: String
+    public let title: String
+    public let subtitle: String?
+    public let components: [Component]
+    public let actions: [ScreenAction]
+    public let progress: Progress?
+    public let tokens: DesignTokens
 
     private enum CodingKeys: String, CodingKey {
         case screenId, title, subtitle, components, actions, progress, tokens
     }
 
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         screenId = try container.decode(String.self, forKey: .screenId)
         title = try container.decode(String.self, forKey: .title)
@@ -161,24 +161,24 @@ struct ScreenModel: Decodable {
 
 /// Step progress indicator.
 /// Maps to: `vauchi-core::ui::screen::Progress`
-struct Progress: Decodable {
-    let currentStep: UInt8
-    let totalSteps: UInt8
-    let label: String?
+public struct Progress: Decodable {
+    public let currentStep: UInt8
+    public let totalSteps: UInt8
+    public let label: String?
 }
 
 /// A button or action the user can take on the screen.
 /// Maps to: `vauchi-core::ui::screen::ScreenAction`
-struct ScreenAction: Decodable, Identifiable {
-    let id: String
-    let label: String
-    let style: ActionStyle
-    let enabled: Bool
+public struct ScreenAction: Decodable, Identifiable {
+    public let id: String
+    public let label: String
+    public let style: ActionStyle
+    public let enabled: Bool
 }
 
 /// Visual style for a screen action.
 /// Maps to: `vauchi-core::ui::screen::ActionStyle`
-enum ActionStyle: String, Decodable {
+public enum ActionStyle: String, Decodable {
     case primary = "Primary"
     case secondary = "Secondary"
     case destructive = "Destructive"
@@ -191,7 +191,7 @@ enum ActionStyle: String, Decodable {
 ///
 /// Rust serde serializes enums as `{"VariantName": {"field": "value"}}` or
 /// `"VariantName"` for unit variants. We use custom `Decodable` to handle this.
-enum Component: Decodable {
+public enum Component: Decodable {
     case text(TextComponent)
     case textInput(TextInputComponent)
     case toggleList(ToggleListComponent)
@@ -219,7 +219,7 @@ enum Component: Decodable {
     case unknown
 
     // swiftlint:disable:next cyclomatic_complexity
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         // Try unit variant first ("Divider" or any unknown string)
         if let container = try? decoder.singleValueContainer(),
            let stringValue = try? container.decode(String.self)
@@ -313,90 +313,90 @@ enum Component: Decodable {
 
 /// Core-driven accessibility metadata attached to components.
 /// Maps to: `vauchi-core::ui::component::A11y`
-struct A11y: Decodable {
-    let label: String?
-    let hint: String?
-    let role: String?
+public struct A11y: Decodable {
+    public let label: String?
+    public let hint: String?
+    public let role: String?
 }
 
 // MARK: - Component Data Types
 
-struct TextComponent: Decodable {
-    let id: String
-    let content: String
-    let style: TextStyle
+public struct TextComponent: Decodable {
+    public let id: String
+    public let content: String
+    public let style: TextStyle
 }
 
-enum TextStyle: String, Decodable {
+public enum TextStyle: String, Decodable {
     case title = "Title"
     case subtitle = "Subtitle"
     case body = "Body"
     case caption = "Caption"
 }
 
-struct TextInputComponent: Decodable {
-    let id: String
-    let label: String
-    let value: String
-    let placeholder: String?
-    let maxLength: Int?
-    let validationError: String?
-    let inputType: InputType
-    var a11y: A11y?
+public struct TextInputComponent: Decodable {
+    public let id: String
+    public let label: String
+    public let value: String
+    public let placeholder: String?
+    public let maxLength: Int?
+    public let validationError: String?
+    public let inputType: InputType
+    public var a11y: A11y?
 }
 
-enum InputType: String, Decodable {
+public enum InputType: String, Decodable {
     case text = "Text"
     case phone = "Phone"
     case email = "Email"
     case password = "Password"
 }
 
-struct ToggleListComponent: Decodable {
-    let id: String
-    let label: String
-    let items: [ToggleItem]
-    var a11y: A11y?
+public struct ToggleListComponent: Decodable {
+    public let id: String
+    public let label: String
+    public let items: [ToggleItem]
+    public var a11y: A11y?
 }
 
-struct ToggleItem: Decodable, Identifiable {
-    let id: String
-    let label: String
-    let selected: Bool
-    let subtitle: String?
-    var a11y: A11y?
+public struct ToggleItem: Decodable, Identifiable {
+    public let id: String
+    public let label: String
+    public let selected: Bool
+    public let subtitle: String?
+    public var a11y: A11y?
 }
 
-struct FieldListComponent: Decodable {
-    let id: String
-    let fields: [FieldDisplay]
-    let visibilityMode: VisibilityMode
-    let availableGroups: [String]
-    var a11y: A11y?
+public struct FieldListComponent: Decodable {
+    public let id: String
+    public let fields: [FieldDisplay]
+    public let visibilityMode: VisibilityMode
+    public let availableGroups: [String]
+    public var a11y: A11y?
 }
 
-enum VisibilityMode: String, Decodable {
+public enum VisibilityMode: String, Decodable {
     case showHide = "ShowHide"
     case perGroup = "PerGroup"
 }
 
-struct FieldDisplay: Decodable, Identifiable {
-    let id: String
-    let fieldType: String
-    let label: String
-    let value: String
-    let visibility: UiFieldVisibility
-    var a11y: A11y?
+public struct FieldDisplay: Decodable, Identifiable {
+    public let id: String
+    public let fieldType: String
+    public let label: String
+    public let value: String
+    public let visibility: UiFieldVisibility
+    public var a11y: A11y?
 }
 
 /// UI-level field visibility state.
 /// Serde outputs: `"Shown"`, `"Hidden"`, or `{"Groups": ["Family", ...]}`
-enum UiFieldVisibility: Decodable {
+public enum UiFieldVisibility: Decodable {
     case shown
     case hidden
     case groups([String])
 
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         if let container = try? decoder.singleValueContainer(),
            let stringValue = try? container.decode(String.self)
         {
@@ -424,60 +424,60 @@ enum UiFieldVisibility: Decodable {
     }
 }
 
-struct CardPreviewComponent: Decodable {
-    let name: String
-    let avatarData: [UInt8]?
-    let fields: [FieldDisplay]
-    let groupViews: [GroupCardView]
-    let selectedGroup: String?
-    var a11y: A11y?
+public struct CardPreviewComponent: Decodable {
+    public let name: String
+    public let avatarData: [UInt8]?
+    public let fields: [FieldDisplay]
+    public let groupViews: [GroupCardView]
+    public let selectedGroup: String?
+    public var a11y: A11y?
 }
 
-struct GroupCardView: Decodable, Identifiable {
-    let groupName: String
-    let displayName: String
-    let visibleFields: [FieldDisplay]
+public struct GroupCardView: Decodable, Identifiable {
+    public let groupName: String
+    public let displayName: String
+    public let visibleFields: [FieldDisplay]
 
-    var id: String {
+    public var id: String {
         groupName
     }
 }
 
-struct InfoPanelComponent: Decodable {
-    let id: String
-    let icon: String?
-    let title: String
-    let items: [InfoItem]
-    var a11y: A11y?
+public struct InfoPanelComponent: Decodable {
+    public let id: String
+    public let icon: String?
+    public let title: String
+    public let items: [InfoItem]
+    public var a11y: A11y?
 }
 
-struct InfoItem: Decodable, Identifiable {
-    let icon: String?
-    let title: String
-    let detail: String
+public struct InfoItem: Decodable, Identifiable {
+    public let icon: String?
+    public let title: String
+    public let detail: String
 
-    var id: String {
+    public var id: String {
         title
     }
 }
 
 // MARK: - ContactList Component
 
-struct ContactListComponent: Decodable {
-    let id: String
-    let contacts: [ContactItem]
-    let searchable: Bool
+public struct ContactListComponent: Decodable {
+    public let id: String
+    public let contacts: [ContactItem]
+    public let searchable: Bool
 }
 
-struct ContactItem: Decodable, Identifiable {
-    let id: String
-    let name: String
-    let subtitle: String?
-    let avatarInitials: String
-    let status: String?
-    var searchableFields: [String] = []
-    var actions: [ListItemAction] = []
-    var a11y: A11y?
+public struct ContactItem: Decodable, Identifiable {
+    public let id: String
+    public let name: String
+    public let subtitle: String?
+    public let avatarInitials: String
+    public let status: String?
+    public var searchableFields: [String] = []
+    public var actions: [ListItemAction] = []
+    public var a11y: A11y?
 
     /// Default Decodable synthesis matches: `coreJSONDecoder` above sets
     /// `.convertFromSnakeCase`, so wire keys like `avatar_initials` and
@@ -489,7 +489,7 @@ struct ContactItem: Decodable, Identifiable {
         case id, name, subtitle, avatarInitials, status, searchableFields, actions, a11y
     }
 
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(String.self, forKey: .id)
         name = try c.decode(String.self, forKey: .name)
@@ -504,7 +504,7 @@ struct ContactItem: Decodable, Identifiable {
 
 /// Semantic classification for a per-row action. Mirrors
 /// `vauchi-core::ui::component::ListItemActionKind`. Serialized snake_case.
-enum ListItemActionKind: String, Decodable {
+public enum ListItemActionKind: String, Decodable {
     case archive
     case unarchive
     case hide
@@ -515,7 +515,7 @@ enum ListItemActionKind: String, Decodable {
     /// Forward-compat fallback for kinds added in a newer core.
     case unknown
 
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = ListItemActionKind(rawValue: raw) ?? .unknown
     }
@@ -523,17 +523,17 @@ enum ListItemActionKind: String, Decodable {
 
 /// A per-row swipe/context-menu action produced by core. Mirrors
 /// `vauchi-core::ui::component::ListItemAction`.
-struct ListItemAction: Decodable, Identifiable {
-    let id: String
-    let label: String
-    let kind: ListItemActionKind
-    let destructive: Bool
+public struct ListItemAction: Decodable, Identifiable {
+    public let id: String
+    public let label: String
+    public let kind: ListItemActionKind
+    public let destructive: Bool
 
     private enum CodingKeys: String, CodingKey {
         case id, label, kind, destructive
     }
 
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(String.self, forKey: .id)
         label = try c.decode(String.self, forKey: .label)
@@ -544,27 +544,27 @@ struct ListItemAction: Decodable, Identifiable {
 
 // MARK: - SettingsGroup Component
 
-struct SettingsGroupComponent: Decodable {
-    let id: String
-    let label: String
-    let items: [SettingsItem]
+public struct SettingsGroupComponent: Decodable {
+    public let id: String
+    public let label: String
+    public let items: [SettingsItem]
 }
 
-struct SettingsItem: Decodable, Identifiable {
-    let id: String
-    let label: String
-    let kind: SettingsItemKind
-    var a11y: A11y?
+public struct SettingsItem: Decodable, Identifiable {
+    public let id: String
+    public let label: String
+    public let kind: SettingsItemKind
+    public var a11y: A11y?
 }
 
-enum SettingsItemKind: Decodable {
+public enum SettingsItemKind: Decodable {
     case toggle(enabled: Bool)
     case value(value: String)
     case link(detail: String?)
     case destructive(label: String)
     case unknown
 
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         // Serde produces: {"Toggle": {"enabled": true}}, etc.
         let container = try decoder.container(keyedBy: VariantKey.self)
         if container.contains(.toggle) {
@@ -600,31 +600,31 @@ enum SettingsItemKind: Decodable {
 
 // MARK: - ActionList Component
 
-struct ActionListComponent: Decodable {
-    let id: String
-    let items: [ActionListItem]
+public struct ActionListComponent: Decodable {
+    public let id: String
+    public let items: [ActionListItem]
 }
 
-struct ActionListItem: Decodable, Identifiable {
-    let id: String
-    let label: String
-    let icon: String?
-    let detail: String?
-    var a11y: A11y?
+public struct ActionListItem: Decodable, Identifiable {
+    public let id: String
+    public let label: String
+    public let icon: String?
+    public let detail: String?
+    public var a11y: A11y?
 }
 
 // MARK: - StatusIndicator Component
 
-struct StatusIndicatorComponent: Decodable {
-    let id: String
-    let icon: String?
-    let title: String
-    let detail: String?
-    let status: Status
-    var a11y: A11y?
+public struct StatusIndicatorComponent: Decodable {
+    public let id: String
+    public let icon: String?
+    public let title: String
+    public let detail: String?
+    public let status: Status
+    public var a11y: A11y?
 }
 
-enum Status: String, Decodable {
+public enum Status: String, Decodable {
     case pending = "Pending"
     case inProgress = "InProgress"
     case success = "Success"
@@ -634,119 +634,119 @@ enum Status: String, Decodable {
 
 // MARK: - PinInput Component
 
-struct PinInputComponent: Decodable {
-    let id: String
-    let label: String
-    let length: Int
-    let masked: Bool
-    let validationError: String?
-    var a11y: A11y?
+public struct PinInputComponent: Decodable {
+    public let id: String
+    public let label: String
+    public let length: Int
+    public let masked: Bool
+    public let validationError: String?
+    public var a11y: A11y?
 }
 
 // MARK: - QrCode Component
 
-struct QrCodeComponent: Decodable {
-    let id: String
-    let data: String
-    let mode: QrMode
-    let label: String?
-    var a11y: A11y?
+public struct QrCodeComponent: Decodable {
+    public let id: String
+    public let data: String
+    public let mode: QrMode
+    public let label: String?
+    public var a11y: A11y?
 }
 
-enum QrMode: String, Decodable {
+public enum QrMode: String, Decodable {
     case display = "Display"
     case scan = "Scan"
 }
 
 // MARK: - ConfirmationDialog Component
 
-struct ConfirmationDialogComponent: Decodable {
-    let id: String
-    let title: String
-    let message: String
-    let confirmText: String
-    let destructive: Bool
+public struct ConfirmationDialogComponent: Decodable {
+    public let id: String
+    public let title: String
+    public let message: String
+    public let confirmText: String
+    public let destructive: Bool
 }
 
 // MARK: - ShowToast Component
 
-struct ShowToastComponent: Decodable {
-    let id: String
-    let message: String
-    let undoActionId: String?
-    let durationMs: UInt32
+public struct ShowToastComponent: Decodable {
+    public let id: String
+    public let message: String
+    public let undoActionId: String?
+    public let durationMs: UInt32
 }
 
 // MARK: - InlineConfirm Component
 
-struct InlineConfirmComponent: Decodable {
-    let id: String
-    let warning: String
-    let confirmText: String
-    let cancelText: String
-    let destructive: Bool
-    var a11y: A11y?
+public struct InlineConfirmComponent: Decodable {
+    public let id: String
+    public let warning: String
+    public let confirmText: String
+    public let cancelText: String
+    public let destructive: Bool
+    public var a11y: A11y?
 }
 
 // MARK: - EditableText Component
 
-struct EditableTextComponent: Decodable {
-    let id: String
-    let label: String
-    let value: String
-    let editing: Bool
-    let validationError: String?
-    var a11y: A11y?
+public struct EditableTextComponent: Decodable {
+    public let id: String
+    public let label: String
+    public let value: String
+    public let editing: Bool
+    public let validationError: String?
+    public var a11y: A11y?
 }
 
 // MARK: - Banner Component
 
-struct BannerComponent: Decodable {
-    let text: String
-    let actionLabel: String
-    let actionId: String
-    var a11y: A11y?
+public struct BannerComponent: Decodable {
+    public let text: String
+    public let actionLabel: String
+    public let actionId: String
+    public var a11y: A11y?
 }
 
 // MARK: - Dropdown Component
 
-struct DropdownComponent: Decodable {
-    let id: String
-    let label: String
-    let selected: String?
-    let options: [DropdownOption]
-    var a11y: A11y?
+public struct DropdownComponent: Decodable {
+    public let id: String
+    public let label: String
+    public let selected: String?
+    public let options: [DropdownOption]
+    public var a11y: A11y?
 }
 
-struct DropdownOption: Decodable, Identifiable {
-    let id: String
-    let label: String
+public struct DropdownOption: Decodable, Identifiable {
+    public let id: String
+    public let label: String
 }
 
 // MARK: - AvatarPreview Component
 
-struct AvatarPreviewComponent: Decodable {
-    let id: String
-    let imageData: [UInt8]?
-    let initials: String
-    let bgColor: [UInt8]?
-    let brightness: Float
-    let editable: Bool
-    let a11y: A11y?
+public struct AvatarPreviewComponent: Decodable {
+    public let id: String
+    public let imageData: [UInt8]?
+    public let initials: String
+    public let bgColor: [UInt8]?
+    public let brightness: Float
+    public let editable: Bool
+    public let a11y: A11y?
 }
 
 // MARK: - Slider Component
 
-struct SliderComponent: Decodable {
-    let id: String
-    let label: String
-    let value: Float
-    let min: Float
-    let max: Float
-    let step: Float
-    let minIcon: String?
-    let maxIcon: String?
-    let a11y: A11y?
+public struct SliderComponent: Decodable {
+    public let id: String
+    public let label: String
+    public let value: Float
+    public let min: Float
+    public let max: Float
+    public let step: Float
+    public let minIcon: String?
+    public let maxIcon: String?
+    public let a11y: A11y?
 }
 
 // MARK: - UserAction (Encodable for sending to core)
@@ -755,7 +755,7 @@ struct SliderComponent: Decodable {
 /// Maps to: `vauchi-core::ui::action::UserAction`
 ///
 /// Uses custom encoding to match serde's `{"VariantName": {...}}` format.
-enum UserAction: Encodable {
+public enum UserAction: Encodable {
     case textChanged(componentId: String, value: String)
     case itemToggled(componentId: String, itemId: String)
     case actionPressed(actionId: String)
@@ -768,7 +768,7 @@ enum UserAction: Encodable {
     case undoPressed(actionId: String)
     case sliderChanged(componentId: String, valueMilli: Int32)
 
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: VariantKey.self)
 
         switch self {
@@ -901,7 +901,7 @@ enum UserAction: Encodable {
 
 /// The result of handling a user action.
 /// Maps to: `vauchi-core::ui::action::ActionResult`
-enum ActionResult: Decodable {
+public enum ActionResult: Decodable {
     case updateScreen(ScreenModel)
     case navigateTo(ScreenModel)
     case validationError(componentId: String, message: String)
@@ -921,7 +921,7 @@ enum ActionResult: Decodable {
     case previewAs(contactId: String)
     case unknown
 
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         // Unit variants: "Complete", "StartDeviceLink", etc.
         if let container = try? decoder.singleValueContainer(),
            let stringValue = try? container.decode(String.self)
@@ -1041,7 +1041,7 @@ enum ActionResult: Decodable {
 
 /// DTO for exchange commands from core (ADR-031).
 /// Maps to: `vauchi-core::exchange::command::ExchangeCommand`
-enum ExchangeCommandDTO: Decodable {
+public enum ExchangeCommandDTO: Decodable {
     case qrDisplay(data: String)
     case qrRequestScan
     case bleStartAdvertising(serviceUuid: String, payload: [UInt8])
@@ -1060,7 +1060,7 @@ enum ExchangeCommandDTO: Decodable {
     case imagePickFromFile
     case unknown
 
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         if let container = try? decoder.singleValueContainer(),
            let stringValue = try? container.decode(String.self)
         {

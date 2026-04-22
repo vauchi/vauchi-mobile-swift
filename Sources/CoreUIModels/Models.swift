@@ -199,6 +199,24 @@ public struct ScreenModel: Decodable {
     public let progress: Progress?
     public let tokens: DesignTokens
 
+    public init(
+        screenId: String,
+        title: String,
+        subtitle: String? = nil,
+        components: [Component],
+        actions: [ScreenAction],
+        progress: Progress? = nil,
+        tokens: DesignTokens = .defaults
+    ) {
+        self.screenId = screenId
+        self.title = title
+        self.subtitle = subtitle
+        self.components = components
+        self.actions = actions
+        self.progress = progress
+        self.tokens = tokens
+    }
+
     private enum CodingKeys: String, CodingKey {
         case screenId, title, subtitle, components, actions, progress, tokens
     }

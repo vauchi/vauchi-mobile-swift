@@ -174,6 +174,12 @@ public struct ScreenAction: Decodable, Identifiable {
     public let label: String
     public let style: ActionStyle
     public let enabled: Bool
+    /// Optional accessibility override. `nil` → frontends derive the
+    /// screen-reader announcement from `label`. Present → `a11y.label`
+    /// replaces it and `a11y.hint` surfaces as the VoiceOver hint.
+    /// Maps to `vauchi-core::ui::screen::ScreenAction::a11y` (serde
+    /// `#[serde(default, skip_serializing_if = "Option::is_none")]`).
+    public var a11y: A11y?
 }
 
 /// Visual style for a screen action.

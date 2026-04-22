@@ -51,6 +51,22 @@ public struct DesignTokens: Decodable {
     public let touchTarget: TouchTargetTokens
     public let motion: MotionTokens
 
+    public init(
+        spacing: SpacingTokens,
+        spacingDirection: SpacingDirectionTokens,
+        typography: TypographyTokens,
+        borderRadius: BorderRadiusTokens,
+        touchTarget: TouchTargetTokens,
+        motion: MotionTokens
+    ) {
+        self.spacing = spacing
+        self.spacingDirection = spacingDirection
+        self.typography = typography
+        self.borderRadius = borderRadius
+        self.touchTarget = touchTarget
+        self.motion = motion
+    }
+
     public static let defaults = DesignTokens(
         spacing: SpacingTokens(xs: 4, sm: 8, smMd: 12, md: 16, lg: 24, xl: 32),
         spacingDirection: SpacingDirectionTokens(
@@ -104,6 +120,22 @@ public struct SpacingDirectionTokens: Decodable {
     public let listItemEnd: UInt16
     public let listItemInlineStart: UInt16
     public let listItemInlineEnd: UInt16
+
+    public init(
+        contentStart: UInt16,
+        contentEnd: UInt16,
+        listItemStart: UInt16,
+        listItemEnd: UInt16,
+        listItemInlineStart: UInt16,
+        listItemInlineEnd: UInt16
+    ) {
+        self.contentStart = contentStart
+        self.contentEnd = contentEnd
+        self.listItemStart = listItemStart
+        self.listItemEnd = listItemEnd
+        self.listItemInlineStart = listItemInlineStart
+        self.listItemInlineEnd = listItemInlineEnd
+    }
 }
 
 public struct TypographyTokens: Decodable {
@@ -111,6 +143,13 @@ public struct TypographyTokens: Decodable {
     public let subtitleSize: UInt16
     public let bodySize: UInt16
     public let captionSize: UInt16
+
+    public init(titleSize: UInt16, subtitleSize: UInt16, bodySize: UInt16, captionSize: UInt16) {
+        self.titleSize = titleSize
+        self.subtitleSize = subtitleSize
+        self.bodySize = bodySize
+        self.captionSize = captionSize
+    }
 }
 
 public struct BorderRadiusTokens: Decodable {
@@ -118,16 +157,33 @@ public struct BorderRadiusTokens: Decodable {
     public let md: UInt16
     public let mdLg: UInt16
     public let lg: UInt16
+
+    public init(sm: UInt16, md: UInt16, mdLg: UInt16, lg: UInt16) {
+        self.sm = sm
+        self.md = md
+        self.mdLg = mdLg
+        self.lg = lg
+    }
 }
 
 public struct TouchTargetTokens: Decodable {
     public let minimum: UInt16
+
+    public init(minimum: UInt16) {
+        self.minimum = minimum
+    }
 }
 
 public struct MotionTokens: Decodable {
     public let enterDurationMs: UInt16
     public let exitDurationMs: UInt16
     public let emphasisDurationMs: UInt16
+
+    public init(enterDurationMs: UInt16, exitDurationMs: UInt16, emphasisDurationMs: UInt16) {
+        self.enterDurationMs = enterDurationMs
+        self.exitDurationMs = exitDurationMs
+        self.emphasisDurationMs = emphasisDurationMs
+    }
 }
 
 // MARK: - ScreenModel
@@ -165,6 +221,12 @@ public struct Progress: Decodable {
     public let currentStep: UInt8
     public let totalSteps: UInt8
     public let label: String?
+
+    public init(currentStep: UInt8, totalSteps: UInt8, label: String?) {
+        self.currentStep = currentStep
+        self.totalSteps = totalSteps
+        self.label = label
+    }
 }
 
 /// A button or action the user can take on the screen.
@@ -180,6 +242,14 @@ public struct ScreenAction: Decodable, Identifiable {
     /// Maps to `vauchi-core::ui::screen::ScreenAction::a11y` (serde
     /// `#[serde(default, skip_serializing_if = "Option::is_none")]`).
     public var a11y: A11y?
+
+    public init(id: String, label: String, style: ActionStyle, enabled: Bool, a11y: A11y?) {
+        self.id = id
+        self.label = label
+        self.style = style
+        self.enabled = enabled
+        self.a11y = a11y
+    }
 }
 
 /// Visual style for a screen action.
@@ -323,6 +393,12 @@ public struct A11y: Decodable {
     public let label: String?
     public let hint: String?
     public let role: String?
+
+    public init(label: String?, hint: String?, role: String?) {
+        self.label = label
+        self.hint = hint
+        self.role = role
+    }
 }
 
 // MARK: - Component Data Types
@@ -331,6 +407,12 @@ public struct TextComponent: Decodable {
     public let id: String
     public let content: String
     public let style: TextStyle
+
+    public init(id: String, content: String, style: TextStyle) {
+        self.id = id
+        self.content = content
+        self.style = style
+    }
 }
 
 public enum TextStyle: String, Decodable {
@@ -349,6 +431,26 @@ public struct TextInputComponent: Decodable {
     public let validationError: String?
     public let inputType: InputType
     public var a11y: A11y?
+
+    public init(
+        id: String,
+        label: String,
+        value: String,
+        placeholder: String?,
+        maxLength: Int?,
+        validationError: String?,
+        inputType: InputType,
+        a11y: A11y?
+    ) {
+        self.id = id
+        self.label = label
+        self.value = value
+        self.placeholder = placeholder
+        self.maxLength = maxLength
+        self.validationError = validationError
+        self.inputType = inputType
+        self.a11y = a11y
+    }
 }
 
 public enum InputType: String, Decodable {
@@ -363,6 +465,13 @@ public struct ToggleListComponent: Decodable {
     public let label: String
     public let items: [ToggleItem]
     public var a11y: A11y?
+
+    public init(id: String, label: String, items: [ToggleItem], a11y: A11y?) {
+        self.id = id
+        self.label = label
+        self.items = items
+        self.a11y = a11y
+    }
 }
 
 public struct ToggleItem: Decodable, Identifiable {
@@ -371,6 +480,14 @@ public struct ToggleItem: Decodable, Identifiable {
     public let selected: Bool
     public let subtitle: String?
     public var a11y: A11y?
+
+    public init(id: String, label: String, selected: Bool, subtitle: String?, a11y: A11y?) {
+        self.id = id
+        self.label = label
+        self.selected = selected
+        self.subtitle = subtitle
+        self.a11y = a11y
+    }
 }
 
 public struct FieldListComponent: Decodable {
@@ -379,6 +496,14 @@ public struct FieldListComponent: Decodable {
     public let visibilityMode: VisibilityMode
     public let availableGroups: [String]
     public var a11y: A11y?
+
+    public init(id: String, fields: [FieldDisplay], visibilityMode: VisibilityMode, availableGroups: [String], a11y: A11y?) {
+        self.id = id
+        self.fields = fields
+        self.visibilityMode = visibilityMode
+        self.availableGroups = availableGroups
+        self.a11y = a11y
+    }
 }
 
 public enum VisibilityMode: String, Decodable {
@@ -393,6 +518,15 @@ public struct FieldDisplay: Decodable, Identifiable {
     public let value: String
     public let visibility: UiFieldVisibility
     public var a11y: A11y?
+
+    public init(id: String, fieldType: String, label: String, value: String, visibility: UiFieldVisibility, a11y: A11y?) {
+        self.id = id
+        self.fieldType = fieldType
+        self.label = label
+        self.value = value
+        self.visibility = visibility
+        self.a11y = a11y
+    }
 }
 
 /// UI-level field visibility state.
@@ -437,12 +571,27 @@ public struct CardPreviewComponent: Decodable {
     public let groupViews: [GroupCardView]
     public let selectedGroup: String?
     public var a11y: A11y?
+
+    public init(name: String, avatarData: [UInt8]?, fields: [FieldDisplay], groupViews: [GroupCardView], selectedGroup: String?, a11y: A11y?) {
+        self.name = name
+        self.avatarData = avatarData
+        self.fields = fields
+        self.groupViews = groupViews
+        self.selectedGroup = selectedGroup
+        self.a11y = a11y
+    }
 }
 
 public struct GroupCardView: Decodable, Identifiable {
     public let groupName: String
     public let displayName: String
     public let visibleFields: [FieldDisplay]
+
+    public init(groupName: String, displayName: String, visibleFields: [FieldDisplay]) {
+        self.groupName = groupName
+        self.displayName = displayName
+        self.visibleFields = visibleFields
+    }
 
     public var id: String {
         groupName
@@ -455,12 +604,26 @@ public struct InfoPanelComponent: Decodable {
     public let title: String
     public let items: [InfoItem]
     public var a11y: A11y?
+
+    public init(id: String, icon: String?, title: String, items: [InfoItem], a11y: A11y?) {
+        self.id = id
+        self.icon = icon
+        self.title = title
+        self.items = items
+        self.a11y = a11y
+    }
 }
 
 public struct InfoItem: Decodable, Identifiable {
     public let icon: String?
     public let title: String
     public let detail: String
+
+    public init(icon: String?, title: String, detail: String) {
+        self.icon = icon
+        self.title = title
+        self.detail = detail
+    }
 
     public var id: String {
         title
@@ -473,6 +636,12 @@ public struct ContactListComponent: Decodable {
     public let id: String
     public let contacts: [ContactItem]
     public let searchable: Bool
+
+    public init(id: String, contacts: [ContactItem], searchable: Bool) {
+        self.id = id
+        self.contacts = contacts
+        self.searchable = searchable
+    }
 }
 
 public struct ContactItem: Decodable, Identifiable {
@@ -554,6 +723,12 @@ public struct SettingsGroupComponent: Decodable {
     public let id: String
     public let label: String
     public let items: [SettingsItem]
+
+    public init(id: String, label: String, items: [SettingsItem]) {
+        self.id = id
+        self.label = label
+        self.items = items
+    }
 }
 
 public struct SettingsItem: Decodable, Identifiable {
@@ -561,6 +736,13 @@ public struct SettingsItem: Decodable, Identifiable {
     public let label: String
     public let kind: SettingsItemKind
     public var a11y: A11y?
+
+    public init(id: String, label: String, kind: SettingsItemKind, a11y: A11y?) {
+        self.id = id
+        self.label = label
+        self.kind = kind
+        self.a11y = a11y
+    }
 }
 
 public enum SettingsItemKind: Decodable {
@@ -609,6 +791,11 @@ public enum SettingsItemKind: Decodable {
 public struct ActionListComponent: Decodable {
     public let id: String
     public let items: [ActionListItem]
+
+    public init(id: String, items: [ActionListItem]) {
+        self.id = id
+        self.items = items
+    }
 }
 
 public struct ActionListItem: Decodable, Identifiable {
@@ -617,6 +804,14 @@ public struct ActionListItem: Decodable, Identifiable {
     public let icon: String?
     public let detail: String?
     public var a11y: A11y?
+
+    public init(id: String, label: String, icon: String?, detail: String?, a11y: A11y?) {
+        self.id = id
+        self.label = label
+        self.icon = icon
+        self.detail = detail
+        self.a11y = a11y
+    }
 }
 
 // MARK: - StatusIndicator Component
@@ -628,6 +823,15 @@ public struct StatusIndicatorComponent: Decodable {
     public let detail: String?
     public let status: Status
     public var a11y: A11y?
+
+    public init(id: String, icon: String?, title: String, detail: String?, status: Status, a11y: A11y?) {
+        self.id = id
+        self.icon = icon
+        self.title = title
+        self.detail = detail
+        self.status = status
+        self.a11y = a11y
+    }
 }
 
 public enum Status: String, Decodable {
@@ -647,6 +851,15 @@ public struct PinInputComponent: Decodable {
     public let masked: Bool
     public let validationError: String?
     public var a11y: A11y?
+
+    public init(id: String, label: String, length: Int, masked: Bool, validationError: String?, a11y: A11y?) {
+        self.id = id
+        self.label = label
+        self.length = length
+        self.masked = masked
+        self.validationError = validationError
+        self.a11y = a11y
+    }
 }
 
 // MARK: - QrCode Component
@@ -657,6 +870,14 @@ public struct QrCodeComponent: Decodable {
     public let mode: QrMode
     public let label: String?
     public var a11y: A11y?
+
+    public init(id: String, data: String, mode: QrMode, label: String?, a11y: A11y?) {
+        self.id = id
+        self.data = data
+        self.mode = mode
+        self.label = label
+        self.a11y = a11y
+    }
 }
 
 public enum QrMode: String, Decodable {
@@ -672,6 +893,14 @@ public struct ConfirmationDialogComponent: Decodable {
     public let message: String
     public let confirmText: String
     public let destructive: Bool
+
+    public init(id: String, title: String, message: String, confirmText: String, destructive: Bool) {
+        self.id = id
+        self.title = title
+        self.message = message
+        self.confirmText = confirmText
+        self.destructive = destructive
+    }
 }
 
 // MARK: - ShowToast Component
@@ -681,6 +910,13 @@ public struct ShowToastComponent: Decodable {
     public let message: String
     public let undoActionId: String?
     public let durationMs: UInt32
+
+    public init(id: String, message: String, undoActionId: String?, durationMs: UInt32) {
+        self.id = id
+        self.message = message
+        self.undoActionId = undoActionId
+        self.durationMs = durationMs
+    }
 }
 
 // MARK: - InlineConfirm Component
@@ -692,6 +928,15 @@ public struct InlineConfirmComponent: Decodable {
     public let cancelText: String
     public let destructive: Bool
     public var a11y: A11y?
+
+    public init(id: String, warning: String, confirmText: String, cancelText: String, destructive: Bool, a11y: A11y?) {
+        self.id = id
+        self.warning = warning
+        self.confirmText = confirmText
+        self.cancelText = cancelText
+        self.destructive = destructive
+        self.a11y = a11y
+    }
 }
 
 // MARK: - EditableText Component
@@ -703,6 +948,15 @@ public struct EditableTextComponent: Decodable {
     public let editing: Bool
     public let validationError: String?
     public var a11y: A11y?
+
+    public init(id: String, label: String, value: String, editing: Bool, validationError: String?, a11y: A11y?) {
+        self.id = id
+        self.label = label
+        self.value = value
+        self.editing = editing
+        self.validationError = validationError
+        self.a11y = a11y
+    }
 }
 
 // MARK: - Banner Component
@@ -712,6 +966,13 @@ public struct BannerComponent: Decodable {
     public let actionLabel: String
     public let actionId: String
     public var a11y: A11y?
+
+    public init(text: String, actionLabel: String, actionId: String, a11y: A11y?) {
+        self.text = text
+        self.actionLabel = actionLabel
+        self.actionId = actionId
+        self.a11y = a11y
+    }
 }
 
 // MARK: - Dropdown Component
@@ -722,11 +983,24 @@ public struct DropdownComponent: Decodable {
     public let selected: String?
     public let options: [DropdownOption]
     public var a11y: A11y?
+
+    public init(id: String, label: String, selected: String?, options: [DropdownOption], a11y: A11y?) {
+        self.id = id
+        self.label = label
+        self.selected = selected
+        self.options = options
+        self.a11y = a11y
+    }
 }
 
 public struct DropdownOption: Decodable, Identifiable {
     public let id: String
     public let label: String
+
+    public init(id: String, label: String) {
+        self.id = id
+        self.label = label
+    }
 }
 
 // MARK: - AvatarPreview Component
@@ -739,6 +1013,16 @@ public struct AvatarPreviewComponent: Decodable {
     public let brightness: Float
     public let editable: Bool
     public let a11y: A11y?
+
+    public init(id: String, imageData: [UInt8]?, initials: String, bgColor: [UInt8]?, brightness: Float, editable: Bool, a11y: A11y?) {
+        self.id = id
+        self.imageData = imageData
+        self.initials = initials
+        self.bgColor = bgColor
+        self.brightness = brightness
+        self.editable = editable
+        self.a11y = a11y
+    }
 }
 
 // MARK: - Slider Component
@@ -753,6 +1037,18 @@ public struct SliderComponent: Decodable {
     public let minIcon: String?
     public let maxIcon: String?
     public let a11y: A11y?
+
+    public init(id: String, label: String, value: Float, min: Float, max: Float, step: Float, minIcon: String?, maxIcon: String?, a11y: A11y?) {
+        self.id = id
+        self.label = label
+        self.value = value
+        self.min = min
+        self.max = max
+        self.step = step
+        self.minIcon = minIcon
+        self.maxIcon = maxIcon
+        self.a11y = a11y
+    }
 }
 
 // MARK: - UserAction (Encodable for sending to core)

@@ -222,7 +222,7 @@ public struct Progress: Decodable {
     public let totalSteps: UInt8
     public let label: String?
 
-    public init(currentStep: UInt8, totalSteps: UInt8, label: String?) {
+    public init(currentStep: UInt8, totalSteps: UInt8, label: String? = nil) {
         self.currentStep = currentStep
         self.totalSteps = totalSteps
         self.label = label
@@ -243,7 +243,7 @@ public struct ScreenAction: Decodable, Identifiable {
     /// `#[serde(default, skip_serializing_if = "Option::is_none")]`).
     public var a11y: A11y?
 
-    public init(id: String, label: String, style: ActionStyle, enabled: Bool, a11y: A11y?) {
+    public init(id: String, label: String, style: ActionStyle, enabled: Bool, a11y: A11y? = nil) {
         self.id = id
         self.label = label
         self.style = style
@@ -394,7 +394,7 @@ public struct A11y: Decodable {
     public let hint: String?
     public let role: String?
 
-    public init(label: String?, hint: String?, role: String?) {
+    public init(label: String? = nil, hint: String? = nil, role: String? = nil) {
         self.label = label
         self.hint = hint
         self.role = role
@@ -436,11 +436,11 @@ public struct TextInputComponent: Decodable {
         id: String,
         label: String,
         value: String,
-        placeholder: String?,
-        maxLength: Int?,
-        validationError: String?,
+        placeholder: String? = nil,
+        maxLength: Int? = nil,
+        validationError: String? = nil,
         inputType: InputType,
-        a11y: A11y?
+        a11y: A11y? = nil
     ) {
         self.id = id
         self.label = label
@@ -466,7 +466,7 @@ public struct ToggleListComponent: Decodable {
     public let items: [ToggleItem]
     public var a11y: A11y?
 
-    public init(id: String, label: String, items: [ToggleItem], a11y: A11y?) {
+    public init(id: String, label: String, items: [ToggleItem], a11y: A11y? = nil) {
         self.id = id
         self.label = label
         self.items = items
@@ -481,7 +481,7 @@ public struct ToggleItem: Decodable, Identifiable {
     public let subtitle: String?
     public var a11y: A11y?
 
-    public init(id: String, label: String, selected: Bool, subtitle: String?, a11y: A11y?) {
+    public init(id: String, label: String, selected: Bool, subtitle: String? = nil, a11y: A11y? = nil) {
         self.id = id
         self.label = label
         self.selected = selected
@@ -497,7 +497,7 @@ public struct FieldListComponent: Decodable {
     public let availableGroups: [String]
     public var a11y: A11y?
 
-    public init(id: String, fields: [FieldDisplay], visibilityMode: VisibilityMode, availableGroups: [String], a11y: A11y?) {
+    public init(id: String, fields: [FieldDisplay], visibilityMode: VisibilityMode, availableGroups: [String], a11y: A11y? = nil) {
         self.id = id
         self.fields = fields
         self.visibilityMode = visibilityMode
@@ -519,7 +519,7 @@ public struct FieldDisplay: Decodable, Identifiable {
     public let visibility: UiFieldVisibility
     public var a11y: A11y?
 
-    public init(id: String, fieldType: String, label: String, value: String, visibility: UiFieldVisibility, a11y: A11y?) {
+    public init(id: String, fieldType: String, label: String, value: String, visibility: UiFieldVisibility, a11y: A11y? = nil) {
         self.id = id
         self.fieldType = fieldType
         self.label = label
@@ -572,7 +572,14 @@ public struct CardPreviewComponent: Decodable {
     public let selectedGroup: String?
     public var a11y: A11y?
 
-    public init(name: String, avatarData: [UInt8]?, fields: [FieldDisplay], groupViews: [GroupCardView], selectedGroup: String?, a11y: A11y?) {
+    public init(
+        name: String,
+        avatarData: [UInt8]? = nil,
+        fields: [FieldDisplay],
+        groupViews: [GroupCardView],
+        selectedGroup: String? = nil,
+        a11y: A11y? = nil
+    ) {
         self.name = name
         self.avatarData = avatarData
         self.fields = fields
@@ -605,7 +612,7 @@ public struct InfoPanelComponent: Decodable {
     public let items: [InfoItem]
     public var a11y: A11y?
 
-    public init(id: String, icon: String?, title: String, items: [InfoItem], a11y: A11y?) {
+    public init(id: String, icon: String? = nil, title: String, items: [InfoItem], a11y: A11y? = nil) {
         self.id = id
         self.icon = icon
         self.title = title
@@ -619,7 +626,7 @@ public struct InfoItem: Decodable, Identifiable {
     public let title: String
     public let detail: String
 
-    public init(icon: String?, title: String, detail: String) {
+    public init(icon: String? = nil, title: String, detail: String) {
         self.icon = icon
         self.title = title
         self.detail = detail
@@ -737,7 +744,7 @@ public struct SettingsItem: Decodable, Identifiable {
     public let kind: SettingsItemKind
     public var a11y: A11y?
 
-    public init(id: String, label: String, kind: SettingsItemKind, a11y: A11y?) {
+    public init(id: String, label: String, kind: SettingsItemKind, a11y: A11y? = nil) {
         self.id = id
         self.label = label
         self.kind = kind
@@ -805,7 +812,7 @@ public struct ActionListItem: Decodable, Identifiable {
     public let detail: String?
     public var a11y: A11y?
 
-    public init(id: String, label: String, icon: String?, detail: String?, a11y: A11y?) {
+    public init(id: String, label: String, icon: String? = nil, detail: String? = nil, a11y: A11y? = nil) {
         self.id = id
         self.label = label
         self.icon = icon
@@ -824,7 +831,7 @@ public struct StatusIndicatorComponent: Decodable {
     public let status: Status
     public var a11y: A11y?
 
-    public init(id: String, icon: String?, title: String, detail: String?, status: Status, a11y: A11y?) {
+    public init(id: String, icon: String? = nil, title: String, detail: String? = nil, status: Status, a11y: A11y? = nil) {
         self.id = id
         self.icon = icon
         self.title = title
@@ -852,7 +859,7 @@ public struct PinInputComponent: Decodable {
     public let validationError: String?
     public var a11y: A11y?
 
-    public init(id: String, label: String, length: Int, masked: Bool, validationError: String?, a11y: A11y?) {
+    public init(id: String, label: String, length: Int, masked: Bool, validationError: String? = nil, a11y: A11y? = nil) {
         self.id = id
         self.label = label
         self.length = length
@@ -871,7 +878,7 @@ public struct QrCodeComponent: Decodable {
     public let label: String?
     public var a11y: A11y?
 
-    public init(id: String, data: String, mode: QrMode, label: String?, a11y: A11y?) {
+    public init(id: String, data: String, mode: QrMode, label: String? = nil, a11y: A11y? = nil) {
         self.id = id
         self.data = data
         self.mode = mode
@@ -911,7 +918,7 @@ public struct ShowToastComponent: Decodable {
     public let undoActionId: String?
     public let durationMs: UInt32
 
-    public init(id: String, message: String, undoActionId: String?, durationMs: UInt32) {
+    public init(id: String, message: String, undoActionId: String? = nil, durationMs: UInt32) {
         self.id = id
         self.message = message
         self.undoActionId = undoActionId
@@ -929,7 +936,7 @@ public struct InlineConfirmComponent: Decodable {
     public let destructive: Bool
     public var a11y: A11y?
 
-    public init(id: String, warning: String, confirmText: String, cancelText: String, destructive: Bool, a11y: A11y?) {
+    public init(id: String, warning: String, confirmText: String, cancelText: String, destructive: Bool, a11y: A11y? = nil) {
         self.id = id
         self.warning = warning
         self.confirmText = confirmText
@@ -949,7 +956,7 @@ public struct EditableTextComponent: Decodable {
     public let validationError: String?
     public var a11y: A11y?
 
-    public init(id: String, label: String, value: String, editing: Bool, validationError: String?, a11y: A11y?) {
+    public init(id: String, label: String, value: String, editing: Bool, validationError: String? = nil, a11y: A11y? = nil) {
         self.id = id
         self.label = label
         self.value = value
@@ -967,7 +974,7 @@ public struct BannerComponent: Decodable {
     public let actionId: String
     public var a11y: A11y?
 
-    public init(text: String, actionLabel: String, actionId: String, a11y: A11y?) {
+    public init(text: String, actionLabel: String, actionId: String, a11y: A11y? = nil) {
         self.text = text
         self.actionLabel = actionLabel
         self.actionId = actionId
@@ -984,7 +991,7 @@ public struct DropdownComponent: Decodable {
     public let options: [DropdownOption]
     public var a11y: A11y?
 
-    public init(id: String, label: String, selected: String?, options: [DropdownOption], a11y: A11y?) {
+    public init(id: String, label: String, selected: String? = nil, options: [DropdownOption], a11y: A11y? = nil) {
         self.id = id
         self.label = label
         self.selected = selected
@@ -1014,7 +1021,15 @@ public struct AvatarPreviewComponent: Decodable {
     public let editable: Bool
     public let a11y: A11y?
 
-    public init(id: String, imageData: [UInt8]?, initials: String, bgColor: [UInt8]?, brightness: Float, editable: Bool, a11y: A11y?) {
+    public init(
+        id: String,
+        imageData: [UInt8]? = nil,
+        initials: String,
+        bgColor: [UInt8]? = nil,
+        brightness: Float,
+        editable: Bool,
+        a11y: A11y? = nil
+    ) {
         self.id = id
         self.imageData = imageData
         self.initials = initials
@@ -1038,7 +1053,17 @@ public struct SliderComponent: Decodable {
     public let maxIcon: String?
     public let a11y: A11y?
 
-    public init(id: String, label: String, value: Float, min: Float, max: Float, step: Float, minIcon: String?, maxIcon: String?, a11y: A11y?) {
+    public init(
+        id: String,
+        label: String,
+        value: Float,
+        min: Float,
+        max: Float,
+        step: Float,
+        minIcon: String? = nil,
+        maxIcon: String? = nil,
+        a11y: A11y? = nil
+    ) {
         self.id = id
         self.label = label
         self.value = value

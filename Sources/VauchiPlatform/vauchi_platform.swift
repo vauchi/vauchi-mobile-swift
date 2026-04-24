@@ -2031,10 +2031,17 @@ public func FfiConverterTypeMobileExchangeSession_lower(_ value: MobileExchangeS
 
 /**
  * Multi-stage exchange session handle for mobile platforms.
+ *
+ * Holds the protocol state machine plus the event-cycle thread that drives
+ * it. `listener` is an `Arc<Mutex<…>>` so the cycle thread and
+ * `set_listener` share one slot — rebinds mid-session propagate immediately.
  */
 public protocol MobileMultiStageSessionProtocol: AnyObject {
     /**
-     * Abort and wipe session.
+     * Cancel the session. Sets the cancellation flag, waits for the cycle
+     * thread to exit, wipes sensitive state, and drops the registered
+     * listener. Idempotent — safe to call before `start`, multiple times,
+     * or from any thread.
      */
     func cancel()
 
@@ -2055,20 +2062,41 @@ public protocol MobileMultiStageSessionProtocol: AnyObject {
 
     /**
      * Returns the ECDH transport key established during the exchange.
-     *
-     * Used by `VauchiPlatform::finalize_multistage_exchange` to derive
-     * the shared secret for the double ratchet.
      */
     func getTransportKey() -> Data?
 
     /**
      * Feed a scanned QR string into the protocol engine.
+     *
+     * Safe to call concurrently with the cycle thread — the inner
+     * `MultiStageSession` is serialized by the same `Mutex` both paths
+     * hold. Returns the post-scan state so frontends that are still on the
+     * deprecated polling path observe a synchronous update.
      */
     func processScannedQr(raw: String) -> MobileProtocolState
+
+    /**
+     * Register (or replace) the event listener. Safe to call before or
+     * after [`start`](Self::start); subsequent callbacks route to the most
+     * recently installed listener.
+     */
+    func setListener(listener: MultiStageSessionListener)
+
+    /**
+     * Spawn the cycle thread. Idempotent — a second call while the thread
+     * is running is a no-op. Requires [`set_listener`](Self::set_listener)
+     * to have been called; without a listener the thread still runs but
+     * drops every event.
+     */
+    func start()
 }
 
 /**
  * Multi-stage exchange session handle for mobile platforms.
+ *
+ * Holds the protocol state machine plus the event-cycle thread that drives
+ * it. `listener` is an `Arc<Mutex<…>>` so the cycle thread and
+ * `set_listener` share one slot — rebinds mid-session propagate immediately.
  */
 open class MobileMultiStageSession:
     MobileMultiStageSessionProtocol
@@ -2110,7 +2138,19 @@ open class MobileMultiStageSession:
     }
 
     /**
-     * Create a new session with the local contact card to share.
+     * Create a new session for the given local contact card payload.
+     *
+     * The session starts in `Idle` with no listener attached. The caller
+     * must:
+     *
+     * 1. Register a listener via [`set_listener`](Self::set_listener).
+     * 2. Call [`start`](Self::start) to spawn the cycle thread.
+     * 3. Feed camera scans via
+     * [`process_scanned_qr`](Self::process_scanned_qr).
+     * 4. Call [`cancel`](Self::cancel) when leaving the exchange view.
+     *
+     * `local_card` is the raw payload the protocol will transfer — normally
+     * produced by `VauchiPlatform::create_multistage_session`.
      */
     public convenience init(localCard: Data) {
         let pointer =
@@ -2131,7 +2171,10 @@ open class MobileMultiStageSession:
     }
 
     /**
-     * Abort and wipe session.
+     * Cancel the session. Sets the cancellation flag, waits for the cycle
+     * thread to exit, wipes sensitive state, and drops the registered
+     * listener. Idempotent — safe to call before `start`, multiple times,
+     * or from any thread.
      */
     open func cancel() {
         try! rustCall {
@@ -2168,9 +2211,6 @@ open class MobileMultiStageSession:
 
     /**
      * Returns the ECDH transport key established during the exchange.
-     *
-     * Used by `VauchiPlatform::finalize_multistage_exchange` to derive
-     * the shared secret for the double ratchet.
      */
     open func getTransportKey() -> Data? {
         return try! FfiConverterOptionData.lift(try! rustCall {
@@ -2180,12 +2220,41 @@ open class MobileMultiStageSession:
 
     /**
      * Feed a scanned QR string into the protocol engine.
+     *
+     * Safe to call concurrently with the cycle thread — the inner
+     * `MultiStageSession` is serialized by the same `Mutex` both paths
+     * hold. Returns the post-scan state so frontends that are still on the
+     * deprecated polling path observe a synchronous update.
      */
     open func processScannedQr(raw: String) -> MobileProtocolState {
         return try! FfiConverterTypeMobileProtocolState.lift(try! rustCall {
             uniffi_vauchi_platform_fn_method_mobilemultistagesession_process_scanned_qr(self.uniffiClonePointer(),
                                                                                         FfiConverterString.lower(raw), $0)
         })
+    }
+
+    /**
+     * Register (or replace) the event listener. Safe to call before or
+     * after [`start`](Self::start); subsequent callbacks route to the most
+     * recently installed listener.
+     */
+    open func setListener(listener: MultiStageSessionListener) {
+        try! rustCall {
+            uniffi_vauchi_platform_fn_method_mobilemultistagesession_set_listener(self.uniffiClonePointer(),
+                                                                                  FfiConverterCallbackInterfaceMultiStageSessionListener.lower(listener), $0)
+        }
+    }
+
+    /**
+     * Spawn the cycle thread. Idempotent — a second call while the thread
+     * is running is a no-op. Requires [`set_listener`](Self::set_listener)
+     * to have been called; without a listener the thread still runs but
+     * drops every event.
+     */
+    open func start() {
+        try! rustCall {
+            uniffi_vauchi_platform_fn_method_mobilemultistagesession_start(self.uniffiClonePointer(), $0)
+        }
     }
 }
 
@@ -3163,13 +3232,24 @@ public protocol PlatformAppEngineProtocol: AnyObject {
     func setEventListener(listener: PlatformEventListener) throws
 
     /**
-     * Returns top-level navigation tabs with id, label, icon, and badge count.
+     * Returns desktop-sidebar metadata — all top-level navigable
+     * screens with locale-resolved labels. Wider than `tab_info()`
+     * because desktop frames accommodate more entries than a phone
+     * bottom-tab bar. Use this from macOS / Windows / linux-gtk /
+     * linux-qt sidebars so they stop maintaining their own screen →
+     * label match tables (§6 pure-renderer remediation).
+     */
+    func sidebarItems(locale: MobileLocale) throws -> [MobileTabInfo]
+
+    /**
+     * Returns the mobile bottom-tab bar metadata (id, label, icon,
+     * badge count) with labels resolved from the supplied `locale`.
      *
-     * Frontends consume this to render their bottom-nav / tab-bar without
-     * hardcoding labels, icons, or screen-to-tab mappings (G1 of the
+     * Frontends render the returned `MobileTabInfo` directly — no
+     * local screen-to-tab map or label lookup needed (G1 of the
      * frontend pure-renderer remediation; ADR-021 / ADR-038).
      */
-    func tabInfo() throws -> [MobileTabInfo]
+    func tabInfo(locale: MobileLocale) throws -> [MobileTabInfo]
 }
 
 /**
@@ -3555,15 +3635,32 @@ open class PlatformAppEngine:
     }
 
     /**
-     * Returns top-level navigation tabs with id, label, icon, and badge count.
+     * Returns desktop-sidebar metadata — all top-level navigable
+     * screens with locale-resolved labels. Wider than `tab_info()`
+     * because desktop frames accommodate more entries than a phone
+     * bottom-tab bar. Use this from macOS / Windows / linux-gtk /
+     * linux-qt sidebars so they stop maintaining their own screen →
+     * label match tables (§6 pure-renderer remediation).
+     */
+    open func sidebarItems(locale: MobileLocale) throws -> [MobileTabInfo] {
+        return try FfiConverterSequenceTypeMobileTabInfo.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_sidebar_items(self.uniffiClonePointer(),
+                                                                             FfiConverterTypeMobileLocale.lower(locale), $0)
+        })
+    }
+
+    /**
+     * Returns the mobile bottom-tab bar metadata (id, label, icon,
+     * badge count) with labels resolved from the supplied `locale`.
      *
-     * Frontends consume this to render their bottom-nav / tab-bar without
-     * hardcoding labels, icons, or screen-to-tab mappings (G1 of the
+     * Frontends render the returned `MobileTabInfo` directly — no
+     * local screen-to-tab map or label lookup needed (G1 of the
      * frontend pure-renderer remediation; ADR-021 / ADR-038).
      */
-    open func tabInfo() throws -> [MobileTabInfo] {
+    open func tabInfo(locale: MobileLocale) throws -> [MobileTabInfo] {
         return try FfiConverterSequenceTypeMobileTabInfo.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_platformappengine_tab_info(self.uniffiClonePointer(), $0)
+            uniffi_vauchi_platform_fn_method_platformappengine_tab_info(self.uniffiClonePointer(),
+                                                                        FfiConverterTypeMobileLocale.lower(locale), $0)
         })
     }
 }
@@ -18626,6 +18723,213 @@ extension FfiConverterCallbackInterfaceMobileWifiAwareHandler: FfiConverter {
 }
 
 /**
+ * Push-based callback interface for multi-stage exchange events.
+ *
+ * Frontends implement this trait (in Swift/Kotlin via UniFFI) and register
+ * it with [`MobileMultiStageSession::set_listener`] before calling
+ * [`MobileMultiStageSession::start`]. Once `start()` is called, an internal
+ * `vauchi-exchange-cycle` thread drives the protocol clock and invokes these
+ * callbacks as state advances.
+ *
+ * # Threading
+ *
+ * Callbacks fire from the cycle thread, **not** the main/UI thread.
+ * Consumers must marshal to their platform's UI thread before touching UI
+ * state (`DispatchQueue.main.async` on iOS, `withContext(Dispatchers.Main)`
+ * on Android).
+ *
+ * # Callback contract
+ *
+ * - [`on_qr_payload`](Self::on_qr_payload) — fires for every QR frame the
+ * frontend should render.
+ * - [`on_state_changed`](Self::on_state_changed) — fires only when the
+ * protocol state actually changes (no duplicates).
+ * - [`on_finalized`](Self::on_finalized) — fires exactly once per successful
+ * session, carries the peer's display name for UX.
+ * - [`on_session_ended`](Self::on_session_ended) — final callback on the
+ * session (grace expired, FAIL broadcast done, or cancelled). Always last.
+ */
+public protocol MultiStageSessionListener: AnyObject {
+    /**
+     * New QR payload to render. Core handles the cycle timing; the frontend
+     * just renders whatever this emits and stops when the next callback
+     * arrives.
+     */
+    func onQrPayload(payload: MobileQrPayload)
+
+    /**
+     * Protocol state changed. Fires once per actual transition.
+     */
+    func onStateChanged(state: MobileProtocolState)
+
+    /**
+     * Exchange finalized successfully. `contact_name` is the peer's card
+     * display name. Fires exactly once per successful session, before
+     * [`on_session_ended`](Self::on_session_ended).
+     */
+    func onFinalized(contactName: String)
+
+    /**
+     * Session has fully ended — grace period expired, FAIL broadcast
+     * completed, or `cancel()` was called. Always the last callback.
+     */
+    func onSessionEnded()
+}
+
+/// Put the implementation in a struct so we don't pollute the top-level namespace
+private enum UniffiCallbackInterfaceMultiStageSessionListener {
+    /// Create the VTable using a series of closures.
+    /// Swift automatically converts these into C callback functions.
+    static var vtable: UniffiVTableCallbackInterfaceMultiStageSessionListener = .init(
+        onQrPayload: { (
+            uniffiHandle: UInt64,
+            payload: RustBuffer,
+            _: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceMultiStageSessionListener.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return try uniffiObj.onQrPayload(
+                    payload: FfiConverterTypeMobileQrPayload.lift(payload)
+                )
+            }
+
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        onStateChanged: { (
+            uniffiHandle: UInt64,
+            state: RustBuffer,
+            _: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceMultiStageSessionListener.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return try uniffiObj.onStateChanged(
+                    state: FfiConverterTypeMobileProtocolState.lift(state)
+                )
+            }
+
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        onFinalized: { (
+            uniffiHandle: UInt64,
+            contactName: RustBuffer,
+            _: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceMultiStageSessionListener.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return try uniffiObj.onFinalized(
+                    contactName: FfiConverterString.lift(contactName)
+                )
+            }
+
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        onSessionEnded: { (
+            uniffiHandle: UInt64,
+            _: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceMultiStageSessionListener.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.onSessionEnded(
+                )
+            }
+
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        uniffiFree: { (uniffiHandle: UInt64) in
+            let result = try? FfiConverterCallbackInterfaceMultiStageSessionListener.handleMap.remove(handle: uniffiHandle)
+            if result == nil {
+                print("Uniffi callback interface MultiStageSessionListener: handle missing in uniffiFree")
+            }
+        }
+    )
+}
+
+private func uniffiCallbackInitMultiStageSessionListener() {
+    uniffi_vauchi_platform_fn_init_callback_vtable_multistagesessionlistener(&UniffiCallbackInterfaceMultiStageSessionListener.vtable)
+}
+
+// FfiConverter protocol for callback interfaces
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+private enum FfiConverterCallbackInterfaceMultiStageSessionListener {
+    fileprivate static var handleMap = UniffiHandleMap<MultiStageSessionListener>()
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+extension FfiConverterCallbackInterfaceMultiStageSessionListener: FfiConverter {
+    typealias SwiftType = MultiStageSessionListener
+    typealias FfiType = UInt64
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public static func lift(_ handle: UInt64) throws -> SwiftType {
+        try handleMap.get(handle: handle)
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public static func lower(_ v: SwiftType) -> UInt64 {
+        return handleMap.insert(obj: v)
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public static func write(_ v: SwiftType, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(v))
+    }
+}
+
+/**
  * Callback interface for async state-change notifications from core.
  *
  * Frontends implement this trait (in Swift/Kotlin via UniFFI) and register
@@ -20704,7 +21008,7 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_mobileexchangesession_verification_confidence() != 33982 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_mobilemultistagesession_cancel() != 63339 {
+    if uniffi_vauchi_platform_checksum_method_mobilemultistagesession_cancel() != 40973 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_mobilemultistagesession_get_display_qr() != 21414 {
@@ -20716,10 +21020,16 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_mobilemultistagesession_get_state() != 20898 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_mobilemultistagesession_get_transport_key() != 33921 {
+    if uniffi_vauchi_platform_checksum_method_mobilemultistagesession_get_transport_key() != 20127 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_mobilemultistagesession_process_scanned_qr() != 44014 {
+    if uniffi_vauchi_platform_checksum_method_mobilemultistagesession_process_scanned_qr() != 43999 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_mobilemultistagesession_set_listener() != 59160 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_mobilemultistagesession_start() != 45817 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_mobilemultipartdecoder_add_chunk() != 44861 {
@@ -20821,7 +21131,10 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_platformappengine_set_event_listener() != 2450 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_platformappengine_tab_info() != 2544 {
+    if uniffi_vauchi_platform_checksum_method_platformappengine_sidebar_items() != 40006 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_tab_info() != 36149 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_add_contact_to_group() != 53515 {
@@ -21394,7 +21707,7 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_constructor_mobilebleexchangesession_new() != 46873 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_constructor_mobilemultistagesession_new() != 57982 {
+    if uniffi_vauchi_platform_checksum_constructor_mobilemultistagesession_new() != 44223 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_constructor_mobilemultipartdecoder_new() != 57012 {
@@ -21466,6 +21779,18 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_mobilewifiawarehandler_on_error() != 2429 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_method_multistagesessionlistener_on_qr_payload() != 45339 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_multistagesessionlistener_on_state_changed() != 38158 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_multistagesessionlistener_on_finalized() != 10866 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_multistagesessionlistener_on_session_ended() != 55751 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_platform_checksum_method_platformeventlistener_on_screens_invalidated() != 40829 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -21475,6 +21800,7 @@ private var initializationResult: InitializationResult = {
     uniffiCallbackInitMobilePlatformKeychain()
     uniffiCallbackInitMobileProximityHandler()
     uniffiCallbackInitMobileWifiAwareHandler()
+    uniffiCallbackInitMultiStageSessionListener()
     uniffiCallbackInitPlatformEventListener()
     return InitializationResult.ok
 }()

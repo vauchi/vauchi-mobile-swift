@@ -1594,6 +1594,222 @@ public func FfiConverterTypeMobileDeviceLinkResponder_lower(_ value: MobileDevic
 }
 
 /**
+ * Device-link session handle. See module docs for lifecycle.
+ */
+public protocol MobileDeviceLinkSessionProtocol: AnyObject {
+    /**
+     * Cancel the session. Sets the cancellation flag, waits for
+     * the cycle thread to exit, drops the listener. Idempotent.
+     */
+    func cancel()
+
+    /**
+     * User confirmed the codes match (manual / non-ultrasonic
+     * path). Sends a `ConfirmManual` action to the cycle thread; a
+     * duplicate tap returns Ok-but-no-effect (channel already
+     * full).
+     */
+    func confirmManual(confirmationCode: String, confirmedAt: UInt64) throws
+
+    /**
+     * User completed ultrasonic proximity verification. Sends a
+     * `ConfirmUltrasonic` action to the cycle thread.
+     */
+    func confirmUltrasonic(challengeResponse: Data, verifiedAt: UInt64) throws
+
+    /**
+     * User denied the link (codes did not match, or rejected the
+     * request). Cycle thread emits `on_failed("user_denied")` then
+     * `on_session_ended()`.
+     */
+    func deny()
+
+    /**
+     * Register or replace the session listener. Safe to call before
+     * or after `start()`; subsequent callbacks route to the most
+     * recently installed listener.
+     */
+    func setListener(listener: DeviceLinkSessionListener)
+
+    /**
+     * Spawn the cycle thread. Idempotent — a second call while the
+     * thread is running is a no-op. Without a registered listener
+     * the thread runs but every callback is dropped.
+     */
+    func start()
+}
+
+/**
+ * Device-link session handle. See module docs for lifecycle.
+ */
+open class MobileDeviceLinkSession:
+    MobileDeviceLinkSessionProtocol
+{
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    // Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noPointer _: NoPointer) {
+        pointer = nil
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_vauchi_platform_fn_clone_mobiledevicelinksession(self.pointer, $0) }
+    }
+
+    // No primary constructor declared for this class.
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_vauchi_platform_fn_free_mobiledevicelinksession(pointer, $0) }
+    }
+
+    /**
+     * Cancel the session. Sets the cancellation flag, waits for
+     * the cycle thread to exit, drops the listener. Idempotent.
+     */
+    open func cancel() {
+        try! rustCall {
+            uniffi_vauchi_platform_fn_method_mobiledevicelinksession_cancel(self.uniffiClonePointer(), $0)
+        }
+    }
+
+    /**
+     * User confirmed the codes match (manual / non-ultrasonic
+     * path). Sends a `ConfirmManual` action to the cycle thread; a
+     * duplicate tap returns Ok-but-no-effect (channel already
+     * full).
+     */
+    open func confirmManual(confirmationCode: String, confirmedAt: UInt64) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_mobiledevicelinksession_confirm_manual(self.uniffiClonePointer(),
+                                                                                    FfiConverterString.lower(confirmationCode),
+                                                                                    FfiConverterUInt64.lower(confirmedAt), $0)
+        }
+    }
+
+    /**
+     * User completed ultrasonic proximity verification. Sends a
+     * `ConfirmUltrasonic` action to the cycle thread.
+     */
+    open func confirmUltrasonic(challengeResponse: Data, verifiedAt: UInt64) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_mobiledevicelinksession_confirm_ultrasonic(self.uniffiClonePointer(),
+                                                                                        FfiConverterData.lower(challengeResponse),
+                                                                                        FfiConverterUInt64.lower(verifiedAt), $0)
+        }
+    }
+
+    /**
+     * User denied the link (codes did not match, or rejected the
+     * request). Cycle thread emits `on_failed("user_denied")` then
+     * `on_session_ended()`.
+     */
+    open func deny() {
+        try! rustCall {
+            uniffi_vauchi_platform_fn_method_mobiledevicelinksession_deny(self.uniffiClonePointer(), $0)
+        }
+    }
+
+    /**
+     * Register or replace the session listener. Safe to call before
+     * or after `start()`; subsequent callbacks route to the most
+     * recently installed listener.
+     */
+    open func setListener(listener: DeviceLinkSessionListener) {
+        try! rustCall {
+            uniffi_vauchi_platform_fn_method_mobiledevicelinksession_set_listener(self.uniffiClonePointer(),
+                                                                                  FfiConverterCallbackInterfaceDeviceLinkSessionListener.lower(listener), $0)
+        }
+    }
+
+    /**
+     * Spawn the cycle thread. Idempotent — a second call while the
+     * thread is running is a no-op. Without a registered listener
+     * the thread runs but every callback is dropped.
+     */
+    open func start() {
+        try! rustCall {
+            uniffi_vauchi_platform_fn_method_mobiledevicelinksession_start(self.uniffiClonePointer(), $0)
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileDeviceLinkSession: FfiConverter {
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = MobileDeviceLinkSession
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileDeviceLinkSession {
+        return MobileDeviceLinkSession(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: MobileDeviceLinkSession) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileDeviceLinkSession {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if ptr == nil {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: MobileDeviceLinkSession, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileDeviceLinkSession_lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileDeviceLinkSession {
+    return try FfiConverterTypeMobileDeviceLinkSession.lift(pointer)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileDeviceLinkSession_lower(_ value: MobileDeviceLinkSession) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeMobileDeviceLinkSession.lower(value)
+}
+
+/**
  * Mobile exchange session wrapping the core `ExchangeSession` state machine.
  *
  * Drives the exchange flow: generate/scan QR -> verify proximity -> key agreement -> complete.
@@ -3838,6 +4054,25 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func countFailedDeliveries() throws -> UInt32
 
     /**
+     * Create a device-link session for the existing device
+     * (initiator side).
+     *
+     * This is the orchestrator entry point — frontends register a
+     * `DeviceLinkSessionListener`, call `start()` on the returned
+     * session, and forward user actions via `confirm_manual` /
+     * `confirm_ultrasonic` / `deny`. The session owns the relay-poll
+     * loop, the QR-expiry deadline, and the user-confirm gate.
+     * Replaces the legacy split between `start_device_link()`,
+     * `listen_for_device_link_request()`, and
+     * `send_device_link_response()`.
+     *
+     * Persistence: the session saves the updated `DeviceRegistry`
+     * after `confirm_link` succeeds, closing a pre-existing gap
+     * where the legacy single-shot path discarded it.
+     */
+    func createDeviceLinkSessionInitiator() throws -> MobileDeviceLinkSession
+
+    /**
      * Create a new identity.
      */
     func createIdentity(displayName: String) throws
@@ -5237,6 +5472,29 @@ open class VauchiPlatform:
     open func countFailedDeliveries() throws -> UInt32 {
         return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_vauchiplatform_count_failed_deliveries(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Create a device-link session for the existing device
+     * (initiator side).
+     *
+     * This is the orchestrator entry point — frontends register a
+     * `DeviceLinkSessionListener`, call `start()` on the returned
+     * session, and forward user actions via `confirm_manual` /
+     * `confirm_ultrasonic` / `deny`. The session owns the relay-poll
+     * loop, the QR-expiry deadline, and the user-confirm gate.
+     * Replaces the legacy split between `start_device_link()`,
+     * `listen_for_device_link_request()`, and
+     * `send_device_link_response()`.
+     *
+     * Persistence: the session saves the updated `DeviceRegistry`
+     * after `confirm_link` succeeds, closing a pre-existing gap
+     * where the legacy single-shot path discarded it.
+     */
+    open func createDeviceLinkSessionInitiator() throws -> MobileDeviceLinkSession {
+        return try FfiConverterTypeMobileDeviceLinkSession.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_vauchiplatform_create_device_link_session_initiator(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -17755,6 +18013,301 @@ public func FfiConverterTypeMobileWidgetConfirmationMode_lower(_ value: MobileWi
 extension MobileWidgetConfirmationMode: Equatable, Hashable {}
 
 /**
+ * Push-based callback interface for device-link session events.
+ *
+ * Frontends implement this trait (in Swift/Kotlin via UniFFI) and
+ * register it with [`MobileDeviceLinkSession::set_listener`] before
+ * calling [`MobileDeviceLinkSession::start`]. Once `start()` is
+ * called, the cycle thread drives the relay-poll loop and
+ * user-confirm gate, invoking these callbacks as state advances.
+ *
+ * # Threading
+ *
+ * Callbacks fire from the cycle thread, **not** the main/UI thread.
+ * Consumers must marshal to their platform's UI thread before
+ * touching UI state.
+ *
+ * # Callback contract (initiator side, Phase 1)
+ *
+ * 1. [`on_qr_ready`](Self::on_qr_ready) — fires once after `start()`.
+ * Carries the QR data string and Unix timestamp when the QR
+ * expires (per ADR-035, `qr.timestamp + LINK_QR_EXPIRY_SECONDS`).
+ * 2. [`on_confirmation_required`](Self::on_confirmation_required) —
+ * fires when a peer claims the QR. Carries the device name,
+ * confirmation code, identity fingerprint, and proximity
+ * challenge bytes. The frontend displays these and waits for the
+ * user to call [`confirm_manual`](MobileDeviceLinkSession::confirm_manual)
+ * / [`confirm_ultrasonic`](MobileDeviceLinkSession::confirm_ultrasonic)
+ * / [`deny`](MobileDeviceLinkSession::deny).
+ * 3. [`on_completed`](Self::on_completed) **xor**
+ * [`on_failed`](Self::on_failed) — terminal callback. Fires once.
+ * 4. [`on_session_ended`](Self::on_session_ended) — always last,
+ * fires exactly once per session lifetime regardless of exit
+ * path (success / failure / cancel / expiry / user-deny).
+ *
+ * # `on_request_sent` (responder, deferred)
+ *
+ * Reserved for the responder-side flow once a frontend wires it.
+ * Not fired by Phase 1 implementations.
+ */
+public protocol DeviceLinkSessionListener: AnyObject {
+    /**
+     * QR is ready for display. `expires_at_unix` is the protocol-
+     * defined expiry deadline.
+     */
+    func onQrReady(qrData: String, expiresAtUnix: UInt64)
+
+    /**
+     * Peer claimed the QR. Frontend displays `device_name` +
+     * `confirmation_code` and awaits the user's confirm/deny input.
+     */
+    func onConfirmationRequired(deviceName: String, confirmationCode: String, identityFingerprint: String, proximityChallenge: Data)
+
+    /**
+     * Responder-side: request POSTed; waiting for the existing
+     * device's confirmation + response. Reserved for a future
+     * responder cycle thread; never fires from Phase 1 code.
+     */
+    func onRequestSent(confirmationCode: String)
+
+    /**
+     * Terminal success.
+     */
+    func onCompleted(deviceName: String, deviceIndex: UInt32)
+
+    /**
+     * Terminal failure. `reason` is a stable identifier for known
+     * cases (`"qr_expired"`, `"user_denied"`, `"user_confirm_timeout"`,
+     * `"cancelled"`) or a free-form description for unexpected
+     * errors (relay, decode, proof-rejection).
+     */
+    func onFailed(reason: String)
+
+    /**
+     * Always-last callback. Fires exactly once per session
+     * lifetime. Mirrors `MultiStageSessionListener::on_session_ended`.
+     */
+    func onSessionEnded()
+}
+
+/// Magic number for the Rust proxy to call using the same mechanism as every other method,
+/// to free the callback once it's dropped by Rust.
+private let IDX_CALLBACK_FREE: Int32 = 0
+// Callback return codes
+private let UNIFFI_CALLBACK_SUCCESS: Int32 = 0
+private let UNIFFI_CALLBACK_ERROR: Int32 = 1
+private let UNIFFI_CALLBACK_UNEXPECTED_ERROR: Int32 = 2
+
+/// Put the implementation in a struct so we don't pollute the top-level namespace
+private enum UniffiCallbackInterfaceDeviceLinkSessionListener {
+    /// Create the VTable using a series of closures.
+    /// Swift automatically converts these into C callback functions.
+    static var vtable: UniffiVTableCallbackInterfaceDeviceLinkSessionListener = .init(
+        onQrReady: { (
+            uniffiHandle: UInt64,
+            qrData: RustBuffer,
+            expiresAtUnix: UInt64,
+            _: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceDeviceLinkSessionListener.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return try uniffiObj.onQrReady(
+                    qrData: FfiConverterString.lift(qrData),
+                    expiresAtUnix: FfiConverterUInt64.lift(expiresAtUnix)
+                )
+            }
+
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        onConfirmationRequired: { (
+            uniffiHandle: UInt64,
+            deviceName: RustBuffer,
+            confirmationCode: RustBuffer,
+            identityFingerprint: RustBuffer,
+            proximityChallenge: RustBuffer,
+            _: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceDeviceLinkSessionListener.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return try uniffiObj.onConfirmationRequired(
+                    deviceName: FfiConverterString.lift(deviceName),
+                    confirmationCode: FfiConverterString.lift(confirmationCode),
+                    identityFingerprint: FfiConverterString.lift(identityFingerprint),
+                    proximityChallenge: FfiConverterData.lift(proximityChallenge)
+                )
+            }
+
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        onRequestSent: { (
+            uniffiHandle: UInt64,
+            confirmationCode: RustBuffer,
+            _: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceDeviceLinkSessionListener.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return try uniffiObj.onRequestSent(
+                    confirmationCode: FfiConverterString.lift(confirmationCode)
+                )
+            }
+
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        onCompleted: { (
+            uniffiHandle: UInt64,
+            deviceName: RustBuffer,
+            deviceIndex: UInt32,
+            _: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceDeviceLinkSessionListener.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return try uniffiObj.onCompleted(
+                    deviceName: FfiConverterString.lift(deviceName),
+                    deviceIndex: FfiConverterUInt32.lift(deviceIndex)
+                )
+            }
+
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        onFailed: { (
+            uniffiHandle: UInt64,
+            reason: RustBuffer,
+            _: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceDeviceLinkSessionListener.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return try uniffiObj.onFailed(
+                    reason: FfiConverterString.lift(reason)
+                )
+            }
+
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        onSessionEnded: { (
+            uniffiHandle: UInt64,
+            _: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceDeviceLinkSessionListener.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.onSessionEnded(
+                )
+            }
+
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        uniffiFree: { (uniffiHandle: UInt64) in
+            let result = try? FfiConverterCallbackInterfaceDeviceLinkSessionListener.handleMap.remove(handle: uniffiHandle)
+            if result == nil {
+                print("Uniffi callback interface DeviceLinkSessionListener: handle missing in uniffiFree")
+            }
+        }
+    )
+}
+
+private func uniffiCallbackInitDeviceLinkSessionListener() {
+    uniffi_vauchi_platform_fn_init_callback_vtable_devicelinksessionlistener(&UniffiCallbackInterfaceDeviceLinkSessionListener.vtable)
+}
+
+// FfiConverter protocol for callback interfaces
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+private enum FfiConverterCallbackInterfaceDeviceLinkSessionListener {
+    fileprivate static var handleMap = UniffiHandleMap<DeviceLinkSessionListener>()
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+extension FfiConverterCallbackInterfaceDeviceLinkSessionListener: FfiConverter {
+    typealias SwiftType = DeviceLinkSessionListener
+    typealias FfiType = UInt64
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public static func lift(_ handle: UInt64) throws -> SwiftType {
+        try handleMap.get(handle: handle)
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public static func lower(_ v: SwiftType) -> UInt64 {
+        return handleMap.insert(obj: v)
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public static func write(_ v: SwiftType, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(v))
+    }
+}
+
+/**
  * Callback interface for platform-specific BLE transport.
  *
  * iOS implements this with CoreBluetooth.
@@ -17799,14 +18352,6 @@ public protocol MobileBleDelegate: AnyObject {
      */
     func onExchangeFailed(error: String)
 }
-
-/// Magic number for the Rust proxy to call using the same mechanism as every other method,
-/// to free the callback once it's dropped by Rust.
-private let IDX_CALLBACK_FREE: Int32 = 0
-// Callback return codes
-private let UNIFFI_CALLBACK_SUCCESS: Int32 = 0
-private let UNIFFI_CALLBACK_ERROR: Int32 = 1
-private let UNIFFI_CALLBACK_UNEXPECTED_ERROR: Int32 = 2
 
 /// Put the implementation in a struct so we don't pollute the top-level namespace
 private enum UniffiCallbackInterfaceMobileBleDelegate {
@@ -20908,6 +21453,24 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_mobiledevicelinkresponder_identity_fingerprint() != 39007 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_method_mobiledevicelinksession_cancel() != 27360 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_mobiledevicelinksession_confirm_manual() != 50149 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_mobiledevicelinksession_confirm_ultrasonic() != 7380 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_mobiledevicelinksession_deny() != 2270 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_mobiledevicelinksession_set_listener() != 48147 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_mobiledevicelinksession_start() != 5961 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_platform_checksum_method_mobileexchangesession_apply_hardware_event() != 3482 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -21149,6 +21712,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_count_failed_deliveries() != 46981 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_create_device_link_session_initiator() != 24358 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_create_identity() != 4138 {
@@ -21664,6 +22230,24 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_constructor_vauchiplatform_new_with_secure_key() != 41810 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_method_devicelinksessionlistener_on_qr_ready() != 36855 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_devicelinksessionlistener_on_confirmation_required() != 47616 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_devicelinksessionlistener_on_request_sent() != 60122 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_devicelinksessionlistener_on_completed() != 15275 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_devicelinksessionlistener_on_failed() != 63377 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_devicelinksessionlistener_on_session_ended() != 39701 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_platform_checksum_method_mobilebledelegate_send_data() != 31030 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -21734,6 +22318,7 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
 
+    uniffiCallbackInitDeviceLinkSessionListener()
     uniffiCallbackInitMobileBleDelegate()
     uniffiCallbackInitMobileNfcTransport()
     uniffiCallbackInitMobilePlatformKeychain()

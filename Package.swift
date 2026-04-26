@@ -7,8 +7,8 @@
 import Foundation
 import PackageDescription
 
-let version = "0.24.0"
-let checksum = "ffaa4f3fcb0be2b464cee7e9796507cb05882b1df62c5036b6a1d53df592f1d3" // Updated by CI on release
+let version = "0.24.1"
+let checksum = "af860cfae1d54752869adc5eff6bba11799c7f81761c80fbf9c75ffdf39c26e1" // Updated by CI on release
 
 // Binary-target source: defaults to the published URL artifact (verified
 // by `checksum` above). When VAUCHI_PLATFORM_USE_LOCAL_XCFRAMEWORK is set
@@ -26,19 +26,10 @@ let useLocalXCFramework = ProcessInfo.processInfo.environment[
 
 let binaryTarget: PackageDescription.Target = useLocalXCFramework
     ? .binaryTarget(
-        name: "VauchiPlatformFFI",
-        path: "VauchiPlatformFFI.xcframework"
-    )
-    : .binaryTarget(
-        name: "VauchiPlatformFFI",
-        url: "https://gitlab.com/api/v4/projects/vauchi%2Fcore/packages/generic/vauchi-platform/\(version)/VauchiPlatformFFI.xcframework.zip",
-        checksum: checksum
-    )
-
-let package = Package(
-    name: "VauchiPlatform",
-    platforms: [
-        .iOS(.v15),
+     name: "VauchiPlatformFFI",
+     url: "https://gitlab.com/api/v4/projects/vauchi%2Fcore/packages/generic/vauchi-platform/\(version)/VauchiPlatformFFI.xcframework.zip",
+     checksum: checksum
+ ),
         .macOS(.v12),
     ],
     products: [

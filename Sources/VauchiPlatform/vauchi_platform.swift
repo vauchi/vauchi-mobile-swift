@@ -2046,32 +2046,13 @@ public protocol MobileMultiStageSessionProtocol: AnyObject {
     func cancel()
 
     /**
-     * Get the QR payload the app should display right now.
-     */
-    func getDisplayQr() -> MobileQrPayload?
-
-    /**
-     * On Complete: retrieve the peer's decrypted contact card.
-     */
-    func getReceivedData() -> Data?
-
-    /**
-     * Poll current state.
-     */
-    func getState() -> MobileProtocolState
-
-    /**
-     * Returns the ECDH transport key established during the exchange.
-     */
-    func getTransportKey() -> Data?
-
-    /**
      * Feed a scanned QR string into the protocol engine.
      *
      * Safe to call concurrently with the cycle thread — the inner
      * `MultiStageSession` is serialized by the same `Mutex` both paths
-     * hold. Returns the post-scan state so frontends that are still on the
-     * deprecated polling path observe a synchronous update.
+     * hold. Returns the post-scan state so the camera pipeline has an
+     * immediate signal even before the next listener cycle observes the
+     * transition.
      */
     func processScannedQr(raw: String) -> MobileProtocolState
 
@@ -2183,48 +2164,13 @@ open class MobileMultiStageSession:
     }
 
     /**
-     * Get the QR payload the app should display right now.
-     */
-    open func getDisplayQr() -> MobileQrPayload? {
-        return try! FfiConverterOptionTypeMobileQrPayload.lift(try! rustCall {
-            uniffi_vauchi_platform_fn_method_mobilemultistagesession_get_display_qr(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * On Complete: retrieve the peer's decrypted contact card.
-     */
-    open func getReceivedData() -> Data? {
-        return try! FfiConverterOptionData.lift(try! rustCall {
-            uniffi_vauchi_platform_fn_method_mobilemultistagesession_get_received_data(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Poll current state.
-     */
-    open func getState() -> MobileProtocolState {
-        return try! FfiConverterTypeMobileProtocolState.lift(try! rustCall {
-            uniffi_vauchi_platform_fn_method_mobilemultistagesession_get_state(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Returns the ECDH transport key established during the exchange.
-     */
-    open func getTransportKey() -> Data? {
-        return try! FfiConverterOptionData.lift(try! rustCall {
-            uniffi_vauchi_platform_fn_method_mobilemultistagesession_get_transport_key(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
      * Feed a scanned QR string into the protocol engine.
      *
      * Safe to call concurrently with the cycle thread — the inner
      * `MultiStageSession` is serialized by the same `Mutex` both paths
-     * hold. Returns the post-scan state so frontends that are still on the
-     * deprecated polling path observe a synchronous update.
+     * hold. Returns the post-scan state so the camera pipeline has an
+     * immediate signal even before the next listener cycle observes the
+     * transition.
      */
     open func processScannedQr(raw: String) -> MobileProtocolState {
         return try! FfiConverterTypeMobileProtocolState.lift(try! rustCall {
@@ -3872,6 +3818,21 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func contactCount() throws -> UInt32
 
     /**
+     * Returns the footer-button `ScreenAction` id that
+     * `ContactDetailEngine` would emit for the given contact —
+     * `"delete_contact"` for imported contacts, `"archive_contact"`
+     * for exchanged contacts.
+     *
+     * Frontends call this and dispatch on the returned id so the
+     * view layer never reads `MobileContact.is_imported` directly,
+     * per the §1A pure-renderer rule
+     * (`_private/docs/problems/2026-04-25-isimported-frontend-cleanup/`).
+     * Returns `MobileError::InvalidInput { field: "contact_id" }`
+     * if no contact with the given id exists.
+     */
+    func contactDetailFooterActionId(contactId: String) throws -> String
+
+    /**
      * Count failed deliveries.
      */
     func countFailedDeliveries() throws -> UInt32
@@ -4068,20 +4029,6 @@ public protocol VauchiPlatformProtocol: AnyObject {
      * driven through all steps).
      */
     func finalizeExchange(session: MobileExchangeSession) throws -> MobileExchangeResult
-
-    /**
-     * Finalize a completed multi-stage exchange session.
-     *
-     * Deserializes the peer's exchange payload (public key + contact card),
-     * creates a Contact using the transport key as the shared secret,
-     * saves it to storage, and initializes the double ratchet.
-     *
-     * On repeat exchange: same ratchet-reset semantics as `finalize_exchange` —
-     * card is upserted, ratchet re-initialized, in-flight messages lost.
-     *
-     * The session must be in the Complete state with received data available.
-     */
-    func finalizeMultistageExchange(session: MobileMultiStageSession) throws -> MobileExchangeResult
 
     /**
      * Find potential duplicate contacts based on name and field similarity.
@@ -5265,6 +5212,26 @@ open class VauchiPlatform:
     }
 
     /**
+     * Returns the footer-button `ScreenAction` id that
+     * `ContactDetailEngine` would emit for the given contact —
+     * `"delete_contact"` for imported contacts, `"archive_contact"`
+     * for exchanged contacts.
+     *
+     * Frontends call this and dispatch on the returned id so the
+     * view layer never reads `MobileContact.is_imported` directly,
+     * per the §1A pure-renderer rule
+     * (`_private/docs/problems/2026-04-25-isimported-frontend-cleanup/`).
+     * Returns `MobileError::InvalidInput { field: "contact_id" }`
+     * if no contact with the given id exists.
+     */
+    open func contactDetailFooterActionId(contactId: String) throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_vauchiplatform_contact_detail_footer_action_id(self.uniffiClonePointer(),
+                                                                                            FfiConverterString.lower(contactId), $0)
+        })
+    }
+
+    /**
      * Count failed deliveries.
      */
     open func countFailedDeliveries() throws -> UInt32 {
@@ -5593,25 +5560,6 @@ open class VauchiPlatform:
         return try FfiConverterTypeMobileExchangeResult.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_vauchiplatform_finalize_exchange(self.uniffiClonePointer(),
                                                                               FfiConverterTypeMobileExchangeSession.lower(session), $0)
-        })
-    }
-
-    /**
-     * Finalize a completed multi-stage exchange session.
-     *
-     * Deserializes the peer's exchange payload (public key + contact card),
-     * creates a Contact using the transport key as the shared secret,
-     * saves it to storage, and initializes the double ratchet.
-     *
-     * On repeat exchange: same ratchet-reset semantics as `finalize_exchange` —
-     * card is upserted, ratchet re-initialized, in-flight messages lost.
-     *
-     * The session must be in the Complete state with received data available.
-     */
-    open func finalizeMultistageExchange(session: MobileMultiStageSession) throws -> MobileExchangeResult {
-        return try FfiConverterTypeMobileExchangeResult.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_finalize_multistage_exchange(self.uniffiClonePointer(),
-                                                                                         FfiConverterTypeMobileMultiStageSession.lower(session), $0)
         })
     }
 
@@ -19326,30 +19274,6 @@ private struct FfiConverterOptionTypeMobileFaqItem: FfiConverterRustBuffer {
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
-private struct FfiConverterOptionTypeMobileQrPayload: FfiConverterRustBuffer {
-    typealias SwiftType = MobileQrPayload?
-
-    static func write(_ value: SwiftType, into buf: inout [UInt8]) {
-        guard let value = value else {
-            writeInt(&buf, Int8(0))
-            return
-        }
-        writeInt(&buf, Int8(1))
-        FfiConverterTypeMobileQrPayload.write(value, into: &buf)
-    }
-
-    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
-        switch try readInt(&buf) as Int8 {
-        case 0: return nil
-        case 1: return try FfiConverterTypeMobileQrPayload.read(from: &buf)
-        default: throw UniffiInternalError.unexpectedOptionalTag
-        }
-    }
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
 private struct FfiConverterOptionTypeMobileRecoveryProgress: FfiConverterRustBuffer {
     typealias SwiftType = MobileRecoveryProgress?
 
@@ -20585,6 +20509,30 @@ public func mobileIsValidEmail(value: String) -> Bool {
 }
 
 /**
+ * Check whether a string is a well-formed PEM-encoded X.509 certificate.
+ *
+ * Accepts the trimmed input if it begins with
+ * `-----BEGIN CERTIFICATE-----` and ends with
+ * `-----END CERTIFICATE-----`. Other PEM labels (`PRIVATE KEY`,
+ * `RSA PRIVATE KEY`, …) are rejected so the surface that consumes
+ * the result can render a "this is not a certificate" hint.
+ *
+ * This is the surface frontends use for certificate-pinning UI input
+ * validation (replaces the per-frontend prefix/suffix checks). The
+ * real cryptographic validation happens in the TLS layer when
+ * [`crate::VauchiPlatform::set_pinned_certificate`] is consumed by
+ * the rustls verifier; this helper exists to give users immediate
+ * inline feedback while typing.
+ */
+public func mobileIsValidPemCertificate(value: String) -> Bool {
+    return try! FfiConverterBool.lift(try! rustCall {
+        uniffi_vauchi_platform_fn_func_mobile_is_valid_pem_certificate(
+            FfiConverterString.lower(value), $0
+        )
+    })
+}
+
+/**
  * Check whether a string is a well-formed phone number.
  */
 public func mobileIsValidPhone(value: String) -> Bool {
@@ -20855,6 +20803,9 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_func_mobile_is_valid_email() != 48521 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_func_mobile_is_valid_pem_certificate() != 45684 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_platform_checksum_func_mobile_is_valid_phone() != 6731 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -21011,19 +20962,7 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_mobilemultistagesession_cancel() != 40973 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_mobilemultistagesession_get_display_qr() != 21414 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_mobilemultistagesession_get_received_data() != 29067 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_mobilemultistagesession_get_state() != 20898 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_mobilemultistagesession_get_transport_key() != 20127 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_mobilemultistagesession_process_scanned_qr() != 43999 {
+    if uniffi_vauchi_platform_checksum_method_mobilemultistagesession_process_scanned_qr() != 7450 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_mobilemultistagesession_set_listener() != 59160 {
@@ -21206,6 +21145,9 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_contact_count() != 20147 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_contact_detail_footer_action_id() != 60872 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_count_failed_deliveries() != 46981 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -21291,9 +21233,6 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_finalize_exchange() != 16940 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_finalize_multistage_exchange() != 47774 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_find_duplicates() != 13598 {

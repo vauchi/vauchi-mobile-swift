@@ -21166,6 +21166,36 @@ public func passwordMinLength() -> UInt32 {
 }
 
 /**
+ * Minimum length (in characters) of a recovery claim input string
+ * before the "Verify Claim" button is enabled.
+ *
+ * Heuristic — the actual claim parse happens in the `AppEngine`
+ * intercept. Frontends gate the affordance on
+ * `claim.length >= recovery_claim_min_input_length()` instead of
+ * hardcoding `20`. Mirrors core's own usage in `recovery_help.rs`.
+ */
+public func recoveryClaimMinInputLength() -> UInt32 {
+    return try! FfiConverterUInt32.lift(try! rustCall {
+        uniffi_vauchi_platform_fn_func_recovery_claim_min_input_length($0)
+    })
+}
+
+/**
+ * Hex-encoded length of an Ed25519 identity public key (32 bytes ×
+ * 2 hex characters = 64 characters).
+ *
+ * Frontends (iOS `RecoveryView`, Android `RecoveryScreen`) gate the
+ * "Create Claim" button on `oldPublicKey.length >= recovery_public_key_hex_length()`
+ * instead of hardcoding `64`. Stays in sync with core's own usage in
+ * the recovery flow.
+ */
+public func recoveryPublicKeyHexLength() -> UInt32 {
+    return try! FfiConverterUInt32.lift(try! rustCall {
+        uniffi_vauchi_platform_fn_func_recovery_public_key_hex_length($0)
+    })
+}
+
+/**
  * Production QR scanner — decode a QR from a grayscale (Y-plane) frame.
  *
  * Pipeline: rxing fast → rqrr → rxing tryHarder, gated by a sharpness
@@ -21370,6 +21400,12 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_func_password_min_length() != 60280 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_func_recovery_claim_min_input_length() != 9710 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_func_recovery_public_key_hex_length() != 64256 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_func_scan_qr() != 28606 {

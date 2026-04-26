@@ -26,10 +26,19 @@ let useLocalXCFramework = ProcessInfo.processInfo.environment[
 
 let binaryTarget: PackageDescription.Target = useLocalXCFramework
     ? .binaryTarget(
-     name: "VauchiPlatformFFI",
-     url: "https://gitlab.com/api/v4/projects/vauchi%2Fcore/packages/generic/vauchi-platform/\(version)/VauchiPlatformFFI.xcframework.zip",
-     checksum: checksum
- ),
+        name: "VauchiPlatformFFI",
+        path: "VauchiPlatformFFI.xcframework"
+    )
+    : .binaryTarget(
+        name: "VauchiPlatformFFI",
+        url: "https://gitlab.com/api/v4/projects/vauchi%2Fcore/packages/generic/vauchi-platform/\(version)/VauchiPlatformFFI.xcframework.zip",
+        checksum: checksum
+    )
+
+let package = Package(
+    name: "VauchiPlatform",
+    platforms: [
+        .iOS(.v15),
         .macOS(.v12),
     ],
     products: [

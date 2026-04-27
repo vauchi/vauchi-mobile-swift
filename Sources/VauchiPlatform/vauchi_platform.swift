@@ -1594,53 +1594,53 @@ public func FfiConverterTypeMobileDeviceLinkResponder_lower(_ value: MobileDevic
 }
 
 /**
- * Device-link session handle. See module docs for lifecycle.
+ * UniFFI-bound device-link session handle.
+ *
+ * Wraps `vauchi_app::orchestrator::device_link_session::DeviceLinkSession`.
+ * All real work happens in the inner core session; this struct
+ * exists to expose the lifecycle methods to UniFFI consumers.
  */
 public protocol MobileDeviceLinkSessionProtocol: AnyObject {
     /**
-     * Cancel the session. Sets the cancellation flag, waits for
-     * the cycle thread to exit, drops the listener. Idempotent.
+     * Cancel the session and join the cycle thread.
      */
     func cancel()
 
     /**
      * User confirmed the codes match (manual / non-ultrasonic
-     * path). Sends a `ConfirmManual` action to the cycle thread; a
-     * duplicate tap returns Ok-but-no-effect (channel already
-     * full).
+     * path).
      */
     func confirmManual(confirmationCode: String, confirmedAt: UInt64) throws
 
     /**
-     * User completed ultrasonic proximity verification. Sends a
-     * `ConfirmUltrasonic` action to the cycle thread.
+     * User completed ultrasonic proximity verification.
      */
     func confirmUltrasonic(challengeResponse: Data, verifiedAt: UInt64) throws
 
     /**
-     * User denied the link (codes did not match, or rejected the
-     * request). Cycle thread emits `on_failed("user_denied")` then
-     * `on_session_ended()`.
+     * User denied the link.
      */
     func deny()
 
     /**
-     * Register or replace the session listener. Safe to call before
-     * or after `start()`; subsequent callbacks route to the most
-     * recently installed listener.
+     * Register or replace the session listener. Wraps the boxed
+     * UniFFI listener in an adapter and forwards to the inner
+     * session.
      */
     func setListener(listener: DeviceLinkSessionListener)
 
     /**
-     * Spawn the cycle thread. Idempotent — a second call while the
-     * thread is running is a no-op. Without a registered listener
-     * the thread runs but every callback is dropped.
+     * Spawn the cycle thread. Idempotent.
      */
     func start()
 }
 
 /**
- * Device-link session handle. See module docs for lifecycle.
+ * UniFFI-bound device-link session handle.
+ *
+ * Wraps `vauchi_app::orchestrator::device_link_session::DeviceLinkSession`.
+ * All real work happens in the inner core session; this struct
+ * exists to expose the lifecycle methods to UniFFI consumers.
  */
 open class MobileDeviceLinkSession:
     MobileDeviceLinkSessionProtocol
@@ -1692,8 +1692,7 @@ open class MobileDeviceLinkSession:
     }
 
     /**
-     * Cancel the session. Sets the cancellation flag, waits for
-     * the cycle thread to exit, drops the listener. Idempotent.
+     * Cancel the session and join the cycle thread.
      */
     open func cancel() {
         try! rustCall {
@@ -1703,9 +1702,7 @@ open class MobileDeviceLinkSession:
 
     /**
      * User confirmed the codes match (manual / non-ultrasonic
-     * path). Sends a `ConfirmManual` action to the cycle thread; a
-     * duplicate tap returns Ok-but-no-effect (channel already
-     * full).
+     * path).
      */
     open func confirmManual(confirmationCode: String, confirmedAt: UInt64) throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
@@ -1716,8 +1713,7 @@ open class MobileDeviceLinkSession:
     }
 
     /**
-     * User completed ultrasonic proximity verification. Sends a
-     * `ConfirmUltrasonic` action to the cycle thread.
+     * User completed ultrasonic proximity verification.
      */
     open func confirmUltrasonic(challengeResponse: Data, verifiedAt: UInt64) throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
@@ -1728,9 +1724,7 @@ open class MobileDeviceLinkSession:
     }
 
     /**
-     * User denied the link (codes did not match, or rejected the
-     * request). Cycle thread emits `on_failed("user_denied")` then
-     * `on_session_ended()`.
+     * User denied the link.
      */
     open func deny() {
         try! rustCall {
@@ -1739,9 +1733,9 @@ open class MobileDeviceLinkSession:
     }
 
     /**
-     * Register or replace the session listener. Safe to call before
-     * or after `start()`; subsequent callbacks route to the most
-     * recently installed listener.
+     * Register or replace the session listener. Wraps the boxed
+     * UniFFI listener in an adapter and forwards to the inner
+     * session.
      */
     open func setListener(listener: DeviceLinkSessionListener) {
         try! rustCall {
@@ -1751,9 +1745,7 @@ open class MobileDeviceLinkSession:
     }
 
     /**
-     * Spawn the cycle thread. Idempotent — a second call while the
-     * thread is running is a no-op. Without a registered listener
-     * the thread runs but every callback is dropped.
+     * Spawn the cycle thread. Idempotent.
      */
     open func start() {
         try! rustCall {
@@ -3286,6 +3278,29 @@ public protocol PlatformAppEngineProtocol: AnyObject {
     func handleAppBackgrounded() throws -> String?
 
     /**
+     * Handle an incoming `vauchi://exchange?...` deep link URI.
+     *
+     * On a successful parse, navigates to the consent gate (the new
+     * `AppScreen::DeepLinkConsent`) and returns the rendered screen
+     * model as JSON. Frontends render the result and forward
+     * `UserAction::ActionPressed { action_id: "grant" | "deny" }` via
+     * the existing `handle_action_json` path.
+     *
+     * On parse failure, returns a typed `MobileError::InvalidInput`
+     * with `field` set to one of:
+     * - `"deep_link_scheme"` — URI scheme is not `vauchi`
+     * - `"deep_link_host"` — URI host is not `exchange`
+     * - `"deep_link_format"` — URI uses the legacy path-component
+     * form, or query parameters are missing/malformed
+     *
+     * Per ADR-021 (Humble UI): the consent decision is policy and
+     * lives in core; frontends only forward the raw URI string and
+     * render the returned screen. Phase 1 of
+     * `2026-04-25-deeplink-consent-orchestrator`.
+     */
+    func handleDeepLinkUri(uri: String) throws -> String
+
+    /**
      * Handle a hardware event from the frontend during an exchange (ADR-031).
      *
      * Frontends call this when hardware reports results (QR scanned, BLE
@@ -3662,6 +3677,34 @@ open class PlatformAppEngine:
     open func handleAppBackgrounded() throws -> String? {
         return try FfiConverterOptionString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_platformappengine_handle_app_backgrounded(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Handle an incoming `vauchi://exchange?...` deep link URI.
+     *
+     * On a successful parse, navigates to the consent gate (the new
+     * `AppScreen::DeepLinkConsent`) and returns the rendered screen
+     * model as JSON. Frontends render the result and forward
+     * `UserAction::ActionPressed { action_id: "grant" | "deny" }` via
+     * the existing `handle_action_json` path.
+     *
+     * On parse failure, returns a typed `MobileError::InvalidInput`
+     * with `field` set to one of:
+     * - `"deep_link_scheme"` — URI scheme is not `vauchi`
+     * - `"deep_link_host"` — URI host is not `exchange`
+     * - `"deep_link_format"` — URI uses the legacy path-component
+     * form, or query parameters are missing/malformed
+     *
+     * Per ADR-021 (Humble UI): the consent decision is policy and
+     * lives in core; frontends only forward the raw URI string and
+     * render the returned screen. Phase 1 of
+     * `2026-04-25-deeplink-consent-orchestrator`.
+     */
+    open func handleDeepLinkUri(uri: String) throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_handle_deep_link_uri(self.uniffiClonePointer(),
+                                                                                    FfiConverterString.lower(uri), $0)
         })
     }
 
@@ -18104,78 +18147,26 @@ extension MobileWidgetConfirmationMode: Equatable, Hashable {}
 /**
  * Push-based callback interface for device-link session events.
  *
- * Frontends implement this trait (in Swift/Kotlin via UniFFI) and
- * register it with [`MobileDeviceLinkSession::set_listener`] before
- * calling [`MobileDeviceLinkSession::start`]. Once `start()` is
- * called, the cycle thread drives the relay-poll loop and
- * user-confirm gate, invoking these callbacks as state advances.
+ * Mirrored from `vauchi_app::orchestrator::device_link_session::DeviceLinkSessionListener`
+ * because UniFFI's `callback_interface` macros must be applied at
+ * the binding crate's level. Implementations on the Swift / Kotlin
+ * side flow through this trait; the adapter below forwards calls
+ * onto the plain-Rust trait that the cycle thread invokes.
  *
- * # Threading
- *
- * Callbacks fire from the cycle thread, **not** the main/UI thread.
- * Consumers must marshal to their platform's UI thread before
- * touching UI state.
- *
- * # Callback contract (initiator side, Phase 1)
- *
- * 1. [`on_qr_ready`](Self::on_qr_ready) — fires once after `start()`.
- * Carries the QR data string and Unix timestamp when the QR
- * expires (per ADR-035, `qr.timestamp + LINK_QR_EXPIRY_SECONDS`).
- * 2. [`on_confirmation_required`](Self::on_confirmation_required) —
- * fires when a peer claims the QR. Carries the device name,
- * confirmation code, identity fingerprint, and proximity
- * challenge bytes. The frontend displays these and waits for the
- * user to call [`confirm_manual`](MobileDeviceLinkSession::confirm_manual)
- * / [`confirm_ultrasonic`](MobileDeviceLinkSession::confirm_ultrasonic)
- * / [`deny`](MobileDeviceLinkSession::deny).
- * 3. [`on_completed`](Self::on_completed) **xor**
- * [`on_failed`](Self::on_failed) — terminal callback. Fires once.
- * 4. [`on_session_ended`](Self::on_session_ended) — always last,
- * fires exactly once per session lifetime regardless of exit
- * path (success / failure / cancel / expiry / user-deny).
- *
- * # `on_request_sent` (responder, deferred)
- *
- * Reserved for the responder-side flow once a frontend wires it.
- * Not fired by Phase 1 implementations.
+ * See the underlying core trait for the callback contract and
+ * threading rules.
  */
 public protocol DeviceLinkSessionListener: AnyObject {
-    /**
-     * QR is ready for display. `expires_at_unix` is the protocol-
-     * defined expiry deadline.
-     */
     func onQrReady(qrData: String, expiresAtUnix: UInt64)
 
-    /**
-     * Peer claimed the QR. Frontend displays `device_name` +
-     * `confirmation_code` and awaits the user's confirm/deny input.
-     */
     func onConfirmationRequired(deviceName: String, confirmationCode: String, identityFingerprint: String, proximityChallenge: Data)
 
-    /**
-     * Responder-side: request POSTed; waiting for the existing
-     * device's confirmation + response. Reserved for a future
-     * responder cycle thread; never fires from Phase 1 code.
-     */
     func onRequestSent(confirmationCode: String)
 
-    /**
-     * Terminal success.
-     */
     func onCompleted(deviceName: String, deviceIndex: UInt32)
 
-    /**
-     * Terminal failure. `reason` is a stable identifier for known
-     * cases (`"qr_expired"`, `"user_denied"`, `"user_confirm_timeout"`,
-     * `"cancelled"`) or a free-form description for unexpected
-     * errors (relay, decode, proof-rejection).
-     */
     func onFailed(reason: String)
 
-    /**
-     * Always-last callback. Fires exactly once per session
-     * lifetime. Mirrors `MultiStageSessionListener::on_session_ended`.
-     */
     func onSessionEnded()
 }
 
@@ -21578,22 +21569,22 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_mobiledevicelinkresponder_identity_fingerprint() != 39007 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_mobiledevicelinksession_cancel() != 27360 {
+    if uniffi_vauchi_platform_checksum_method_mobiledevicelinksession_cancel() != 34916 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_mobiledevicelinksession_confirm_manual() != 50149 {
+    if uniffi_vauchi_platform_checksum_method_mobiledevicelinksession_confirm_manual() != 34794 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_mobiledevicelinksession_confirm_ultrasonic() != 7380 {
+    if uniffi_vauchi_platform_checksum_method_mobiledevicelinksession_confirm_ultrasonic() != 64448 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_mobiledevicelinksession_deny() != 2270 {
+    if uniffi_vauchi_platform_checksum_method_mobiledevicelinksession_deny() != 7488 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_mobiledevicelinksession_set_listener() != 48147 {
+    if uniffi_vauchi_platform_checksum_method_mobiledevicelinksession_set_listener() != 13148 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_mobiledevicelinksession_start() != 5961 {
+    if uniffi_vauchi_platform_checksum_method_mobiledevicelinksession_start() != 13114 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_mobileexchangesession_apply_hardware_event() != 3482 {
@@ -21732,6 +21723,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_platformappengine_handle_app_backgrounded() != 5133 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_handle_deep_link_uri() != 4136 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_platformappengine_handle_hardware_event() != 34688 {
@@ -22358,22 +22352,22 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_constructor_vauchiplatform_new_with_secure_key() != 41810 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_devicelinksessionlistener_on_qr_ready() != 36855 {
+    if uniffi_vauchi_platform_checksum_method_devicelinksessionlistener_on_qr_ready() != 29076 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_devicelinksessionlistener_on_confirmation_required() != 47616 {
+    if uniffi_vauchi_platform_checksum_method_devicelinksessionlistener_on_confirmation_required() != 58131 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_devicelinksessionlistener_on_request_sent() != 60122 {
+    if uniffi_vauchi_platform_checksum_method_devicelinksessionlistener_on_request_sent() != 32883 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_devicelinksessionlistener_on_completed() != 15275 {
+    if uniffi_vauchi_platform_checksum_method_devicelinksessionlistener_on_completed() != 31367 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_devicelinksessionlistener_on_failed() != 63377 {
+    if uniffi_vauchi_platform_checksum_method_devicelinksessionlistener_on_failed() != 37092 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_devicelinksessionlistener_on_session_ended() != 39701 {
+    if uniffi_vauchi_platform_checksum_method_devicelinksessionlistener_on_session_ended() != 40009 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_mobilebledelegate_send_data() != 31030 {

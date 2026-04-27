@@ -1274,6 +1274,18 @@ public enum UserAction: Encodable {
     }
 }
 
+// MARK: - PostOnboardingDestination
+
+/// Where to navigate after onboarding completes.
+/// Maps to: `vauchi-core::ui::action::PostOnboardingDestination`
+public enum PostOnboardingDestination: String, Decodable {
+    case mainScreen = "MainScreen"
+    case exchange = "Exchange"
+    case importContacts = "ImportContacts"
+    case securityInfo = "SecurityInfo"
+    case backupSetup = "BackupSetup"
+}
+
 // MARK: - ActionResult
 
 /// The result of handling a user action.
@@ -1283,6 +1295,7 @@ public enum ActionResult: Decodable {
     case navigateTo(ScreenModel)
     case validationError(componentId: String, message: String)
     case complete
+    case completeWith(destination: PostOnboardingDestination)
     case startDeviceLink
     case startBackupImport
     case openContact(contactId: String)
@@ -1324,6 +1337,9 @@ public enum ActionResult: Decodable {
         } else if container.contains(.validationError) {
             let error = try container.decode(ValidationErrorData.self, forKey: .validationError)
             self = .validationError(componentId: error.componentId, message: error.message)
+        } else if container.contains(.completeWith) {
+            let data = try container.decode(CompleteWithData.self, forKey: .completeWith)
+            self = .completeWith(destination: data.destination)
         } else if container.contains(.openContact) {
             let data = try container.decode(OpenContactData.self, forKey: .openContact)
             self = .openContact(contactId: data.contactId)
@@ -1360,6 +1376,7 @@ public enum ActionResult: Decodable {
         case updateScreen = "UpdateScreen"
         case navigateTo = "NavigateTo"
         case validationError = "ValidationError"
+        case completeWith = "CompleteWith"
         case openContact = "OpenContact"
         case editContact = "EditContact"
         case openUrl = "OpenUrl"
@@ -1369,6 +1386,10 @@ public enum ActionResult: Decodable {
         case exchangeCommands = "ExchangeCommands"
         case showFormDialog = "ShowFormDialog"
         case previewAs = "PreviewAs"
+    }
+
+    private struct CompleteWithData: Decodable {
+        let destination: PostOnboardingDestination
     }
 
     private struct ValidationErrorData: Decodable {

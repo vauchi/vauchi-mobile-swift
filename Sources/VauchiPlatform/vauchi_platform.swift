@@ -4123,6 +4123,18 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func contactDetailFooterActionId(contactId: String) throws -> String
 
     /**
+     * Compute the typed render state for a contact-detail screen.
+     *
+     * Frontends call this with a contact id, then iterate the returned
+     * `badges`, `banners`, and `actions` — they never branch on raw
+     * `MobileContact` flags. Closes ADR-021/043 audit V4.
+     *
+     * Returns `MobileError::InvalidInput` if no contact with the given
+     * id exists.
+     */
+    func contactDetailViewState(contactId: String) throws -> MobileContactDetailViewState
+
+    /**
      * Count failed deliveries.
      */
     func countFailedDeliveries() throws -> UInt32
@@ -4472,12 +4484,28 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func getEmergencyConfig() throws -> MobileEmergencyConfig?
 
     /**
+     * Get all failed delivery records.
+     *
+     * Frontends should call this instead of fetching `get_all_delivery_records()`
+     * and filtering by `status == Failed` themselves — see ADR-021/043
+     * (the Humble UI). The partition decision lives in core so iOS, Android,
+     * and any future frontend render the same list without divergence.
+     */
+    func getFailedDeliveryRecords() throws -> [MobileDeliveryRecord]
+
+    /**
      * Get all labels that contain a contact.
      */
     func getGroupsForContact(contactId: String) throws -> [MobileVisibilityLabel]
 
     /**
      * Get a label by ID with full details.
+     *
+     * Populates `label_contacts` and `stale_reference_count` by resolving
+     * the label's `contact_ids` against storage — frontends should render
+     * `label_contacts` instead of joining `contact_ids` against the
+     * contacts list themselves (ADR-021/043 Humble UI). See
+     * `resolve_label_contacts` for the missing-contact policy.
      */
     func getLabel(labelId: String) throws -> MobileVisibilityLabelDetail
 
@@ -5541,6 +5569,23 @@ open class VauchiPlatform:
     }
 
     /**
+     * Compute the typed render state for a contact-detail screen.
+     *
+     * Frontends call this with a contact id, then iterate the returned
+     * `badges`, `banners`, and `actions` — they never branch on raw
+     * `MobileContact` flags. Closes ADR-021/043 audit V4.
+     *
+     * Returns `MobileError::InvalidInput` if no contact with the given
+     * id exists.
+     */
+    open func contactDetailViewState(contactId: String) throws -> MobileContactDetailViewState {
+        return try FfiConverterTypeMobileContactDetailViewState.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_vauchiplatform_contact_detail_view_state(self.uniffiClonePointer(),
+                                                                                      FfiConverterString.lower(contactId), $0)
+        })
+    }
+
+    /**
      * Count failed deliveries.
      */
     open func countFailedDeliveries() throws -> UInt32 {
@@ -6131,6 +6176,20 @@ open class VauchiPlatform:
     }
 
     /**
+     * Get all failed delivery records.
+     *
+     * Frontends should call this instead of fetching `get_all_delivery_records()`
+     * and filtering by `status == Failed` themselves — see ADR-021/043
+     * (the Humble UI). The partition decision lives in core so iOS, Android,
+     * and any future frontend render the same list without divergence.
+     */
+    open func getFailedDeliveryRecords() throws -> [MobileDeliveryRecord] {
+        return try FfiConverterSequenceTypeMobileDeliveryRecord.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_vauchiplatform_get_failed_delivery_records(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
      * Get all labels that contain a contact.
      */
     open func getGroupsForContact(contactId: String) throws -> [MobileVisibilityLabel] {
@@ -6142,6 +6201,12 @@ open class VauchiPlatform:
 
     /**
      * Get a label by ID with full details.
+     *
+     * Populates `label_contacts` and `stale_reference_count` by resolving
+     * the label's `contact_ids` against storage — frontends should render
+     * `label_contacts` instead of joining `contact_ids` against the
+     * contacts list themselves (ADR-021/043 Humble UI). See
+     * `resolve_label_contacts` for the missing-contact policy.
      */
     open func getLabel(labelId: String) throws -> MobileVisibilityLabelDetail {
         return try FfiConverterTypeMobileVisibilityLabelDetail.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
@@ -8676,6 +8741,103 @@ public func FfiConverterTypeMobileContactCard_lift(_ buf: RustBuffer) throws -> 
 #endif
 public func FfiConverterTypeMobileContactCard_lower(_ value: MobileContactCard) -> RustBuffer {
     return FfiConverterTypeMobileContactCard.lower(value)
+}
+
+/**
+ * Pre-computed render state for the contact-detail screen.
+ *
+ * Closes audit V4 by replacing the iOS `if contact.isVerified` /
+ * `contact.reciprocity == .pending` / `contact.isRecoveryTrusted` /
+ * `contact.isHidden` and Android
+ * `if (c.trustLevel == STANDARD || HIGH)` branches with a typed list
+ * for the frontend to render.
+ */
+public struct MobileContactDetailViewState {
+    /**
+     * Status badges to render. Order is canonical for the platform.
+     */
+    public var badges: [MobileContactDetailBadge]
+    /**
+     * Banners to render above the fields.
+     */
+    public var banners: [MobileContactDetailBanner]
+    /**
+     * Action buttons to render in the screen footer/action bar.
+     */
+    public var actions: [MobileContactDetailAction]
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(
+        /*
+         * Status badges to render. Order is canonical for the platform.
+         */ badges: [MobileContactDetailBadge],
+        /*
+            * Banners to render above the fields.
+            */ banners: [MobileContactDetailBanner],
+        /*
+            * Action buttons to render in the screen footer/action bar.
+            */ actions: [MobileContactDetailAction]
+    ) {
+        self.badges = badges
+        self.banners = banners
+        self.actions = actions
+    }
+}
+
+extension MobileContactDetailViewState: Equatable, Hashable {
+    public static func == (lhs: MobileContactDetailViewState, rhs: MobileContactDetailViewState) -> Bool {
+        if lhs.badges != rhs.badges {
+            return false
+        }
+        if lhs.banners != rhs.banners {
+            return false
+        }
+        if lhs.actions != rhs.actions {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(badges)
+        hasher.combine(banners)
+        hasher.combine(actions)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileContactDetailViewState: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileContactDetailViewState {
+        return
+            try MobileContactDetailViewState(
+                badges: FfiConverterSequenceTypeMobileContactDetailBadge.read(from: &buf),
+                banners: FfiConverterSequenceTypeMobileContactDetailBanner.read(from: &buf),
+                actions: FfiConverterSequenceTypeMobileContactDetailAction.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileContactDetailViewState, into buf: inout [UInt8]) {
+        FfiConverterSequenceTypeMobileContactDetailBadge.write(value.badges, into: &buf)
+        FfiConverterSequenceTypeMobileContactDetailBanner.write(value.banners, into: &buf)
+        FfiConverterSequenceTypeMobileContactDetailAction.write(value.actions, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileContactDetailViewState_lift(_ buf: RustBuffer) throws -> MobileContactDetailViewState {
+    return try FfiConverterTypeMobileContactDetailViewState.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileContactDetailViewState_lower(_ value: MobileContactDetailViewState) -> RustBuffer {
+    return FfiConverterTypeMobileContactDetailViewState.lower(value)
 }
 
 /**
@@ -11470,6 +11632,117 @@ public func FfiConverterTypeMobileImportWarning_lift(_ buf: RustBuffer) throws -
 #endif
 public func FfiConverterTypeMobileImportWarning_lower(_ value: MobileImportWarning) -> RustBuffer {
     return FfiConverterTypeMobileImportWarning.lower(value)
+}
+
+/**
+ * A resolved contact row for a visibility label.
+ *
+ * Frontends should render `MobileVisibilityLabelDetail.label_contacts`
+ * instead of joining `contact_ids` against the contacts list themselves
+ * (ADR-021/043 Humble UI). Display name resolution honors nicknames,
+ * shared-name preferences, and avatar preferences — same pipeline used by
+ * `enrich_contact()` for `list_contacts`.
+ */
+public struct MobileLabelContactRow {
+    /**
+     * Contact ID — same as the matching entry in `contact_ids`.
+     */
+    public var id: String
+    /**
+     * Display name resolved per the user's nickname/shared-name preferences.
+     */
+    public var displayName: String
+    /**
+     * Cryptographically-derived trust level (never user-editable).
+     */
+    public var trustLevel: MobileContactTrustLevel
+    /**
+     * Status of this row in the label (today always `Active`).
+     */
+    public var status: MobileLabelContactStatus
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(
+        /*
+         * Contact ID — same as the matching entry in `contact_ids`.
+         */ id: String,
+        /*
+            * Display name resolved per the user's nickname/shared-name preferences.
+            */ displayName: String,
+        /*
+            * Cryptographically-derived trust level (never user-editable).
+            */ trustLevel: MobileContactTrustLevel,
+        /*
+            * Status of this row in the label (today always `Active`).
+            */ status: MobileLabelContactStatus
+    ) {
+        self.id = id
+        self.displayName = displayName
+        self.trustLevel = trustLevel
+        self.status = status
+    }
+}
+
+extension MobileLabelContactRow: Equatable, Hashable {
+    public static func == (lhs: MobileLabelContactRow, rhs: MobileLabelContactRow) -> Bool {
+        if lhs.id != rhs.id {
+            return false
+        }
+        if lhs.displayName != rhs.displayName {
+            return false
+        }
+        if lhs.trustLevel != rhs.trustLevel {
+            return false
+        }
+        if lhs.status != rhs.status {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+        hasher.combine(displayName)
+        hasher.combine(trustLevel)
+        hasher.combine(status)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileLabelContactRow: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileLabelContactRow {
+        return
+            try MobileLabelContactRow(
+                id: FfiConverterString.read(from: &buf),
+                displayName: FfiConverterString.read(from: &buf),
+                trustLevel: FfiConverterTypeMobileContactTrustLevel.read(from: &buf),
+                status: FfiConverterTypeMobileLabelContactStatus.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileLabelContactRow, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.id, into: &buf)
+        FfiConverterString.write(value.displayName, into: &buf)
+        FfiConverterTypeMobileContactTrustLevel.write(value.trustLevel, into: &buf)
+        FfiConverterTypeMobileLabelContactStatus.write(value.status, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileLabelContactRow_lift(_ buf: RustBuffer) throws -> MobileLabelContactRow {
+    return try FfiConverterTypeMobileLabelContactRow.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileLabelContactRow_lower(_ value: MobileLabelContactRow) -> RustBuffer {
+    return FfiConverterTypeMobileLabelContactRow.lower(value)
 }
 
 /**
@@ -14587,7 +14860,12 @@ public struct MobileVisibilityLabelDetail {
     public var id: String
     public var name: String
     /**
-     * Contact IDs in this label.
+     * Raw contact IDs in this label — superseded by `label_contacts`.
+     *
+     * Retained for backwards compatibility for one binding cycle so
+     * existing consumers don't break. Frontends should render
+     * `label_contacts` instead — that list is pre-resolved against
+     * storage so missing contacts cannot leak raw IDs into the UI.
      */
     public var contactIds: [String]
     /**
@@ -14596,6 +14874,24 @@ public struct MobileVisibilityLabelDetail {
     public var visibleFieldIds: [String]
     public var createdAt: UInt64
     public var modifiedAt: UInt64
+    /**
+     * Resolved contact rows for the UI to render.
+     *
+     * Populated by `VauchiPlatform::get_label`; the bare `From<&Group>`
+     * impl leaves this empty (Group does not carry storage access).
+     * Order matches `contact_ids` insertion order.
+     */
+    public var labelContacts: [MobileLabelContactRow]
+    /**
+     * Number of `contact_ids` that did not resolve to an active contact.
+     *
+     * When `> 0`, the label references contacts that were removed from
+     * storage. UI may surface this as e.g. "(N stale references)".
+     * `label_contacts.len() + stale_reference_count == contact_ids.len()`
+     * is an invariant on the resolver output (verified in
+     * `mobile_visibility_resolve_tests`).
+     */
+    public var staleReferenceCount: UInt32
 
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
@@ -14604,11 +14900,32 @@ public struct MobileVisibilityLabelDetail {
          * Basic label info.
          */ id: String, name: String,
         /*
-            * Contact IDs in this label.
+            * Raw contact IDs in this label — superseded by `label_contacts`.
+            *
+            * Retained for backwards compatibility for one binding cycle so
+            * existing consumers don't break. Frontends should render
+            * `label_contacts` instead — that list is pre-resolved against
+            * storage so missing contacts cannot leak raw IDs into the UI.
             */ contactIds: [String],
         /*
             * Field IDs visible to contacts in this label.
-            */ visibleFieldIds: [String], createdAt: UInt64, modifiedAt: UInt64
+            */ visibleFieldIds: [String], createdAt: UInt64, modifiedAt: UInt64,
+        /*
+            * Resolved contact rows for the UI to render.
+            *
+            * Populated by `VauchiPlatform::get_label`; the bare `From<&Group>`
+            * impl leaves this empty (Group does not carry storage access).
+            * Order matches `contact_ids` insertion order.
+            */ labelContacts: [MobileLabelContactRow],
+        /*
+            * Number of `contact_ids` that did not resolve to an active contact.
+            *
+            * When `> 0`, the label references contacts that were removed from
+            * storage. UI may surface this as e.g. "(N stale references)".
+            * `label_contacts.len() + stale_reference_count == contact_ids.len()`
+            * is an invariant on the resolver output (verified in
+            * `mobile_visibility_resolve_tests`).
+            */ staleReferenceCount: UInt32
     ) {
         self.id = id
         self.name = name
@@ -14616,6 +14933,8 @@ public struct MobileVisibilityLabelDetail {
         self.visibleFieldIds = visibleFieldIds
         self.createdAt = createdAt
         self.modifiedAt = modifiedAt
+        self.labelContacts = labelContacts
+        self.staleReferenceCount = staleReferenceCount
     }
 }
 
@@ -14639,6 +14958,12 @@ extension MobileVisibilityLabelDetail: Equatable, Hashable {
         if lhs.modifiedAt != rhs.modifiedAt {
             return false
         }
+        if lhs.labelContacts != rhs.labelContacts {
+            return false
+        }
+        if lhs.staleReferenceCount != rhs.staleReferenceCount {
+            return false
+        }
         return true
     }
 
@@ -14649,6 +14974,8 @@ extension MobileVisibilityLabelDetail: Equatable, Hashable {
         hasher.combine(visibleFieldIds)
         hasher.combine(createdAt)
         hasher.combine(modifiedAt)
+        hasher.combine(labelContacts)
+        hasher.combine(staleReferenceCount)
     }
 }
 
@@ -14664,7 +14991,9 @@ public struct FfiConverterTypeMobileVisibilityLabelDetail: FfiConverterRustBuffe
                 contactIds: FfiConverterSequenceString.read(from: &buf),
                 visibleFieldIds: FfiConverterSequenceString.read(from: &buf),
                 createdAt: FfiConverterUInt64.read(from: &buf),
-                modifiedAt: FfiConverterUInt64.read(from: &buf)
+                modifiedAt: FfiConverterUInt64.read(from: &buf),
+                labelContacts: FfiConverterSequenceTypeMobileLabelContactRow.read(from: &buf),
+                staleReferenceCount: FfiConverterUInt32.read(from: &buf)
             )
     }
 
@@ -14675,6 +15004,8 @@ public struct FfiConverterTypeMobileVisibilityLabelDetail: FfiConverterRustBuffe
         FfiConverterSequenceString.write(value.visibleFieldIds, into: &buf)
         FfiConverterUInt64.write(value.createdAt, into: &buf)
         FfiConverterUInt64.write(value.modifiedAt, into: &buf)
+        FfiConverterSequenceTypeMobileLabelContactRow.write(value.labelContacts, into: &buf)
+        FfiConverterUInt32.write(value.staleReferenceCount, into: &buf)
     }
 }
 
@@ -15477,6 +15808,269 @@ public func FfiConverterTypeMobileConsentType_lower(_ value: MobileConsentType) 
 }
 
 extension MobileConsentType: Equatable, Hashable {}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/*
+ * A user-actionable affordance on the contact-detail screen.
+ *
+ * Frontends render one button per variant in the order returned by
+ * `VauchiPlatform::contact_detail_view_state` — the engine emits only
+ * those affordances valid for the contact's state. Stateful variants
+ * carry the current value so the frontend's button label flips
+ * (Trust / Untrust, Hide / Unhide) without re-deriving.
+ */
+
+public enum MobileContactDetailAction {
+    /**
+     * Mark the fingerprint as manually verified (one-shot).
+     */
+    case verify
+    /**
+     * Toggle the recovery-trust flag. `currently_trusted` lets the
+     * frontend label the button "Trust" or "Untrust" without
+     * re-querying.
+     */
+    case toggleRecoveryTrust(currentlyTrusted: Bool)
+    /**
+     * Toggle the hidden flag.
+     */
+    case toggleHidden(currentlyHidden: Bool)
+    /**
+     * Open the contact editor.
+     */
+    case edit
+    /**
+     * Open the fingerprint-verification flow.
+     */
+    case verifyFingerprint
+    /**
+     * Switch to "what they see" preview perspective.
+     */
+    case previewAs(contactId: String)
+    /**
+     * Soft-delete (exchanged contacts) — recoverable via Archive list.
+     */
+    case archive
+    /**
+     * Hard-delete (imported contacts) — not recoverable.
+     */
+    case delete
+    /**
+     * Navigate back.
+     */
+    case back
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileContactDetailAction: FfiConverterRustBuffer {
+    typealias SwiftType = MobileContactDetailAction
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileContactDetailAction {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return .verify
+
+        case 2: return try .toggleRecoveryTrust(currentlyTrusted: FfiConverterBool.read(from: &buf))
+
+        case 3: return try .toggleHidden(currentlyHidden: FfiConverterBool.read(from: &buf))
+
+        case 4: return .edit
+
+        case 5: return .verifyFingerprint
+
+        case 6: return try .previewAs(contactId: FfiConverterString.read(from: &buf))
+
+        case 7: return .archive
+
+        case 8: return .delete
+
+        case 9: return .back
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileContactDetailAction, into buf: inout [UInt8]) {
+        switch value {
+        case .verify:
+            writeInt(&buf, Int32(1))
+
+        case let .toggleRecoveryTrust(currentlyTrusted):
+            writeInt(&buf, Int32(2))
+            FfiConverterBool.write(currentlyTrusted, into: &buf)
+
+        case let .toggleHidden(currentlyHidden):
+            writeInt(&buf, Int32(3))
+            FfiConverterBool.write(currentlyHidden, into: &buf)
+
+        case .edit:
+            writeInt(&buf, Int32(4))
+
+        case .verifyFingerprint:
+            writeInt(&buf, Int32(5))
+
+        case let .previewAs(contactId):
+            writeInt(&buf, Int32(6))
+            FfiConverterString.write(contactId, into: &buf)
+
+        case .archive:
+            writeInt(&buf, Int32(7))
+
+        case .delete:
+            writeInt(&buf, Int32(8))
+
+        case .back:
+            writeInt(&buf, Int32(9))
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileContactDetailAction_lift(_ buf: RustBuffer) throws -> MobileContactDetailAction {
+    return try FfiConverterTypeMobileContactDetailAction.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileContactDetailAction_lower(_ value: MobileContactDetailAction) -> RustBuffer {
+    return FfiConverterTypeMobileContactDetailAction.lower(value)
+}
+
+extension MobileContactDetailAction: Equatable, Hashable {}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/*
+ * A status badge to render next to the contact name.
+ */
+
+public enum MobileContactDetailBadge {
+    /**
+     * Fingerprint manually verified out-of-band.
+     */
+    case verified
+    /**
+     * Trusted as a recovery helper.
+     */
+    case recoveryTrusted
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileContactDetailBadge: FfiConverterRustBuffer {
+    typealias SwiftType = MobileContactDetailBadge
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileContactDetailBadge {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return .verified
+
+        case 2: return .recoveryTrusted
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileContactDetailBadge, into buf: inout [UInt8]) {
+        switch value {
+        case .verified:
+            writeInt(&buf, Int32(1))
+
+        case .recoveryTrusted:
+            writeInt(&buf, Int32(2))
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileContactDetailBadge_lift(_ buf: RustBuffer) throws -> MobileContactDetailBadge {
+    return try FfiConverterTypeMobileContactDetailBadge.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileContactDetailBadge_lower(_ value: MobileContactDetailBadge) -> RustBuffer {
+    return FfiConverterTypeMobileContactDetailBadge.lower(value)
+}
+
+extension MobileContactDetailBadge: Equatable, Hashable {}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/*
+ * A banner to render above the field list.
+ *
+ * `label` is plain English today; localization is a follow-up
+ * (G4b — see plan §3 / T4.0.3). The label string is core-owned; the
+ * frontend never composes it.
+ */
+
+public enum MobileContactDetailBanner {
+    /**
+     * Awaiting async confirmation from the other side.
+     */
+    case reciprocityPending(label: String)
+    /**
+     * Confirmation window expired without reciprocation.
+     */
+    case reciprocityUnreciprocated(label: String)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileContactDetailBanner: FfiConverterRustBuffer {
+    typealias SwiftType = MobileContactDetailBanner
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileContactDetailBanner {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return try .reciprocityPending(label: FfiConverterString.read(from: &buf))
+
+        case 2: return try .reciprocityUnreciprocated(label: FfiConverterString.read(from: &buf))
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileContactDetailBanner, into buf: inout [UInt8]) {
+        switch value {
+        case let .reciprocityPending(label):
+            writeInt(&buf, Int32(1))
+            FfiConverterString.write(label, into: &buf)
+
+        case let .reciprocityUnreciprocated(label):
+            writeInt(&buf, Int32(2))
+            FfiConverterString.write(label, into: &buf)
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileContactDetailBanner_lift(_ buf: RustBuffer) throws -> MobileContactDetailBanner {
+    return try FfiConverterTypeMobileContactDetailBanner.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileContactDetailBanner_lower(_ value: MobileContactDetailBanner) -> RustBuffer {
+    return FfiConverterTypeMobileContactDetailBanner.lower(value)
+}
+
+extension MobileContactDetailBanner: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
@@ -16752,6 +17346,63 @@ public func FfiConverterTypeMobileHelpCategory_lower(_ value: MobileHelpCategory
 }
 
 extension MobileHelpCategory: Equatable, Hashable {}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/*
+ * Status of a contact reference within a label.
+ *
+ * Today only `Active` is emitted — deleted-contact references are omitted
+ * from `label_contacts` and counted in `stale_reference_count` instead.
+ * Future variants may distinguish stale/tombstoned/etc. without a binding
+ * break thanks to UniFFI's enum-extension semantics.
+ */
+
+public enum MobileLabelContactStatus {
+    /**
+     * The contact resolves to an active contact in storage.
+     */
+    case active
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileLabelContactStatus: FfiConverterRustBuffer {
+    typealias SwiftType = MobileLabelContactStatus
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileLabelContactStatus {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return .active
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileLabelContactStatus, into buf: inout [UInt8]) {
+        switch value {
+        case .active:
+            writeInt(&buf, Int32(1))
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileLabelContactStatus_lift(_ buf: RustBuffer) throws -> MobileLabelContactStatus {
+    return try FfiConverterTypeMobileLabelContactStatus.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileLabelContactStatus_lower(_ value: MobileLabelContactStatus) -> RustBuffer {
+    return FfiConverterTypeMobileLabelContactStatus.lower(value)
+}
+
+extension MobileLabelContactStatus: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
@@ -20371,6 +21022,31 @@ private struct FfiConverterSequenceTypeMobileImportWarning: FfiConverterRustBuff
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
+private struct FfiConverterSequenceTypeMobileLabelContactRow: FfiConverterRustBuffer {
+    typealias SwiftType = [MobileLabelContactRow]
+
+    static func write(_ value: [MobileLabelContactRow], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeMobileLabelContactRow.write(item, into: &buf)
+        }
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileLabelContactRow] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [MobileLabelContactRow]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            try seq.append(FfiConverterTypeMobileLabelContactRow.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
 private struct FfiConverterSequenceTypeMobileLocaleInfo: FfiConverterRustBuffer {
     typealias SwiftType = [MobileLocaleInfo]
 
@@ -20563,6 +21239,81 @@ private struct FfiConverterSequenceTypeMobileVisibilityLabel: FfiConverterRustBu
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
             try seq.append(FfiConverterTypeMobileVisibilityLabel.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+private struct FfiConverterSequenceTypeMobileContactDetailAction: FfiConverterRustBuffer {
+    typealias SwiftType = [MobileContactDetailAction]
+
+    static func write(_ value: [MobileContactDetailAction], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeMobileContactDetailAction.write(item, into: &buf)
+        }
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileContactDetailAction] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [MobileContactDetailAction]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            try seq.append(FfiConverterTypeMobileContactDetailAction.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+private struct FfiConverterSequenceTypeMobileContactDetailBadge: FfiConverterRustBuffer {
+    typealias SwiftType = [MobileContactDetailBadge]
+
+    static func write(_ value: [MobileContactDetailBadge], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeMobileContactDetailBadge.write(item, into: &buf)
+        }
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileContactDetailBadge] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [MobileContactDetailBadge]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            try seq.append(FfiConverterTypeMobileContactDetailBadge.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+private struct FfiConverterSequenceTypeMobileContactDetailBanner: FfiConverterRustBuffer {
+    typealias SwiftType = [MobileContactDetailBanner]
+
+    static func write(_ value: [MobileContactDetailBanner], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeMobileContactDetailBanner.write(item, into: &buf)
+        }
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileContactDetailBanner] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [MobileContactDetailBanner]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            try seq.append(FfiConverterTypeMobileContactDetailBanner.read(from: &buf))
         }
         return seq
     }
@@ -21833,6 +22584,9 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_contact_detail_footer_action_id() != 60872 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_contact_detail_view_state() != 30178 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_count_failed_deliveries() != 46981 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -21992,10 +22746,13 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_emergency_config() != 19962 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_failed_delivery_records() != 26398 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_groups_for_contact() != 50060 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_label() != 48817 {
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_label() != 10391 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_offline_queue_capacity() != 11142 {

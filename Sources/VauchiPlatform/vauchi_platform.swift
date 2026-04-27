@@ -3226,6 +3226,19 @@ public protocol PlatformAppEngineProtocol: AnyObject {
     func currentScreenJson() throws -> String
 
     /**
+     * Returns the canonical screen-id of the parent tab the active
+     * screen belongs to under the given layout, or `None` for
+     * transient overlays (Lock, FormDialog).
+     *
+     * `Mobile` matches the 5-tab bottom nav from `tab_info`;
+     * `Desktop` matches the 14-tab sidebar from `sidebar_items`.
+     * Frontends use this to keep tab/sidebar selection in sync with
+     * the active screen without maintaining their own
+     * `screen_id` → `parent_tab` map (§1D pure-renderer remediation).
+     */
+    func currentTabId(layout: MobileTabLayout) throws -> String?
+
+    /**
      * Returns the default landing screen as a JSON string.
      *
      * Returns MyInfo when no contacts, Contacts when >=1 contact.
@@ -3563,6 +3576,24 @@ open class PlatformAppEngine:
     open func currentScreenJson() throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_platformappengine_current_screen_json(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Returns the canonical screen-id of the parent tab the active
+     * screen belongs to under the given layout, or `None` for
+     * transient overlays (Lock, FormDialog).
+     *
+     * `Mobile` matches the 5-tab bottom nav from `tab_info`;
+     * `Desktop` matches the 14-tab sidebar from `sidebar_items`.
+     * Frontends use this to keep tab/sidebar selection in sync with
+     * the active screen without maintaining their own
+     * `screen_id` → `parent_tab` map (§1D pure-renderer remediation).
+     */
+    open func currentTabId(layout: MobileTabLayout) throws -> String? {
+        return try FfiConverterOptionString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_current_tab_id(self.uniffiClonePointer(),
+                                                                              FfiConverterTypeMobileTabLayout.lower(layout), $0)
         })
     }
 
@@ -17728,6 +17759,64 @@ extension MobileSyncStatus: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /*
+ * Form-factor lens for tab-resolution queries (§1D pure-renderer
+ * remediation). Mobile collapses Settings/Recovery/Help/etc under
+ * `More`; Desktop has them as first-class sidebar items. Frontends
+ * pass the layout matching their nav surface.
+ */
+
+public enum MobileTabLayout {
+    case mobile
+    case desktop
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileTabLayout: FfiConverterRustBuffer {
+    typealias SwiftType = MobileTabLayout
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileTabLayout {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return .mobile
+
+        case 2: return .desktop
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileTabLayout, into buf: inout [UInt8]) {
+        switch value {
+        case .mobile:
+            writeInt(&buf, Int32(1))
+
+        case .desktop:
+            writeInt(&buf, Int32(2))
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileTabLayout_lift(_ buf: RustBuffer) throws -> MobileTabLayout {
+    return try FfiConverterTypeMobileTabLayout.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileTabLayout_lower(_ value: MobileTabLayout) -> RustBuffer {
+    return FfiConverterTypeMobileTabLayout.lower(value)
+}
+
+extension MobileTabLayout: Equatable, Hashable {}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/*
  * Theme mode (light or dark)
  */
 
@@ -21625,6 +21714,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_platformappengine_current_screen_json() != 10670 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_current_tab_id() != 29300 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_platformappengine_default_screen_json() != 8108 {

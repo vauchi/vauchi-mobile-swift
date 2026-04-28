@@ -3204,6 +3204,52 @@ public protocol PlatformAppEngineProtocol: AnyObject {
     func availableScreensJson() throws -> String
 
     /**
+     * Decide what to do after a successful platform biometric
+     * authentication, in constant wall-clock time.
+     *
+     * Frontends call this immediately after the OS biometric prompt
+     * (iOS `LAContext`, Android `BiometricPrompt`) resolves with
+     * success. The call returns either:
+     *
+     * - [`MobileBiometricUnlockOutcome::Unlocked`] — biometric
+     * proves the real user; the frontend can transition to the
+     * post-auth screen. `auth_mode` is set to `Normal` in core.
+     * - [`MobileBiometricUnlockOutcome::PromptForDuressPin`] —
+     * duress is configured; the frontend must show the PIN entry
+     * screen. The subsequent `authenticate(pin)` call decides
+     * `Normal` vs `Duress`.
+     *
+     * The call always takes at least
+     * [`vauchi_core::api::vauchi::BIOMETRIC_UNLOCK_MIN_DURATION`]
+     * (300 ms). Padding lives in core so iOS / Android cannot
+     * diverge on the constant-time floor that hides whether duress
+     * is configured (audit item P2-B,
+     * `2026-04-28-lifecycle-session-residue-umbrella`).
+     */
+    func biometricUnlockCheck() throws -> MobileBiometricUnlockOutcome
+
+    /**
+     * Returns the cold-start `ScreenModel` JSON for whatever the
+     * app's current persistent state is.
+     *
+     * Frontends call this **once** on cold start (after constructing
+     * `PlatformAppEngine`) and render the result. They do **not**
+     * branch on `has_identity` / `is_password_enabled` /
+     * `is_onboarding_complete` themselves — that decision lives
+     * inside core's `AppEngine::new()` boot logic and the
+     * idempotent `self_heal_post_auth` self-heal that follows.
+     *
+     * Equivalent to `current_screen_json()` plus an explicit
+     * contract: the audit
+     * `2026-04-28-app-launch-and-identity-orchestration-in-core`
+     * §2.1 elevates "first read after instance construction" from
+     * "implicit / by convention" to "named API method", so iOS
+     * `AppState` and Android `UiState` shadow enums can be deleted
+     * without ambiguity. Subsequent reads use `current_screen_json`.
+     */
+    func boot() throws -> String
+
+    /**
      * Returns the current screen's screen_id (lightweight query).
      *
      * Useful for tab bar highlighting without deserializing the full ScreenModel.
@@ -3344,6 +3390,16 @@ public protocol PlatformAppEngineProtocol: AnyObject {
     func invalidateScreenJson(screenJson: String) throws
 
     /**
+     * Returns the last frontend-reported network reachability.
+     *
+     * Defaults to `true` until the frontend reports otherwise. Used
+     * by reachability tests; frontends do not need to query this —
+     * the offline banner is injected into emitted `ScreenModel`s
+     * automatically when the state is `false`.
+     */
+    func isNetworkOnline() throws -> Bool
+
+    /**
      * Navigate back in the history stack.
      *
      * Returns the previous screen model as JSON.
@@ -3358,6 +3414,45 @@ public protocol PlatformAppEngineProtocol: AnyObject {
      * - `{"ContactDetail": {"contact_id": "abc"}}` (parameterized variant)
      */
     func navigateToJson(screenJson: String) throws -> String
+
+    /**
+     * Recommended interval (seconds) between periodic sync ticks.
+     *
+     * Frontends call this once at scheduler-registration time to
+     * configure their `BGTaskScheduler` / `WorkManager` interval.
+     * Single source of truth lives in core
+     * ([`vauchi_core::PERIODIC_SYNC_INTERVAL_SECONDS`]).
+     */
+    func periodicSyncIntervalSeconds() -> UInt64
+
+    /**
+     * Maximum retries the platform scheduler should configure for
+     * a failed periodic sync. Single source of truth lives in core
+     * ([`vauchi_core::PERIODIC_SYNC_MAX_RETRIES`]).
+     */
+    func periodicSyncMaxRetries() -> UInt32
+
+    /**
+     * Run one periodic sync tick.
+     *
+     * Frontends call this from their platform-scheduler handler
+     * (`BGTaskScheduler` on iOS, `WorkManager` on Android). Per-tick
+     * behaviour lives in core: gate on identity / OHTTP key,
+     * honour the throttle window, delegate to `Vauchi::sync()`.
+     * Frontends do not duplicate the "sync if due" logic.
+     *
+     * Returns the [`vauchi_core::VauchiSyncOutcome`] serialised as
+     * JSON so the platform shell can log/observe without binding
+     * the full sync types over UniFFI.
+     *
+     * Audit `2026-04-28-lifecycle-session-residue-umbrella` P2-C.
+     * Companion constants on the core side
+     * (`PERIODIC_SYNC_INTERVAL_SECONDS = 900`,
+     * `PERIODIC_SYNC_MAX_RETRIES = 3`) replace the duplicated
+     * 15-min interval / 3-retry magic numbers in
+     * `BackgroundSyncService` / `SyncWorker`.
+     */
+    func periodicSyncTick() throws -> String
 
     /**
      * Poll core for pending OS notifications to render.
@@ -3420,6 +3515,21 @@ public protocol PlatformAppEngineProtocol: AnyObject {
      * ```
      */
     func setEventListener(listener: PlatformEventListener) throws
+
+    /**
+     * Report frontend-observed network reachability to core.
+     *
+     * Frontends call this from their platform reachability monitor
+     * (`NWPathMonitor` on iOS, `ConnectivityManager` on Android)
+     * callback. While `online == false`, every emitted
+     * `ScreenModel` carries a presentational offline `Component::Banner`
+     * that frontends render automatically — no
+     * `MainViewModel.isOnline` mirror flag, no `OfflineBanner()`
+     * switch in the view tree.
+     *
+     * Audit `2026-04-28-lifecycle-session-residue-umbrella` P2-D.
+     */
+    func setNetworkOnline(online: Bool) throws
 
     /**
      * Returns desktop-sidebar metadata — all top-level navigable
@@ -3569,6 +3679,60 @@ open class PlatformAppEngine:
     open func availableScreensJson() throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_platformappengine_available_screens_json(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Decide what to do after a successful platform biometric
+     * authentication, in constant wall-clock time.
+     *
+     * Frontends call this immediately after the OS biometric prompt
+     * (iOS `LAContext`, Android `BiometricPrompt`) resolves with
+     * success. The call returns either:
+     *
+     * - [`MobileBiometricUnlockOutcome::Unlocked`] — biometric
+     * proves the real user; the frontend can transition to the
+     * post-auth screen. `auth_mode` is set to `Normal` in core.
+     * - [`MobileBiometricUnlockOutcome::PromptForDuressPin`] —
+     * duress is configured; the frontend must show the PIN entry
+     * screen. The subsequent `authenticate(pin)` call decides
+     * `Normal` vs `Duress`.
+     *
+     * The call always takes at least
+     * [`vauchi_core::api::vauchi::BIOMETRIC_UNLOCK_MIN_DURATION`]
+     * (300 ms). Padding lives in core so iOS / Android cannot
+     * diverge on the constant-time floor that hides whether duress
+     * is configured (audit item P2-B,
+     * `2026-04-28-lifecycle-session-residue-umbrella`).
+     */
+    open func biometricUnlockCheck() throws -> MobileBiometricUnlockOutcome {
+        return try FfiConverterTypeMobileBiometricUnlockOutcome.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_biometric_unlock_check(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Returns the cold-start `ScreenModel` JSON for whatever the
+     * app's current persistent state is.
+     *
+     * Frontends call this **once** on cold start (after constructing
+     * `PlatformAppEngine`) and render the result. They do **not**
+     * branch on `has_identity` / `is_password_enabled` /
+     * `is_onboarding_complete` themselves — that decision lives
+     * inside core's `AppEngine::new()` boot logic and the
+     * idempotent `self_heal_post_auth` self-heal that follows.
+     *
+     * Equivalent to `current_screen_json()` plus an explicit
+     * contract: the audit
+     * `2026-04-28-app-launch-and-identity-orchestration-in-core`
+     * §2.1 elevates "first read after instance construction" from
+     * "implicit / by convention" to "named API method", so iOS
+     * `AppState` and Android `UiState` shadow enums can be deleted
+     * without ambiguity. Subsequent reads use `current_screen_json`.
+     */
+    open func boot() throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_boot(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -3770,6 +3934,20 @@ open class PlatformAppEngine:
     }
 
     /**
+     * Returns the last frontend-reported network reachability.
+     *
+     * Defaults to `true` until the frontend reports otherwise. Used
+     * by reachability tests; frontends do not need to query this —
+     * the offline banner is injected into emitted `ScreenModel`s
+     * automatically when the state is `false`.
+     */
+    open func isNetworkOnline() throws -> Bool {
+        return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_is_network_online(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
      * Navigate back in the history stack.
      *
      * Returns the previous screen model as JSON.
@@ -3791,6 +3969,57 @@ open class PlatformAppEngine:
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_platformappengine_navigate_to_json(self.uniffiClonePointer(),
                                                                                 FfiConverterString.lower(screenJson), $0)
+        })
+    }
+
+    /**
+     * Recommended interval (seconds) between periodic sync ticks.
+     *
+     * Frontends call this once at scheduler-registration time to
+     * configure their `BGTaskScheduler` / `WorkManager` interval.
+     * Single source of truth lives in core
+     * ([`vauchi_core::PERIODIC_SYNC_INTERVAL_SECONDS`]).
+     */
+    open func periodicSyncIntervalSeconds() -> UInt64 {
+        return try! FfiConverterUInt64.lift(try! rustCall {
+            uniffi_vauchi_platform_fn_method_platformappengine_periodic_sync_interval_seconds(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Maximum retries the platform scheduler should configure for
+     * a failed periodic sync. Single source of truth lives in core
+     * ([`vauchi_core::PERIODIC_SYNC_MAX_RETRIES`]).
+     */
+    open func periodicSyncMaxRetries() -> UInt32 {
+        return try! FfiConverterUInt32.lift(try! rustCall {
+            uniffi_vauchi_platform_fn_method_platformappengine_periodic_sync_max_retries(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Run one periodic sync tick.
+     *
+     * Frontends call this from their platform-scheduler handler
+     * (`BGTaskScheduler` on iOS, `WorkManager` on Android). Per-tick
+     * behaviour lives in core: gate on identity / OHTTP key,
+     * honour the throttle window, delegate to `Vauchi::sync()`.
+     * Frontends do not duplicate the "sync if due" logic.
+     *
+     * Returns the [`vauchi_core::VauchiSyncOutcome`] serialised as
+     * JSON so the platform shell can log/observe without binding
+     * the full sync types over UniFFI.
+     *
+     * Audit `2026-04-28-lifecycle-session-residue-umbrella` P2-C.
+     * Companion constants on the core side
+     * (`PERIODIC_SYNC_INTERVAL_SECONDS = 900`,
+     * `PERIODIC_SYNC_MAX_RETRIES = 3`) replace the duplicated
+     * 15-min interval / 3-retry magic numbers in
+     * `BackgroundSyncService` / `SyncWorker`.
+     */
+    open func periodicSyncTick() throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_periodic_sync_tick(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -3867,6 +4096,26 @@ open class PlatformAppEngine:
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_platformappengine_set_event_listener(self.uniffiClonePointer(),
                                                                                   FfiConverterCallbackInterfacePlatformEventListener.lower(listener), $0)
+        }
+    }
+
+    /**
+     * Report frontend-observed network reachability to core.
+     *
+     * Frontends call this from their platform reachability monitor
+     * (`NWPathMonitor` on iOS, `ConnectivityManager` on Android)
+     * callback. While `online == false`, every emitted
+     * `ScreenModel` carries a presentational offline `Component::Banner`
+     * that frontends render automatically — no
+     * `MainViewModel.isOnline` mirror flag, no `OfflineBanner()`
+     * switch in the view tree.
+     *
+     * Audit `2026-04-28-lifecycle-session-residue-umbrella` P2-D.
+     */
+    open func setNetworkOnline(online: Bool) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_set_network_online(self.uniffiClonePointer(),
+                                                                                  FfiConverterBool.lower(online), $0)
         }
     }
 
@@ -15503,6 +15752,76 @@ public func FfiConverterTypeMobileAuthMode_lower(_ value: MobileAuthMode) -> Rus
 
 extension MobileAuthMode: Equatable, Hashable {}
 
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/*
+ * Outcome of `PlatformAppEngine.biometric_unlock_check()`.
+ *
+ * Mirror of [`vauchi_core::BiometricUnlockOutcome`] crossing the
+ * UniFFI boundary. The call wraps the duress-aware decision in a
+ * constant-time floor so the unlock animation timing cannot leak
+ * whether duress is configured (audit item P2-B in
+ * `2026-04-28-lifecycle-session-residue-umbrella`).
+ */
+
+public enum MobileBiometricUnlockOutcome {
+    /**
+     * Biometric authentication succeeded and no duress PIN is
+     * configured — frontends transition to the post-auth screen.
+     */
+    case unlocked
+    /**
+     * Biometric authentication succeeded but duress is configured —
+     * frontends must show the PIN entry screen so the user types
+     * either the real PIN (`Normal`) or the duress PIN (`Duress`).
+     */
+    case promptForDuressPin
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileBiometricUnlockOutcome: FfiConverterRustBuffer {
+    typealias SwiftType = MobileBiometricUnlockOutcome
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileBiometricUnlockOutcome {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return .unlocked
+
+        case 2: return .promptForDuressPin
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileBiometricUnlockOutcome, into buf: inout [UInt8]) {
+        switch value {
+        case .unlocked:
+            writeInt(&buf, Int32(1))
+
+        case .promptForDuressPin:
+            writeInt(&buf, Int32(2))
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileBiometricUnlockOutcome_lift(_ buf: RustBuffer) throws -> MobileBiometricUnlockOutcome {
+    return try FfiConverterTypeMobileBiometricUnlockOutcome.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileBiometricUnlockOutcome_lower(_ value: MobileBiometricUnlockOutcome) -> RustBuffer {
+    return FfiConverterTypeMobileBiometricUnlockOutcome.lower(value)
+}
+
+extension MobileBiometricUnlockOutcome: Equatable, Hashable {}
+
 /**
  * Error type for BLE exchange operations.
  */
@@ -22452,6 +22771,12 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_platformappengine_available_screens_json() != 8671 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_biometric_unlock_check() != 6464 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_boot() != 14829 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_platform_checksum_method_platformappengine_current_screen_id() != 29912 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -22491,10 +22816,22 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_platformappengine_invalidate_screen_json() != 16626 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_is_network_online() != 57914 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_platform_checksum_method_platformappengine_navigate_back_json() != 55923 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_platformappengine_navigate_to_json() != 60323 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_periodic_sync_interval_seconds() != 52853 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_periodic_sync_max_retries() != 62868 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_periodic_sync_tick() != 46293 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_platformappengine_poll_notifications() != 29677 {
@@ -22504,6 +22841,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_platformappengine_set_event_listener() != 2450 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_set_network_online() != 63768 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_platformappengine_sidebar_items() != 40006 {

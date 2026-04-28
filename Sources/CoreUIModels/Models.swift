@@ -615,13 +615,11 @@ public struct CardPreviewComponent: Decodable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case name
-        case avatarData = "avatar_data"
-        case fields
-        case groupViews = "group_views"
-        case selectedGroup = "selected_group"
-        case visibleFields = "visible_fields"
-        case a11y
+        /// Raw values match property names (camelCase) so the consumer's
+        /// `convertFromSnakeCase` strategy can resolve `avatar_data` → `avatarData`
+        /// before key lookup. Snake_case raw values would mask convertFromSnakeCase
+        /// and break decode (group_views fixture lookup miss, observed v0.28.1+ tag).
+        case name, avatarData, fields, groupViews, selectedGroup, visibleFields, a11y
     }
 
     public init(from decoder: Decoder) throws {

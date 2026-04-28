@@ -588,6 +588,12 @@ public struct CardPreviewComponent: Decodable {
     public let fields: [FieldDisplay]
     public let groupViews: [GroupCardView]
     public let selectedGroup: String?
+    /// G1 (ADR-021/043, core!695): pre-filtered list emitted by core's
+    /// `build_visible_fields` helper. Frontends should render this
+    /// directly rather than reproducing the filter / fallback in Swift.
+    /// Defaults to `[]` so pre-G1 ScreenModel JSON still decodes;
+    /// frontends fall back to `fields` when the list is empty.
+    public let visibleFields: [FieldDisplay]
     public var a11y: A11y?
 
     public init(
@@ -596,6 +602,7 @@ public struct CardPreviewComponent: Decodable {
         fields: [FieldDisplay],
         groupViews: [GroupCardView],
         selectedGroup: String? = nil,
+        visibleFields: [FieldDisplay] = [],
         a11y: A11y? = nil
     ) {
         self.name = name
@@ -603,7 +610,29 @@ public struct CardPreviewComponent: Decodable {
         self.fields = fields
         self.groupViews = groupViews
         self.selectedGroup = selectedGroup
+        self.visibleFields = visibleFields
         self.a11y = a11y
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case name
+        case avatarData = "avatar_data"
+        case fields
+        case groupViews = "group_views"
+        case selectedGroup = "selected_group"
+        case visibleFields = "visible_fields"
+        case a11y
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        name = try container.decode(String.self, forKey: .name)
+        avatarData = try container.decodeIfPresent([UInt8].self, forKey: .avatarData)
+        fields = try container.decode([FieldDisplay].self, forKey: .fields)
+        groupViews = try container.decode([GroupCardView].self, forKey: .groupViews)
+        selectedGroup = try container.decodeIfPresent(String.self, forKey: .selectedGroup)
+        visibleFields = try container.decodeIfPresent([FieldDisplay].self, forKey: .visibleFields) ?? []
+        a11y = try container.decodeIfPresent(A11y.self, forKey: .a11y)
     }
 }
 

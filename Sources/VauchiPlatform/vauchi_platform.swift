@@ -3146,37 +3146,13 @@ public func FfiConverterTypeMobileOnboardingWorkflow_lower(_ value: MobileOnboar
     return FfiConverterTypeMobileOnboardingWorkflow.lower(value)
 }
 
-/**
- * Unified navigation and screen engine for mobile/desktop platforms.
- *
- * Wraps `AppEngine` with JSON-based FFI transport.
- * Manages screen navigation, engine lifecycle, and form dialog persistence.
- *
- * # Usage from Swift/Kotlin
- *
- * ```swift
- * let engine = try PlatformAppEngine(
- * dataDir: dataDir,
- * relayUrl: "https://relay.vauchi.app",
- * storageKeyBytes: keyBytes
- * )
- *
- * // Get current screen
- * let screenJson = try engine.currentScreenJson()
- *
- * // Handle user action
- * let resultJson = try engine.handleActionJson(
- * actionJson: "{\"ActionPressed\": {\"action_id\": \"get_started\"}}"
- * )
- *
- * // Navigate to a screen
- * let screenJson = try engine.navigateToJson(screenJson: "\"Exchange\"")
- *
- * // After VauchiPlatform mutations, invalidate
- * try engine.invalidateAll()
- * ```
- */
 public protocol PlatformAppEngineProtocol: AnyObject {
+    /**
+     * Add a voucher to the in-progress recovery proof. Requires that
+     * `create_recovery_claim` was called first.
+     */
+    func addRecoveryVoucher(voucherB64: String) throws -> MobileRecoveryProgress
+
     /**
      * Advance the animated QR to the next frame.
      *
@@ -3250,6 +3226,42 @@ public protocol PlatformAppEngineProtocol: AnyObject {
     func boot() throws -> String
 
     /**
+     * Configure the emergency-broadcast destination set, message,
+     * and location-inclusion flag. `contact_ids.len()` must be ≤ the
+     * core-side `MAX_TRUSTED_CONTACTS` cap (enforced by `Vauchi`).
+     */
+    func configureEmergencyBroadcast(contactIds: [String], message: String, includeLocation: Bool) throws
+
+    /**
+     * Create the orchestrator session for the initiator side of a
+     * device link. The frontend registers a
+     * `DeviceLinkSessionListener`, calls `start()` on the returned
+     * session, and forwards user actions via `confirm_manual` /
+     * `confirm_ultrasonic` / `deny`. The session owns the
+     * relay-poll loop, the QR-expiry deadline, and the
+     * user-confirm gate. Replaces the legacy split between
+     * `start_device_link()`, `listen_for_device_link_request()`,
+     * and `send_device_link_response()`.
+     *
+     * Persistence: the session saves the updated `DeviceRegistry`
+     * after `confirm_link` succeeds, closing a pre-existing gap
+     * where the legacy single-shot path discarded it.
+     */
+    func createDeviceLinkSessionInitiator() throws -> MobileDeviceLinkSession
+
+    /**
+     * Create a recovery claim binding `old_pk_hex` (lost identity) to
+     * the active identity's signing public key.
+     */
+    func createRecoveryClaim(oldPkHex: String) throws -> MobileRecoveryClaim
+
+    /**
+     * Create a voucher for someone else's recovery claim using the
+     * active identity's signing key.
+     */
+    func createRecoveryVoucher(claimB64: String) throws -> MobileRecoveryVoucher
+
+    /**
      * Returns the current screen's screen_id (lightweight query).
      *
      * Useful for tab bar highlighting without deserializing the full ScreenModel.
@@ -3284,6 +3296,27 @@ public protocol PlatformAppEngineProtocol: AnyObject {
     func defaultScreenJson() throws -> String
 
     /**
+     * Number of devices linked to the active identity. Returns 1 when
+     * no registry exists yet (only the current device).
+     */
+    func deviceCount() throws -> UInt32
+
+    /**
+     * Delete the emergency-broadcast configuration. Idempotent —
+     * calling on a never-configured instance succeeds silently
+     * (matches legacy `VauchiPlatform` semantics).
+     */
+    func disableEmergencyBroadcast() throws
+
+    /**
+     * Dispatch a typed domain command. Pattern match on the
+     * returned [`DomainCommandResult`] in the calling code; see
+     * `core/vauchi-platform/src/domain_command.rs` for the
+     * variant set.
+     */
+    func dispatchDomainCommand(command: DomainCommand) throws -> DomainCommandResult
+
+    /**
      * Drain pending OS notifications.
      *
      * Returns notifications that should be shown to the user via the
@@ -3301,6 +3334,36 @@ public protocol PlatformAppEngineProtocol: AnyObject {
      * Used by frontends to show a "discard changes?" prompt on back navigation.
      */
     func formHasData() throws -> Bool
+
+    /**
+     * Generate the QR shown to a peer for device linking. Read-only
+     * — does not persist any state. The QR expires after 300 s
+     * (ADR-035).
+     */
+    func generateDeviceLinkQr() throws -> MobileDeviceLinkData
+
+    /**
+     * List devices linked to the active identity. The first entry
+     * (index 0) is the primary device.
+     */
+    func getDevices() throws -> [MobileDeviceInfo]
+
+    /**
+     * Read the current emergency-broadcast configuration. Returns
+     * `None` when never configured (or after `disable_emergency_broadcast`).
+     */
+    func getEmergencyConfig() throws -> MobileEmergencyConfig?
+
+    /**
+     * Read the completed recovery proof as base64. Returns `None`
+     * until the threshold is met.
+     */
+    func getRecoveryProof() throws -> String?
+
+    /**
+     * Read the in-progress recovery status, if any.
+     */
+    func getRecoveryStatus() throws -> MobileRecoveryProgress?
 
     /**
      * Handles a user action (as JSON) and returns the result as JSON.
@@ -3400,6 +3463,12 @@ public protocol PlatformAppEngineProtocol: AnyObject {
     func isNetworkOnline() throws -> Bool
 
     /**
+     * Returns whether the current device is the primary device
+     * (`device_index == 0`).
+     */
+    func isPrimaryDevice() throws -> Bool
+
+    /**
      * Navigate back in the history stack.
      *
      * Returns the previous screen model as JSON.
@@ -3414,6 +3483,18 @@ public protocol PlatformAppEngineProtocol: AnyObject {
      * - `{"ContactDetail": {"contact_id": "abc"}}` (parameterized variant)
      */
     func navigateToJson(screenJson: String) throws -> String
+
+    /**
+     * Parse a peer's device-link QR. Read-only — does not
+     * persist any state.
+     */
+    func parseDeviceLinkQr(qrData: String) throws -> MobileDeviceLinkInfo
+
+    /**
+     * Parse a base64-encoded recovery claim. Read-only — does not
+     * touch the recovery proof file.
+     */
+    func parseRecoveryClaim(claimB64: String) throws -> MobileRecoveryClaim
 
     /**
      * Recommended interval (seconds) between periodic sync ticks.
@@ -3458,6 +3539,14 @@ public protocol PlatformAppEngineProtocol: AnyObject {
      * Poll core for pending OS notifications to render.
      */
     func pollNotifications() throws -> [MobilePendingNotification]
+
+    /**
+     * Send the configured emergency broadcast. Errors when no
+     * configuration exists (caller must `configure_emergency_broadcast`
+     * first). Returns the count of alerts queued vs total trusted
+     * contacts.
+     */
+    func sendEmergencyBroadcast() throws -> MobileBroadcastResult
 
     /**
      * Report device hardware capabilities.
@@ -3550,38 +3639,32 @@ public protocol PlatformAppEngineProtocol: AnyObject {
      * frontend pure-renderer remediation; ADR-021 / ADR-038).
      */
     func tabInfo(locale: MobileLocale) throws -> [MobileTabInfo]
+
+    /**
+     * Mark a contact as recovery-trusted. Blocked contacts cannot be
+     * trusted for recovery.
+     */
+    func trustContactForRecovery(contactId: String) throws
+
+    /**
+     * Count the contacts marked as recovery-trusted.
+     */
+    func trustedContactCount() throws -> UInt32
+
+    /**
+     * Revoke the device at `device_index`. Returns `true` when a
+     * device was revoked, `false` when the index is out of range or
+     * no registry exists. Errors when the caller targets the
+     * current device — frontends must use identity deletion instead.
+     */
+    func unlinkDevice(deviceIndex: UInt32) throws -> Bool
+
+    /**
+     * Remove recovery trust from a contact.
+     */
+    func untrustContactForRecovery(contactId: String) throws
 }
 
-/**
- * Unified navigation and screen engine for mobile/desktop platforms.
- *
- * Wraps `AppEngine` with JSON-based FFI transport.
- * Manages screen navigation, engine lifecycle, and form dialog persistence.
- *
- * # Usage from Swift/Kotlin
- *
- * ```swift
- * let engine = try PlatformAppEngine(
- * dataDir: dataDir,
- * relayUrl: "https://relay.vauchi.app",
- * storageKeyBytes: keyBytes
- * )
- *
- * // Get current screen
- * let screenJson = try engine.currentScreenJson()
- *
- * // Handle user action
- * let resultJson = try engine.handleActionJson(
- * actionJson: "{\"ActionPressed\": {\"action_id\": \"get_started\"}}"
- * )
- *
- * // Navigate to a screen
- * let screenJson = try engine.navigateToJson(screenJson: "\"Exchange\"")
- *
- * // After VauchiPlatform mutations, invalidate
- * try engine.invalidateAll()
- * ```
- */
 open class PlatformAppEngine:
     PlatformAppEngineProtocol
 {
@@ -3646,6 +3729,17 @@ open class PlatformAppEngine:
         }
 
         try! rustCall { uniffi_vauchi_platform_fn_free_platformappengine(pointer, $0) }
+    }
+
+    /**
+     * Add a voucher to the in-progress recovery proof. Requires that
+     * `create_recovery_claim` was called first.
+     */
+    open func addRecoveryVoucher(voucherB64: String) throws -> MobileRecoveryProgress {
+        return try FfiConverterTypeMobileRecoveryProgress.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_add_recovery_voucher(self.uniffiClonePointer(),
+                                                                                    FfiConverterString.lower(voucherB64), $0)
+        })
     }
 
     /**
@@ -3737,6 +3831,63 @@ open class PlatformAppEngine:
     }
 
     /**
+     * Configure the emergency-broadcast destination set, message,
+     * and location-inclusion flag. `contact_ids.len()` must be ≤ the
+     * core-side `MAX_TRUSTED_CONTACTS` cap (enforced by `Vauchi`).
+     */
+    open func configureEmergencyBroadcast(contactIds: [String], message: String, includeLocation: Bool) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_configure_emergency_broadcast(self.uniffiClonePointer(),
+                                                                                             FfiConverterSequenceString.lower(contactIds),
+                                                                                             FfiConverterString.lower(message),
+                                                                                             FfiConverterBool.lower(includeLocation), $0)
+        }
+    }
+
+    /**
+     * Create the orchestrator session for the initiator side of a
+     * device link. The frontend registers a
+     * `DeviceLinkSessionListener`, calls `start()` on the returned
+     * session, and forwards user actions via `confirm_manual` /
+     * `confirm_ultrasonic` / `deny`. The session owns the
+     * relay-poll loop, the QR-expiry deadline, and the
+     * user-confirm gate. Replaces the legacy split between
+     * `start_device_link()`, `listen_for_device_link_request()`,
+     * and `send_device_link_response()`.
+     *
+     * Persistence: the session saves the updated `DeviceRegistry`
+     * after `confirm_link` succeeds, closing a pre-existing gap
+     * where the legacy single-shot path discarded it.
+     */
+    open func createDeviceLinkSessionInitiator() throws -> MobileDeviceLinkSession {
+        return try FfiConverterTypeMobileDeviceLinkSession.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_create_device_link_session_initiator(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Create a recovery claim binding `old_pk_hex` (lost identity) to
+     * the active identity's signing public key.
+     */
+    open func createRecoveryClaim(oldPkHex: String) throws -> MobileRecoveryClaim {
+        return try FfiConverterTypeMobileRecoveryClaim.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_create_recovery_claim(self.uniffiClonePointer(),
+                                                                                     FfiConverterString.lower(oldPkHex), $0)
+        })
+    }
+
+    /**
+     * Create a voucher for someone else's recovery claim using the
+     * active identity's signing key.
+     */
+    open func createRecoveryVoucher(claimB64: String) throws -> MobileRecoveryVoucher {
+        return try FfiConverterTypeMobileRecoveryVoucher.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_create_recovery_voucher(self.uniffiClonePointer(),
+                                                                                       FfiConverterString.lower(claimB64), $0)
+        })
+    }
+
+    /**
      * Returns the current screen's screen_id (lightweight query).
      *
      * Useful for tab bar highlighting without deserializing the full ScreenModel.
@@ -3788,6 +3939,40 @@ open class PlatformAppEngine:
     }
 
     /**
+     * Number of devices linked to the active identity. Returns 1 when
+     * no registry exists yet (only the current device).
+     */
+    open func deviceCount() throws -> UInt32 {
+        return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_device_count(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Delete the emergency-broadcast configuration. Idempotent —
+     * calling on a never-configured instance succeeds silently
+     * (matches legacy `VauchiPlatform` semantics).
+     */
+    open func disableEmergencyBroadcast() throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_disable_emergency_broadcast(self.uniffiClonePointer(), $0)
+        }
+    }
+
+    /**
+     * Dispatch a typed domain command. Pattern match on the
+     * returned [`DomainCommandResult`] in the calling code; see
+     * `core/vauchi-platform/src/domain_command.rs` for the
+     * variant set.
+     */
+    open func dispatchDomainCommand(command: DomainCommand) throws -> DomainCommandResult {
+        return try FfiConverterTypeDomainCommandResult.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_dispatch_domain_command(self.uniffiClonePointer(),
+                                                                                       FfiConverterTypeDomainCommand.lower(command), $0)
+        })
+    }
+
+    /**
      * Drain pending OS notifications.
      *
      * Returns notifications that should be shown to the user via the
@@ -3811,6 +3996,56 @@ open class PlatformAppEngine:
     open func formHasData() throws -> Bool {
         return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_platformappengine_form_has_data(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Generate the QR shown to a peer for device linking. Read-only
+     * — does not persist any state. The QR expires after 300 s
+     * (ADR-035).
+     */
+    open func generateDeviceLinkQr() throws -> MobileDeviceLinkData {
+        return try FfiConverterTypeMobileDeviceLinkData.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_generate_device_link_qr(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * List devices linked to the active identity. The first entry
+     * (index 0) is the primary device.
+     */
+    open func getDevices() throws -> [MobileDeviceInfo] {
+        return try FfiConverterSequenceTypeMobileDeviceInfo.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_get_devices(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Read the current emergency-broadcast configuration. Returns
+     * `None` when never configured (or after `disable_emergency_broadcast`).
+     */
+    open func getEmergencyConfig() throws -> MobileEmergencyConfig? {
+        return try FfiConverterOptionTypeMobileEmergencyConfig.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_get_emergency_config(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Read the completed recovery proof as base64. Returns `None`
+     * until the threshold is met.
+     */
+    open func getRecoveryProof() throws -> String? {
+        return try FfiConverterOptionString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_get_recovery_proof(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Read the in-progress recovery status, if any.
+     */
+    open func getRecoveryStatus() throws -> MobileRecoveryProgress? {
+        return try FfiConverterOptionTypeMobileRecoveryProgress.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_get_recovery_status(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -3948,6 +4183,16 @@ open class PlatformAppEngine:
     }
 
     /**
+     * Returns whether the current device is the primary device
+     * (`device_index == 0`).
+     */
+    open func isPrimaryDevice() throws -> Bool {
+        return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_is_primary_device(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
      * Navigate back in the history stack.
      *
      * Returns the previous screen model as JSON.
@@ -3969,6 +4214,28 @@ open class PlatformAppEngine:
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_platformappengine_navigate_to_json(self.uniffiClonePointer(),
                                                                                 FfiConverterString.lower(screenJson), $0)
+        })
+    }
+
+    /**
+     * Parse a peer's device-link QR. Read-only — does not
+     * persist any state.
+     */
+    open func parseDeviceLinkQr(qrData: String) throws -> MobileDeviceLinkInfo {
+        return try FfiConverterTypeMobileDeviceLinkInfo.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_parse_device_link_qr(self.uniffiClonePointer(),
+                                                                                    FfiConverterString.lower(qrData), $0)
+        })
+    }
+
+    /**
+     * Parse a base64-encoded recovery claim. Read-only — does not
+     * touch the recovery proof file.
+     */
+    open func parseRecoveryClaim(claimB64: String) throws -> MobileRecoveryClaim {
+        return try FfiConverterTypeMobileRecoveryClaim.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_parse_recovery_claim(self.uniffiClonePointer(),
+                                                                                    FfiConverterString.lower(claimB64), $0)
         })
     }
 
@@ -4029,6 +4296,18 @@ open class PlatformAppEngine:
     open func pollNotifications() throws -> [MobilePendingNotification] {
         return try FfiConverterSequenceTypeMobilePendingNotification.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_platformappengine_poll_notifications(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Send the configured emergency broadcast. Errors when no
+     * configuration exists (caller must `configure_emergency_broadcast`
+     * first). Returns the count of alerts queued vs total trusted
+     * contacts.
+     */
+    open func sendEmergencyBroadcast() throws -> MobileBroadcastResult {
+        return try FfiConverterTypeMobileBroadcastResult.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_send_emergency_broadcast(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -4147,6 +4426,49 @@ open class PlatformAppEngine:
             uniffi_vauchi_platform_fn_method_platformappengine_tab_info(self.uniffiClonePointer(),
                                                                         FfiConverterTypeMobileLocale.lower(locale), $0)
         })
+    }
+
+    /**
+     * Mark a contact as recovery-trusted. Blocked contacts cannot be
+     * trusted for recovery.
+     */
+    open func trustContactForRecovery(contactId: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_trust_contact_for_recovery(self.uniffiClonePointer(),
+                                                                                          FfiConverterString.lower(contactId), $0)
+        }
+    }
+
+    /**
+     * Count the contacts marked as recovery-trusted.
+     */
+    open func trustedContactCount() throws -> UInt32 {
+        return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_trusted_contact_count(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Revoke the device at `device_index`. Returns `true` when a
+     * device was revoked, `false` when the index is out of range or
+     * no registry exists. Errors when the caller targets the
+     * current device — frontends must use identity deletion instead.
+     */
+    open func unlinkDevice(deviceIndex: UInt32) throws -> Bool {
+        return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_unlink_device(self.uniffiClonePointer(),
+                                                                             FfiConverterUInt32.lower(deviceIndex), $0)
+        })
+    }
+
+    /**
+     * Remove recovery trust from a contact.
+     */
+    open func untrustContactForRecovery(contactId: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_untrust_contact_for_recovery(self.uniffiClonePointer(),
+                                                                                            FfiConverterString.lower(contactId), $0)
+        }
     }
 }
 
@@ -9014,6 +9336,16 @@ public struct MobileContactDetailViewState {
      * Action buttons to render in the screen footer/action bar.
      */
     public var actions: [MobileContactDetailAction]
+    /**
+     * Localized "Added X ago" display string, or `None` for imported
+     * contacts (no exchange timestamp). Closes G6 (a) — frontends
+     * stop calling Swift's `RelativeDateTimeFormatter` /
+     * Android's `DateUtils.getRelativeTimeSpanString` directly and
+     * instead render this string verbatim. The locale used today is
+     * English; per-locale plumbing is the follow-up
+     * (`contact_detail_view_state_localized` overload).
+     */
+    public var addedTimeDisplay: String?
 
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
@@ -9026,11 +9358,21 @@ public struct MobileContactDetailViewState {
             */ banners: [MobileContactDetailBanner],
         /*
             * Action buttons to render in the screen footer/action bar.
-            */ actions: [MobileContactDetailAction]
+            */ actions: [MobileContactDetailAction],
+        /*
+            * Localized "Added X ago" display string, or `None` for imported
+            * contacts (no exchange timestamp). Closes G6 (a) — frontends
+            * stop calling Swift's `RelativeDateTimeFormatter` /
+            * Android's `DateUtils.getRelativeTimeSpanString` directly and
+            * instead render this string verbatim. The locale used today is
+            * English; per-locale plumbing is the follow-up
+            * (`contact_detail_view_state_localized` overload).
+            */ addedTimeDisplay: String?
     ) {
         self.badges = badges
         self.banners = banners
         self.actions = actions
+        self.addedTimeDisplay = addedTimeDisplay
     }
 }
 
@@ -9045,6 +9387,9 @@ extension MobileContactDetailViewState: Equatable, Hashable {
         if lhs.actions != rhs.actions {
             return false
         }
+        if lhs.addedTimeDisplay != rhs.addedTimeDisplay {
+            return false
+        }
         return true
     }
 
@@ -9052,6 +9397,7 @@ extension MobileContactDetailViewState: Equatable, Hashable {
         hasher.combine(badges)
         hasher.combine(banners)
         hasher.combine(actions)
+        hasher.combine(addedTimeDisplay)
     }
 }
 
@@ -9064,7 +9410,8 @@ public struct FfiConverterTypeMobileContactDetailViewState: FfiConverterRustBuff
             try MobileContactDetailViewState(
                 badges: FfiConverterSequenceTypeMobileContactDetailBadge.read(from: &buf),
                 banners: FfiConverterSequenceTypeMobileContactDetailBanner.read(from: &buf),
-                actions: FfiConverterSequenceTypeMobileContactDetailAction.read(from: &buf)
+                actions: FfiConverterSequenceTypeMobileContactDetailAction.read(from: &buf),
+                addedTimeDisplay: FfiConverterOptionString.read(from: &buf)
             )
     }
 
@@ -9072,6 +9419,7 @@ public struct FfiConverterTypeMobileContactDetailViewState: FfiConverterRustBuff
         FfiConverterSequenceTypeMobileContactDetailBadge.write(value.badges, into: &buf)
         FfiConverterSequenceTypeMobileContactDetailBanner.write(value.banners, into: &buf)
         FfiConverterSequenceTypeMobileContactDetailAction.write(value.actions, into: &buf)
+        FfiConverterOptionString.write(value.addedTimeDisplay, into: &buf)
     }
 }
 
@@ -11909,6 +12257,14 @@ public struct MobileLabelContactRow {
      * Status of this row in the label (today always `Active`).
      */
     public var status: MobileLabelContactStatus
+    /**
+     * Status badges for the row. Populated by `get_label`. Closes the
+     * G6 follow-up — restores the verified-checkmark dropped during the
+     * G4 ContactDetail consumer migration so iOS / Android LabelDetail
+     * can render it from typed data instead of branching on a raw
+     * `MobileContact` field.
+     */
+    public var badges: [MobileLabelContactBadge]
 
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
@@ -11924,12 +12280,20 @@ public struct MobileLabelContactRow {
             */ trustLevel: MobileContactTrustLevel,
         /*
             * Status of this row in the label (today always `Active`).
-            */ status: MobileLabelContactStatus
+            */ status: MobileLabelContactStatus,
+        /*
+            * Status badges for the row. Populated by `get_label`. Closes the
+            * G6 follow-up — restores the verified-checkmark dropped during the
+            * G4 ContactDetail consumer migration so iOS / Android LabelDetail
+            * can render it from typed data instead of branching on a raw
+            * `MobileContact` field.
+            */ badges: [MobileLabelContactBadge]
     ) {
         self.id = id
         self.displayName = displayName
         self.trustLevel = trustLevel
         self.status = status
+        self.badges = badges
     }
 }
 
@@ -11947,6 +12311,9 @@ extension MobileLabelContactRow: Equatable, Hashable {
         if lhs.status != rhs.status {
             return false
         }
+        if lhs.badges != rhs.badges {
+            return false
+        }
         return true
     }
 
@@ -11955,6 +12322,7 @@ extension MobileLabelContactRow: Equatable, Hashable {
         hasher.combine(displayName)
         hasher.combine(trustLevel)
         hasher.combine(status)
+        hasher.combine(badges)
     }
 }
 
@@ -11968,7 +12336,8 @@ public struct FfiConverterTypeMobileLabelContactRow: FfiConverterRustBuffer {
                 id: FfiConverterString.read(from: &buf),
                 displayName: FfiConverterString.read(from: &buf),
                 trustLevel: FfiConverterTypeMobileContactTrustLevel.read(from: &buf),
-                status: FfiConverterTypeMobileLabelContactStatus.read(from: &buf)
+                status: FfiConverterTypeMobileLabelContactStatus.read(from: &buf),
+                badges: FfiConverterSequenceTypeMobileLabelContactBadge.read(from: &buf)
             )
     }
 
@@ -11977,6 +12346,7 @@ public struct FfiConverterTypeMobileLabelContactRow: FfiConverterRustBuffer {
         FfiConverterString.write(value.displayName, into: &buf)
         FfiConverterTypeMobileContactTrustLevel.write(value.trustLevel, into: &buf)
         FfiConverterTypeMobileLabelContactStatus.write(value.status, into: &buf)
+        FfiConverterSequenceTypeMobileLabelContactBadge.write(value.badges, into: &buf)
     }
 }
 
@@ -15336,6 +15706,2053 @@ public func FfiConverterTypeMobileWifiAwareStatus_lower(_ value: MobileWifiAware
     return FfiConverterTypeMobileWifiAwareStatus.lower(value)
 }
 
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/*
+ * Typed dispatch envelope for `PlatformAppEngine` operations that
+ * don't justify their own `#[uniffi::export]` method.
+ *
+ * Add a new variant per domain method that previously lived on
+ * `VauchiPlatform`. Variant naming convention: `<Verb><Noun>`
+ * (e.g., `GrantConsent`, `CheckConsent`) — matches the underlying
+ * API method name where possible.
+ */
+
+public enum DomainCommand {
+    /**
+     * Grant consent for a specific consent type.
+     */
+    case grantConsent(consentType: MobileConsentType)
+    /**
+     * Revoke consent for a specific consent type.
+     */
+    case revokeConsent(consentType: MobileConsentType)
+    /**
+     * Check whether consent is currently granted.
+     */
+    case checkConsent(consentType: MobileConsentType)
+    /**
+     * Aggregated consent status (granted, last change, policy version).
+     */
+    case getConsentStatus(consentType: MobileConsentType)
+    /**
+     * All persisted consent records.
+     */
+    case getConsentRecords
+    /**
+     * Returns `true` when the `content-updates` Cargo feature is
+     * enabled at compile time.
+     */
+    case isContentUpdatesSupported
+    /**
+     * Check the remote update server for available content updates.
+     * Blocking — returns `Disabled` when the feature is off.
+     */
+    case checkContentUpdates
+    /**
+     * Download and cache available updates. Returns the per-type
+     * outcome (applied vs failed). `Disabled` when the feature is off.
+     */
+    case applyContentUpdates
+    /**
+     * Reload the social-networks list from the content cache after
+     * `ApplyContentUpdates` succeeds.
+     */
+    case reloadSocialNetworks
+    /**
+     * Export all user data as JSON (GDPR right-to-export).
+     */
+    case exportGdprData
+    /**
+     * Schedule identity deletion with a 7-day grace period.
+     */
+    case scheduleIdentityDeletion
+    /**
+     * Cancel a scheduled identity deletion during the grace period.
+     */
+    case cancelIdentityDeletion
+    /**
+     * Execute a scheduled identity deletion after the grace period.
+     * Returns the count of revocations queued.
+     */
+    case executeIdentityDeletion
+    /**
+     * Read the current deletion state.
+     */
+    case getDeletionState
+    /**
+     * Read-only shred-process status. Mirrors the legacy
+     * `VauchiPlatform::shred_status` — does NOT require keychain.
+     */
+    case shredStatus
+    /**
+     * Read whether the user has already seen a given milestone.
+     */
+    case hasSeenAhaMoment(momentType: MobileAhaMomentType)
+    /**
+     * Try to trigger a milestone if not yet seen. Returns the moment
+     * payload (title / message / animation flag) on first trigger,
+     * `None` once seen.
+     */
+    case tryTriggerAhaMoment(momentType: MobileAhaMomentType)
+    /**
+     * Like `TryTriggerAhaMoment` but with a context string (e.g. a
+     * contact name) substituted into the message template.
+     */
+    case tryTriggerAhaMomentWithContext(momentType: MobileAhaMomentType, context: String)
+    /**
+     * Count of milestones already seen by the user.
+     */
+    case ahaMomentsSeenCount
+    /**
+     * Total count of milestones defined in core.
+     */
+    case ahaMomentsTotalCount
+    /**
+     * Reset every milestone to "unseen" (debug / settings affordance).
+     */
+    case resetAhaMoments
+    /**
+     * Initialize the demo contact if the user has zero real contacts
+     * and never dismissed/auto-removed the demo. Idempotent.
+     */
+    case initDemoContactIfNeeded
+    /**
+     * Read the current active demo contact, if any.
+     */
+    case getDemoContact
+    /**
+     * Read the demo-contact tracker state.
+     */
+    case getDemoContactState
+    /**
+     * Read whether a demo update is due.
+     */
+    case isDemoUpdateAvailable
+    /**
+     * Advance the demo contact to the next tip and persist the state.
+     */
+    case triggerDemoUpdate
+    /**
+     * Mark the demo contact as user-dismissed.
+     */
+    case dismissDemoContact
+    /**
+     * Mark the demo contact as auto-removed (after first real exchange).
+     */
+    case autoRemoveDemoContact
+    /**
+     * Restore a previously-dismissed demo contact.
+     */
+    case restoreDemoContact
+    /**
+     * Read the active identity's own contact card.
+     */
+    case getOwnCard
+    /**
+     * Append a field to the own card.
+     */
+    case addField(fieldType: MobileFieldType, label: String, value: String)
+    /**
+     * Update an existing field's value (looked up by label).
+     */
+    case updateField(label: String, newValue: String)
+    /**
+     * Remove a field by label. Returns `true` if it existed.
+     */
+    case removeField(label: String)
+    /**
+     * Set the own card's display name.
+     */
+    case setDisplayName(name: String)
+    /**
+     * Replace the own card's avatar (any common image format,
+     * normalised to WebP ≤ 32 KB by core).
+     */
+    case setOwnAvatar(avatarBytes: Data)
+    /**
+     * Clear the own card's avatar.
+     */
+    case clearOwnAvatar
+    /**
+     * List every contact (enriched with display-name + avatar
+     * resolution).
+     */
+    case listContacts
+    /**
+     * Read a single contact by id (enriched).
+     */
+    case getContact(id: String)
+    /**
+     * SQL-level search across contacts.
+     */
+    case searchContacts(query: String)
+    /**
+     * Total contact count.
+     */
+    case contactCount
+    /**
+     * Hard-delete an exchanged contact. Returns `true` if removed.
+     */
+    case removeContact(id: String)
+    /**
+     * Soft-delete an imported contact (keeps it in trash).
+     */
+    case softDeleteImportedContact(id: String)
+    /**
+     * Undo a soft-delete on an imported contact.
+     */
+    case undoDeleteImportedContact(id: String)
+    /**
+     * Hard-delete an imported contact (no undo).
+     */
+    case hardDeleteImportedContact(id: String)
+    /**
+     * Move an exchanged contact to the archive.
+     */
+    case archiveContact(id: String)
+    /**
+     * Restore an archived contact to the active list.
+     */
+    case unarchiveContact(id: String)
+    /**
+     * List archived contacts (enriched).
+     */
+    case listArchivedContacts
+    /**
+     * Hide a contact (keeps record but excludes from default views).
+     */
+    case hideContact(contactId: String)
+    /**
+     * Unhide a contact.
+     */
+    case unhideContact(contactId: String)
+    /**
+     * Verify a recovery proof from a contact and produce a confidence
+     * recommendation (high / medium / low) based on known vouchers.
+     */
+    case verifyRecoveryProof(proofB64: String)
+    /**
+     * Upload encrypted guardian entries (one per recovery-trusted
+     * contact) to the relay. Called after `trust_contact_for_recovery`
+     * or `untrust_contact_for_recovery` toggles the trust set.
+     */
+    case uploadGuardianEntries
+    /**
+     * Persist a user's recovery response (accept / reject /
+     * remind_me_later). Used by the `RecoveryClaimReviewEngine` to
+     * store the decision when the user reviews an incoming claim.
+     */
+    case saveRecoveryResponse(claimId: String, contactId: String, response: String, remindAt: UInt64?)
+    /**
+     * List every visibility label.
+     */
+    case listLabels
+    /**
+     * Create a new label by name.
+     */
+    case createLabel(name: String)
+    /**
+     * Read a label by id, including resolved contact rows.
+     */
+    case getLabel(labelId: String)
+    /**
+     * Rename a label.
+     */
+    case renameLabel(labelId: String, newName: String)
+    /**
+     * Delete a label.
+     */
+    case deleteLabel(labelId: String)
+    /**
+     * Add a contact to a label.
+     */
+    case addContactToGroup(labelId: String, contactId: String)
+    /**
+     * Remove a contact from a label.
+     */
+    case removeContactFromGroup(labelId: String, contactId: String)
+    /**
+     * List labels that contain a contact.
+     */
+    case getGroupsForContact(contactId: String)
+    /**
+     * Set whether a card field is visible to contacts in a label.
+     */
+    case setGroupFieldVisibility(labelId: String, fieldLabel: String, isVisible: Bool)
+    /**
+     * Set a per-contact override for field visibility.
+     */
+    case setContactFieldOverride(contactId: String, fieldLabel: String, isVisible: Bool)
+    /**
+     * Remove a per-contact field-visibility override.
+     */
+    case removeContactFieldOverride(contactId: String, fieldLabel: String)
+    /**
+     * Hide a field from a specific contact (sets the visibility rule
+     * on the contact's `visibility_rules`).
+     */
+    case hideFieldFromContact(contactId: String, fieldLabel: String)
+    /**
+     * Show a field to a specific contact.
+     */
+    case showFieldToContact(contactId: String, fieldLabel: String)
+    /**
+     * Read whether a field is visible to a specific contact.
+     */
+    case isFieldVisibleToContact(contactId: String, fieldLabel: String)
+    /**
+     * Suggested default labels (from `vauchi_core::SUGGESTED_LABELS`).
+     */
+    case getSuggestedLabels
+    /**
+     * Set up the app password (PIN). Requires identity.
+     */
+    case setupAppPassword(password: String)
+    /**
+     * Set up the duress PIN. Requires app password configured.
+     */
+    case setupDuressPassword(duressPassword: String)
+    /**
+     * Authenticate with a password. Returns Normal vs Duress mode.
+     */
+    case authenticate(password: String)
+    /**
+     * Whether an app password is configured.
+     */
+    case isPasswordEnabled
+    /**
+     * Whether duress mode is configured.
+     */
+    case isDuressEnabled
+    /**
+     * Disable duress mode and clear duress hash/salt.
+     */
+    case disableDuress
+    /**
+     * Configure the duress alert destination set + message.
+     */
+    case configureDuressAlerts(contactIds: [String], message: String)
+    /**
+     * Read the persisted duress alert settings.
+     */
+    case getDuressSettings
+    /**
+     * Add a decoy contact (shown in duress mode). `card_json` is a
+     * JSON-serialised `ContactCard`. Returns the generated decoy id.
+     */
+    case addDecoyContact(name: String, cardJson: String)
+    /**
+     * List configured decoy contacts.
+     */
+    case listDecoyContacts
+    /**
+     * Delete a decoy contact by id.
+     */
+    case deleteDecoyContact(id: String)
+    /**
+     * Total pending updates across all contacts.
+     */
+    case pendingUpdateCount
+    /**
+     * Read a delivery record by message id.
+     */
+    case getDeliveryRecord(messageId: String)
+    /**
+     * All delivery records.
+     */
+    case getAllDeliveryRecords
+    /**
+     * Delivery records for a specific recipient.
+     */
+    case getDeliveryRecordsForContact(recipientId: String)
+    /**
+     * Count of failed deliveries.
+     */
+    case countFailedDeliveries
+    /**
+     * All failed delivery records.
+     */
+    case getFailedDeliveryRecords
+    /**
+     * Reschedule a failed delivery for immediate retry.
+     * Returns `true` if the retry entry was found and rescheduled.
+     */
+    case manualRetry(messageId: String)
+    /**
+     * All non-terminal pending deliveries.
+     */
+    case getPendingDeliveries
+    /**
+     * Count of deliveries in a specific status.
+     */
+    case getDeliveryCountByStatus(status: MobileDeliveryStatus)
+    /**
+     * All retry entries due for retry now.
+     */
+    case getDueRetries
+    /**
+     * Retry entries for a specific contact.
+     */
+    case getRetriesForContact(contactId: String)
+    /**
+     * Total count of retry entries.
+     */
+    case getRetryCount
+    /**
+     * Delete a retry entry by message id.
+     */
+    case deleteRetry(messageId: String)
+    /**
+     * Compute the backoff (seconds) for a retry attempt. Pure.
+     */
+    case calculateRetryBackoff(attempt: UInt32)
+    /**
+     * Total pending updates count (alias for `PendingUpdateCount`'s
+     * alternative implementation — counts via storage directly).
+     */
+    case getTotalPendingCount
+    /**
+     * Whether the offline queue is at capacity.
+     */
+    case isOfflineQueueFull
+    /**
+     * Remaining capacity in the offline queue.
+     */
+    case getOfflineQueueCapacity
+    /**
+     * Drop all pending updates for a contact. Returns the cleared
+     * count.
+     */
+    case clearPendingUpdatesForContact(contactId: String)
+    /**
+     * Multi-device delivery summary for a message.
+     */
+    case getDeliverySummary(messageId: String)
+    /**
+     * All device delivery records for a message.
+     */
+    case getDeviceDeliveries(messageId: String)
+    /**
+     * All pending device deliveries.
+     */
+    case getPendingDeviceDeliveries
+    /**
+     * Programmatically create an identity bypassing the onboarding
+     * `UserAction` flow. Errors when an identity already exists.
+     */
+    case createIdentity(displayName: String)
+    /**
+     * Read the active identity's public id (hex-encoded signing key).
+     */
+    case getPublicId
+    /**
+     * Read the active identity's display name (own card).
+     */
+    case getDisplayName
+    /**
+     * Read the active identity's signing-key fingerprint, formatted
+     * as 16 groups of 4 uppercase hex characters.
+     */
+    case getOwnFingerprint
+    /**
+     * Compute display-name suggestions from a full name. Pure.
+     */
+    case displayNameSuggestions(fullName: String)
+    /**
+     * Reset the onboarding progress to step 0.
+     */
+    case resetOnboarding
+    /**
+     * Mark a contact's fingerprint as verified.
+     */
+    case verifyContact(id: String)
+    /**
+     * Mark a contact as trusted for simplified contact proposals
+     * (local-only flag).
+     */
+    case setProposalTrusted(contactId: String, trusted: Bool)
+    /**
+     * Find duplicate-contact pairs.
+     */
+    case findDuplicates
+    /**
+     * Dismiss a duplicate-contact pair so it stops being suggested.
+     */
+    case dismissDuplicate(id1: String, id2: String)
+    /**
+     * Save a personal note for a contact (cleared by passing "").
+     */
+    case setContactNote(contactId: String, note: String)
+    /**
+     * Read the personal note for a contact, if any.
+     */
+    case getContactNote(contactId: String)
+    /**
+     * Delete the personal note for a contact.
+     */
+    case deleteContactNote(contactId: String)
+    /**
+     * Save a private note on a specific field of a contact.
+     */
+    case setContactFieldNote(contactId: String, fieldId: String, note: String)
+    /**
+     * Read all private field notes for a contact (sorted by
+     * `field_id` for deterministic output).
+     */
+    case getContactFieldNotes(contactId: String)
+    /**
+     * Delete the private note on a specific field of a contact.
+     */
+    case deleteContactFieldNote(contactId: String, fieldId: String)
+    /**
+     * Set a local nickname for a contact.
+     */
+    case setContactNickname(contactId: String, name: String)
+    /**
+     * Clear the local nickname for a contact.
+     */
+    case clearContactNickname(contactId: String)
+    /**
+     * Set a custom avatar for a contact (must be WebP, ≤ 32 KB).
+     */
+    case setContactCustomAvatar(contactId: String, data: Data)
+    /**
+     * Clear the custom avatar for a contact.
+     */
+    case clearContactCustomAvatar(contactId: String)
+    /**
+     * Get the custom avatar for a contact, if set.
+     */
+    case getContactCustomAvatar(contactId: String)
+    /**
+     * Search the social-network registry by query.
+     */
+    case searchSocialNetworks(query: String)
+    /**
+     * Format a profile URL for a given social network and username.
+     */
+    case getProfileUrl(networkId: String, username: String)
+    /**
+     * List hidden contacts (enriched).
+     */
+    case listHiddenContacts
+    /**
+     * Returns the footer-button `ScreenAction` id that
+     * `ContactDetailEngine` would emit for the given contact.
+     */
+    case contactDetailFooterActionId(contactId: String)
+    /**
+     * Encrypt + export the active identity (legacy v1 backup).
+     * Returns base64-encoded backup data.
+     */
+    case exportBackup(password: String)
+    /**
+     * Import an identity-only backup. Engine must have no active
+     * identity. `backup_data` is base64-encoded from `ExportBackup`.
+     */
+    case importBackup(backupData: String, password: String)
+    /**
+     * Encrypt + export full v3 backup (identity + contacts + own
+     * card + labels). Returns base64-encoded data.
+     */
+    case exportFullBackup(password: String)
+    /**
+     * Import a full v3 backup. Engine must have no active identity.
+     * `backup_data` is base64-encoded from `ExportFullBackup`.
+     */
+    case importFullBackup(backupData: String, password: String)
+    /**
+     * Import contacts from a vCard 2.1/3.0/4.0 file. `data` is the
+     * raw `.vcf` bytes. Duplicates (by UID) are skipped.
+     */
+    case importContactsFromVcf(data: Data)
+    /**
+     * Set the display-name preference for a contact. `pref_json`
+     * is a JSON-serialized `vauchi_core::DisplayNamePreference`
+     * (`"primary"`, `{"shared_name":{"name":"Alice"}}`, `"custom"`).
+     */
+    case setDisplayNamePreference(contactId: String, prefJson: String)
+    /**
+     * Set the avatar preference for a contact. `pref_json` is a
+     * JSON-serialized `vauchi_core::AvatarPreference`.
+     */
+    case setAvatarPreference(contactId: String, prefJson: String)
+    /**
+     * Merge `secondary_id` into `primary_id`. The secondary
+     * contact's unique fields are merged into the primary; the
+     * secondary is removed from storage. Returns the enriched
+     * merged contact.
+     */
+    case mergeContacts(primaryId: String, secondaryId: String)
+    /**
+     * Read the current onboarding progress (step + completed steps).
+     */
+    case getOnboardingProgress
+    /**
+     * Read the current onboarding step.
+     */
+    case currentOnboardingStep
+    /**
+     * Read whether onboarding has been completed end-to-end.
+     */
+    case isOnboardingComplete
+    /**
+     * Mark the current step as completed and advance. Returns the
+     * updated progress.
+     */
+    case advanceOnboarding
+    /**
+     * Mark the current step as skipped and advance. Returns the
+     * updated progress.
+     */
+    case skipOnboardingStep
+    /**
+     * Read all display options (names + avatars) for a contact, with
+     * the active preference highlighted. Used by the chooser screen.
+     */
+    case getContactDisplayOptions(contactId: String)
+    /**
+     * List contacts with offset+limit pagination. Both bounds are
+     * applied at the storage layer; output is enriched.
+     */
+    case listContactsPaginated(offset: UInt32, limit: UInt32)
+    /**
+     * Whether delivery-receipt ACKs (`ReceivedByRecipient`) are
+     * enabled. Persisted to a JSON sidecar file next to the storage
+     * directory.
+     */
+    case isDeliveryReceiptsEnabled
+    /**
+     * Set the delivery-receipts flag. Persisted across restarts.
+     */
+    case setDeliveryReceiptsEnabled(enabled: Bool)
+    /**
+     * Whether presence suppression is enabled (the relay never
+     * learns whether the user is online). Persisted.
+     */
+    case isSuppressPresenceEnabled
+    /**
+     * Set the suppress-presence flag. Persisted across restarts.
+     */
+    case setSuppressPresenceEnabled(enabled: Bool)
+    /**
+     * Pre-computed contact-detail view (badges, banners, actions,
+     * added-time-display) — frontends iterate the returned arrays
+     * rather than branching on raw `MobileContact` flags. Closes
+     * ADR-021/043 audit V4.
+     */
+    case contactDetailViewState(contactId: String)
+    /**
+     * All social networks in the default registry. Complement to
+     * `SearchSocialNetworks`.
+     */
+    case listSocialNetworks
+    /**
+     * Encode arbitrary bytes into a sequence of multipart-QR
+     * payload strings (max ~1800 bytes per frame). Stateless —
+     * the decode side is a separate `MobileMultipartDecoder`
+     * object.
+     */
+    case encodeMultipartQr(data: Data)
+    /**
+     * Set the pinned TLS certificate (PEM-encoded). Empty string
+     * disables pinning. Persisted to a sidecar file at `.cert_pin`
+     * so the choice survives restarts. Mirrors the legacy
+     * `VauchiPlatform::set_pinned_certificate`.
+     */
+    case setPinnedCertificate(certPem: String)
+    /**
+     * Read whether certificate pinning is currently enabled.
+     */
+    case isCertificatePinningEnabled
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeDomainCommand: FfiConverterRustBuffer {
+    typealias SwiftType = DomainCommand
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> DomainCommand {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return try .grantConsent(consentType: FfiConverterTypeMobileConsentType.read(from: &buf))
+
+        case 2: return try .revokeConsent(consentType: FfiConverterTypeMobileConsentType.read(from: &buf))
+
+        case 3: return try .checkConsent(consentType: FfiConverterTypeMobileConsentType.read(from: &buf))
+
+        case 4: return try .getConsentStatus(consentType: FfiConverterTypeMobileConsentType.read(from: &buf))
+
+        case 5: return .getConsentRecords
+
+        case 6: return .isContentUpdatesSupported
+
+        case 7: return .checkContentUpdates
+
+        case 8: return .applyContentUpdates
+
+        case 9: return .reloadSocialNetworks
+
+        case 10: return .exportGdprData
+
+        case 11: return .scheduleIdentityDeletion
+
+        case 12: return .cancelIdentityDeletion
+
+        case 13: return .executeIdentityDeletion
+
+        case 14: return .getDeletionState
+
+        case 15: return .shredStatus
+
+        case 16: return try .hasSeenAhaMoment(momentType: FfiConverterTypeMobileAhaMomentType.read(from: &buf))
+
+        case 17: return try .tryTriggerAhaMoment(momentType: FfiConverterTypeMobileAhaMomentType.read(from: &buf))
+
+        case 18: return try .tryTriggerAhaMomentWithContext(momentType: FfiConverterTypeMobileAhaMomentType.read(from: &buf), context: FfiConverterString.read(from: &buf))
+
+        case 19: return .ahaMomentsSeenCount
+
+        case 20: return .ahaMomentsTotalCount
+
+        case 21: return .resetAhaMoments
+
+        case 22: return .initDemoContactIfNeeded
+
+        case 23: return .getDemoContact
+
+        case 24: return .getDemoContactState
+
+        case 25: return .isDemoUpdateAvailable
+
+        case 26: return .triggerDemoUpdate
+
+        case 27: return .dismissDemoContact
+
+        case 28: return .autoRemoveDemoContact
+
+        case 29: return .restoreDemoContact
+
+        case 30: return .getOwnCard
+
+        case 31: return try .addField(fieldType: FfiConverterTypeMobileFieldType.read(from: &buf), label: FfiConverterString.read(from: &buf), value: FfiConverterString.read(from: &buf))
+
+        case 32: return try .updateField(label: FfiConverterString.read(from: &buf), newValue: FfiConverterString.read(from: &buf))
+
+        case 33: return try .removeField(label: FfiConverterString.read(from: &buf))
+
+        case 34: return try .setDisplayName(name: FfiConverterString.read(from: &buf))
+
+        case 35: return try .setOwnAvatar(avatarBytes: FfiConverterData.read(from: &buf))
+
+        case 36: return .clearOwnAvatar
+
+        case 37: return .listContacts
+
+        case 38: return try .getContact(id: FfiConverterString.read(from: &buf))
+
+        case 39: return try .searchContacts(query: FfiConverterString.read(from: &buf))
+
+        case 40: return .contactCount
+
+        case 41: return try .removeContact(id: FfiConverterString.read(from: &buf))
+
+        case 42: return try .softDeleteImportedContact(id: FfiConverterString.read(from: &buf))
+
+        case 43: return try .undoDeleteImportedContact(id: FfiConverterString.read(from: &buf))
+
+        case 44: return try .hardDeleteImportedContact(id: FfiConverterString.read(from: &buf))
+
+        case 45: return try .archiveContact(id: FfiConverterString.read(from: &buf))
+
+        case 46: return try .unarchiveContact(id: FfiConverterString.read(from: &buf))
+
+        case 47: return .listArchivedContacts
+
+        case 48: return try .hideContact(contactId: FfiConverterString.read(from: &buf))
+
+        case 49: return try .unhideContact(contactId: FfiConverterString.read(from: &buf))
+
+        case 50: return try .verifyRecoveryProof(proofB64: FfiConverterString.read(from: &buf))
+
+        case 51: return .uploadGuardianEntries
+
+        case 52: return try .saveRecoveryResponse(claimId: FfiConverterString.read(from: &buf), contactId: FfiConverterString.read(from: &buf), response: FfiConverterString.read(from: &buf), remindAt: FfiConverterOptionUInt64.read(from: &buf))
+
+        case 53: return .listLabels
+
+        case 54: return try .createLabel(name: FfiConverterString.read(from: &buf))
+
+        case 55: return try .getLabel(labelId: FfiConverterString.read(from: &buf))
+
+        case 56: return try .renameLabel(labelId: FfiConverterString.read(from: &buf), newName: FfiConverterString.read(from: &buf))
+
+        case 57: return try .deleteLabel(labelId: FfiConverterString.read(from: &buf))
+
+        case 58: return try .addContactToGroup(labelId: FfiConverterString.read(from: &buf), contactId: FfiConverterString.read(from: &buf))
+
+        case 59: return try .removeContactFromGroup(labelId: FfiConverterString.read(from: &buf), contactId: FfiConverterString.read(from: &buf))
+
+        case 60: return try .getGroupsForContact(contactId: FfiConverterString.read(from: &buf))
+
+        case 61: return try .setGroupFieldVisibility(labelId: FfiConverterString.read(from: &buf), fieldLabel: FfiConverterString.read(from: &buf), isVisible: FfiConverterBool.read(from: &buf))
+
+        case 62: return try .setContactFieldOverride(contactId: FfiConverterString.read(from: &buf), fieldLabel: FfiConverterString.read(from: &buf), isVisible: FfiConverterBool.read(from: &buf))
+
+        case 63: return try .removeContactFieldOverride(contactId: FfiConverterString.read(from: &buf), fieldLabel: FfiConverterString.read(from: &buf))
+
+        case 64: return try .hideFieldFromContact(contactId: FfiConverterString.read(from: &buf), fieldLabel: FfiConverterString.read(from: &buf))
+
+        case 65: return try .showFieldToContact(contactId: FfiConverterString.read(from: &buf), fieldLabel: FfiConverterString.read(from: &buf))
+
+        case 66: return try .isFieldVisibleToContact(contactId: FfiConverterString.read(from: &buf), fieldLabel: FfiConverterString.read(from: &buf))
+
+        case 67: return .getSuggestedLabels
+
+        case 68: return try .setupAppPassword(password: FfiConverterString.read(from: &buf))
+
+        case 69: return try .setupDuressPassword(duressPassword: FfiConverterString.read(from: &buf))
+
+        case 70: return try .authenticate(password: FfiConverterString.read(from: &buf))
+
+        case 71: return .isPasswordEnabled
+
+        case 72: return .isDuressEnabled
+
+        case 73: return .disableDuress
+
+        case 74: return try .configureDuressAlerts(contactIds: FfiConverterSequenceString.read(from: &buf), message: FfiConverterString.read(from: &buf))
+
+        case 75: return .getDuressSettings
+
+        case 76: return try .addDecoyContact(name: FfiConverterString.read(from: &buf), cardJson: FfiConverterString.read(from: &buf))
+
+        case 77: return .listDecoyContacts
+
+        case 78: return try .deleteDecoyContact(id: FfiConverterString.read(from: &buf))
+
+        case 79: return .pendingUpdateCount
+
+        case 80: return try .getDeliveryRecord(messageId: FfiConverterString.read(from: &buf))
+
+        case 81: return .getAllDeliveryRecords
+
+        case 82: return try .getDeliveryRecordsForContact(recipientId: FfiConverterString.read(from: &buf))
+
+        case 83: return .countFailedDeliveries
+
+        case 84: return .getFailedDeliveryRecords
+
+        case 85: return try .manualRetry(messageId: FfiConverterString.read(from: &buf))
+
+        case 86: return .getPendingDeliveries
+
+        case 87: return try .getDeliveryCountByStatus(status: FfiConverterTypeMobileDeliveryStatus.read(from: &buf))
+
+        case 88: return .getDueRetries
+
+        case 89: return try .getRetriesForContact(contactId: FfiConverterString.read(from: &buf))
+
+        case 90: return .getRetryCount
+
+        case 91: return try .deleteRetry(messageId: FfiConverterString.read(from: &buf))
+
+        case 92: return try .calculateRetryBackoff(attempt: FfiConverterUInt32.read(from: &buf))
+
+        case 93: return .getTotalPendingCount
+
+        case 94: return .isOfflineQueueFull
+
+        case 95: return .getOfflineQueueCapacity
+
+        case 96: return try .clearPendingUpdatesForContact(contactId: FfiConverterString.read(from: &buf))
+
+        case 97: return try .getDeliverySummary(messageId: FfiConverterString.read(from: &buf))
+
+        case 98: return try .getDeviceDeliveries(messageId: FfiConverterString.read(from: &buf))
+
+        case 99: return .getPendingDeviceDeliveries
+
+        case 100: return try .createIdentity(displayName: FfiConverterString.read(from: &buf))
+
+        case 101: return .getPublicId
+
+        case 102: return .getDisplayName
+
+        case 103: return .getOwnFingerprint
+
+        case 104: return try .displayNameSuggestions(fullName: FfiConverterString.read(from: &buf))
+
+        case 105: return .resetOnboarding
+
+        case 106: return try .verifyContact(id: FfiConverterString.read(from: &buf))
+
+        case 107: return try .setProposalTrusted(contactId: FfiConverterString.read(from: &buf), trusted: FfiConverterBool.read(from: &buf))
+
+        case 108: return .findDuplicates
+
+        case 109: return try .dismissDuplicate(id1: FfiConverterString.read(from: &buf), id2: FfiConverterString.read(from: &buf))
+
+        case 110: return try .setContactNote(contactId: FfiConverterString.read(from: &buf), note: FfiConverterString.read(from: &buf))
+
+        case 111: return try .getContactNote(contactId: FfiConverterString.read(from: &buf))
+
+        case 112: return try .deleteContactNote(contactId: FfiConverterString.read(from: &buf))
+
+        case 113: return try .setContactFieldNote(contactId: FfiConverterString.read(from: &buf), fieldId: FfiConverterString.read(from: &buf), note: FfiConverterString.read(from: &buf))
+
+        case 114: return try .getContactFieldNotes(contactId: FfiConverterString.read(from: &buf))
+
+        case 115: return try .deleteContactFieldNote(contactId: FfiConverterString.read(from: &buf), fieldId: FfiConverterString.read(from: &buf))
+
+        case 116: return try .setContactNickname(contactId: FfiConverterString.read(from: &buf), name: FfiConverterString.read(from: &buf))
+
+        case 117: return try .clearContactNickname(contactId: FfiConverterString.read(from: &buf))
+
+        case 118: return try .setContactCustomAvatar(contactId: FfiConverterString.read(from: &buf), data: FfiConverterData.read(from: &buf))
+
+        case 119: return try .clearContactCustomAvatar(contactId: FfiConverterString.read(from: &buf))
+
+        case 120: return try .getContactCustomAvatar(contactId: FfiConverterString.read(from: &buf))
+
+        case 121: return try .searchSocialNetworks(query: FfiConverterString.read(from: &buf))
+
+        case 122: return try .getProfileUrl(networkId: FfiConverterString.read(from: &buf), username: FfiConverterString.read(from: &buf))
+
+        case 123: return .listHiddenContacts
+
+        case 124: return try .contactDetailFooterActionId(contactId: FfiConverterString.read(from: &buf))
+
+        case 125: return try .exportBackup(password: FfiConverterString.read(from: &buf))
+
+        case 126: return try .importBackup(backupData: FfiConverterString.read(from: &buf), password: FfiConverterString.read(from: &buf))
+
+        case 127: return try .exportFullBackup(password: FfiConverterString.read(from: &buf))
+
+        case 128: return try .importFullBackup(backupData: FfiConverterString.read(from: &buf), password: FfiConverterString.read(from: &buf))
+
+        case 129: return try .importContactsFromVcf(data: FfiConverterData.read(from: &buf))
+
+        case 130: return try .setDisplayNamePreference(contactId: FfiConverterString.read(from: &buf), prefJson: FfiConverterString.read(from: &buf))
+
+        case 131: return try .setAvatarPreference(contactId: FfiConverterString.read(from: &buf), prefJson: FfiConverterString.read(from: &buf))
+
+        case 132: return try .mergeContacts(primaryId: FfiConverterString.read(from: &buf), secondaryId: FfiConverterString.read(from: &buf))
+
+        case 133: return .getOnboardingProgress
+
+        case 134: return .currentOnboardingStep
+
+        case 135: return .isOnboardingComplete
+
+        case 136: return .advanceOnboarding
+
+        case 137: return .skipOnboardingStep
+
+        case 138: return try .getContactDisplayOptions(contactId: FfiConverterString.read(from: &buf))
+
+        case 139: return try .listContactsPaginated(offset: FfiConverterUInt32.read(from: &buf), limit: FfiConverterUInt32.read(from: &buf))
+
+        case 140: return .isDeliveryReceiptsEnabled
+
+        case 141: return try .setDeliveryReceiptsEnabled(enabled: FfiConverterBool.read(from: &buf))
+
+        case 142: return .isSuppressPresenceEnabled
+
+        case 143: return try .setSuppressPresenceEnabled(enabled: FfiConverterBool.read(from: &buf))
+
+        case 144: return try .contactDetailViewState(contactId: FfiConverterString.read(from: &buf))
+
+        case 145: return .listSocialNetworks
+
+        case 146: return try .encodeMultipartQr(data: FfiConverterData.read(from: &buf))
+
+        case 147: return try .setPinnedCertificate(certPem: FfiConverterString.read(from: &buf))
+
+        case 148: return .isCertificatePinningEnabled
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: DomainCommand, into buf: inout [UInt8]) {
+        switch value {
+        case let .grantConsent(consentType):
+            writeInt(&buf, Int32(1))
+            FfiConverterTypeMobileConsentType.write(consentType, into: &buf)
+
+        case let .revokeConsent(consentType):
+            writeInt(&buf, Int32(2))
+            FfiConverterTypeMobileConsentType.write(consentType, into: &buf)
+
+        case let .checkConsent(consentType):
+            writeInt(&buf, Int32(3))
+            FfiConverterTypeMobileConsentType.write(consentType, into: &buf)
+
+        case let .getConsentStatus(consentType):
+            writeInt(&buf, Int32(4))
+            FfiConverterTypeMobileConsentType.write(consentType, into: &buf)
+
+        case .getConsentRecords:
+            writeInt(&buf, Int32(5))
+
+        case .isContentUpdatesSupported:
+            writeInt(&buf, Int32(6))
+
+        case .checkContentUpdates:
+            writeInt(&buf, Int32(7))
+
+        case .applyContentUpdates:
+            writeInt(&buf, Int32(8))
+
+        case .reloadSocialNetworks:
+            writeInt(&buf, Int32(9))
+
+        case .exportGdprData:
+            writeInt(&buf, Int32(10))
+
+        case .scheduleIdentityDeletion:
+            writeInt(&buf, Int32(11))
+
+        case .cancelIdentityDeletion:
+            writeInt(&buf, Int32(12))
+
+        case .executeIdentityDeletion:
+            writeInt(&buf, Int32(13))
+
+        case .getDeletionState:
+            writeInt(&buf, Int32(14))
+
+        case .shredStatus:
+            writeInt(&buf, Int32(15))
+
+        case let .hasSeenAhaMoment(momentType):
+            writeInt(&buf, Int32(16))
+            FfiConverterTypeMobileAhaMomentType.write(momentType, into: &buf)
+
+        case let .tryTriggerAhaMoment(momentType):
+            writeInt(&buf, Int32(17))
+            FfiConverterTypeMobileAhaMomentType.write(momentType, into: &buf)
+
+        case let .tryTriggerAhaMomentWithContext(momentType, context):
+            writeInt(&buf, Int32(18))
+            FfiConverterTypeMobileAhaMomentType.write(momentType, into: &buf)
+            FfiConverterString.write(context, into: &buf)
+
+        case .ahaMomentsSeenCount:
+            writeInt(&buf, Int32(19))
+
+        case .ahaMomentsTotalCount:
+            writeInt(&buf, Int32(20))
+
+        case .resetAhaMoments:
+            writeInt(&buf, Int32(21))
+
+        case .initDemoContactIfNeeded:
+            writeInt(&buf, Int32(22))
+
+        case .getDemoContact:
+            writeInt(&buf, Int32(23))
+
+        case .getDemoContactState:
+            writeInt(&buf, Int32(24))
+
+        case .isDemoUpdateAvailable:
+            writeInt(&buf, Int32(25))
+
+        case .triggerDemoUpdate:
+            writeInt(&buf, Int32(26))
+
+        case .dismissDemoContact:
+            writeInt(&buf, Int32(27))
+
+        case .autoRemoveDemoContact:
+            writeInt(&buf, Int32(28))
+
+        case .restoreDemoContact:
+            writeInt(&buf, Int32(29))
+
+        case .getOwnCard:
+            writeInt(&buf, Int32(30))
+
+        case let .addField(fieldType, label, value):
+            writeInt(&buf, Int32(31))
+            FfiConverterTypeMobileFieldType.write(fieldType, into: &buf)
+            FfiConverterString.write(label, into: &buf)
+            FfiConverterString.write(value, into: &buf)
+
+        case let .updateField(label, newValue):
+            writeInt(&buf, Int32(32))
+            FfiConverterString.write(label, into: &buf)
+            FfiConverterString.write(newValue, into: &buf)
+
+        case let .removeField(label):
+            writeInt(&buf, Int32(33))
+            FfiConverterString.write(label, into: &buf)
+
+        case let .setDisplayName(name):
+            writeInt(&buf, Int32(34))
+            FfiConverterString.write(name, into: &buf)
+
+        case let .setOwnAvatar(avatarBytes):
+            writeInt(&buf, Int32(35))
+            FfiConverterData.write(avatarBytes, into: &buf)
+
+        case .clearOwnAvatar:
+            writeInt(&buf, Int32(36))
+
+        case .listContacts:
+            writeInt(&buf, Int32(37))
+
+        case let .getContact(id):
+            writeInt(&buf, Int32(38))
+            FfiConverterString.write(id, into: &buf)
+
+        case let .searchContacts(query):
+            writeInt(&buf, Int32(39))
+            FfiConverterString.write(query, into: &buf)
+
+        case .contactCount:
+            writeInt(&buf, Int32(40))
+
+        case let .removeContact(id):
+            writeInt(&buf, Int32(41))
+            FfiConverterString.write(id, into: &buf)
+
+        case let .softDeleteImportedContact(id):
+            writeInt(&buf, Int32(42))
+            FfiConverterString.write(id, into: &buf)
+
+        case let .undoDeleteImportedContact(id):
+            writeInt(&buf, Int32(43))
+            FfiConverterString.write(id, into: &buf)
+
+        case let .hardDeleteImportedContact(id):
+            writeInt(&buf, Int32(44))
+            FfiConverterString.write(id, into: &buf)
+
+        case let .archiveContact(id):
+            writeInt(&buf, Int32(45))
+            FfiConverterString.write(id, into: &buf)
+
+        case let .unarchiveContact(id):
+            writeInt(&buf, Int32(46))
+            FfiConverterString.write(id, into: &buf)
+
+        case .listArchivedContacts:
+            writeInt(&buf, Int32(47))
+
+        case let .hideContact(contactId):
+            writeInt(&buf, Int32(48))
+            FfiConverterString.write(contactId, into: &buf)
+
+        case let .unhideContact(contactId):
+            writeInt(&buf, Int32(49))
+            FfiConverterString.write(contactId, into: &buf)
+
+        case let .verifyRecoveryProof(proofB64):
+            writeInt(&buf, Int32(50))
+            FfiConverterString.write(proofB64, into: &buf)
+
+        case .uploadGuardianEntries:
+            writeInt(&buf, Int32(51))
+
+        case let .saveRecoveryResponse(claimId, contactId, response, remindAt):
+            writeInt(&buf, Int32(52))
+            FfiConverterString.write(claimId, into: &buf)
+            FfiConverterString.write(contactId, into: &buf)
+            FfiConverterString.write(response, into: &buf)
+            FfiConverterOptionUInt64.write(remindAt, into: &buf)
+
+        case .listLabels:
+            writeInt(&buf, Int32(53))
+
+        case let .createLabel(name):
+            writeInt(&buf, Int32(54))
+            FfiConverterString.write(name, into: &buf)
+
+        case let .getLabel(labelId):
+            writeInt(&buf, Int32(55))
+            FfiConverterString.write(labelId, into: &buf)
+
+        case let .renameLabel(labelId, newName):
+            writeInt(&buf, Int32(56))
+            FfiConverterString.write(labelId, into: &buf)
+            FfiConverterString.write(newName, into: &buf)
+
+        case let .deleteLabel(labelId):
+            writeInt(&buf, Int32(57))
+            FfiConverterString.write(labelId, into: &buf)
+
+        case let .addContactToGroup(labelId, contactId):
+            writeInt(&buf, Int32(58))
+            FfiConverterString.write(labelId, into: &buf)
+            FfiConverterString.write(contactId, into: &buf)
+
+        case let .removeContactFromGroup(labelId, contactId):
+            writeInt(&buf, Int32(59))
+            FfiConverterString.write(labelId, into: &buf)
+            FfiConverterString.write(contactId, into: &buf)
+
+        case let .getGroupsForContact(contactId):
+            writeInt(&buf, Int32(60))
+            FfiConverterString.write(contactId, into: &buf)
+
+        case let .setGroupFieldVisibility(labelId, fieldLabel, isVisible):
+            writeInt(&buf, Int32(61))
+            FfiConverterString.write(labelId, into: &buf)
+            FfiConverterString.write(fieldLabel, into: &buf)
+            FfiConverterBool.write(isVisible, into: &buf)
+
+        case let .setContactFieldOverride(contactId, fieldLabel, isVisible):
+            writeInt(&buf, Int32(62))
+            FfiConverterString.write(contactId, into: &buf)
+            FfiConverterString.write(fieldLabel, into: &buf)
+            FfiConverterBool.write(isVisible, into: &buf)
+
+        case let .removeContactFieldOverride(contactId, fieldLabel):
+            writeInt(&buf, Int32(63))
+            FfiConverterString.write(contactId, into: &buf)
+            FfiConverterString.write(fieldLabel, into: &buf)
+
+        case let .hideFieldFromContact(contactId, fieldLabel):
+            writeInt(&buf, Int32(64))
+            FfiConverterString.write(contactId, into: &buf)
+            FfiConverterString.write(fieldLabel, into: &buf)
+
+        case let .showFieldToContact(contactId, fieldLabel):
+            writeInt(&buf, Int32(65))
+            FfiConverterString.write(contactId, into: &buf)
+            FfiConverterString.write(fieldLabel, into: &buf)
+
+        case let .isFieldVisibleToContact(contactId, fieldLabel):
+            writeInt(&buf, Int32(66))
+            FfiConverterString.write(contactId, into: &buf)
+            FfiConverterString.write(fieldLabel, into: &buf)
+
+        case .getSuggestedLabels:
+            writeInt(&buf, Int32(67))
+
+        case let .setupAppPassword(password):
+            writeInt(&buf, Int32(68))
+            FfiConverterString.write(password, into: &buf)
+
+        case let .setupDuressPassword(duressPassword):
+            writeInt(&buf, Int32(69))
+            FfiConverterString.write(duressPassword, into: &buf)
+
+        case let .authenticate(password):
+            writeInt(&buf, Int32(70))
+            FfiConverterString.write(password, into: &buf)
+
+        case .isPasswordEnabled:
+            writeInt(&buf, Int32(71))
+
+        case .isDuressEnabled:
+            writeInt(&buf, Int32(72))
+
+        case .disableDuress:
+            writeInt(&buf, Int32(73))
+
+        case let .configureDuressAlerts(contactIds, message):
+            writeInt(&buf, Int32(74))
+            FfiConverterSequenceString.write(contactIds, into: &buf)
+            FfiConverterString.write(message, into: &buf)
+
+        case .getDuressSettings:
+            writeInt(&buf, Int32(75))
+
+        case let .addDecoyContact(name, cardJson):
+            writeInt(&buf, Int32(76))
+            FfiConverterString.write(name, into: &buf)
+            FfiConverterString.write(cardJson, into: &buf)
+
+        case .listDecoyContacts:
+            writeInt(&buf, Int32(77))
+
+        case let .deleteDecoyContact(id):
+            writeInt(&buf, Int32(78))
+            FfiConverterString.write(id, into: &buf)
+
+        case .pendingUpdateCount:
+            writeInt(&buf, Int32(79))
+
+        case let .getDeliveryRecord(messageId):
+            writeInt(&buf, Int32(80))
+            FfiConverterString.write(messageId, into: &buf)
+
+        case .getAllDeliveryRecords:
+            writeInt(&buf, Int32(81))
+
+        case let .getDeliveryRecordsForContact(recipientId):
+            writeInt(&buf, Int32(82))
+            FfiConverterString.write(recipientId, into: &buf)
+
+        case .countFailedDeliveries:
+            writeInt(&buf, Int32(83))
+
+        case .getFailedDeliveryRecords:
+            writeInt(&buf, Int32(84))
+
+        case let .manualRetry(messageId):
+            writeInt(&buf, Int32(85))
+            FfiConverterString.write(messageId, into: &buf)
+
+        case .getPendingDeliveries:
+            writeInt(&buf, Int32(86))
+
+        case let .getDeliveryCountByStatus(status):
+            writeInt(&buf, Int32(87))
+            FfiConverterTypeMobileDeliveryStatus.write(status, into: &buf)
+
+        case .getDueRetries:
+            writeInt(&buf, Int32(88))
+
+        case let .getRetriesForContact(contactId):
+            writeInt(&buf, Int32(89))
+            FfiConverterString.write(contactId, into: &buf)
+
+        case .getRetryCount:
+            writeInt(&buf, Int32(90))
+
+        case let .deleteRetry(messageId):
+            writeInt(&buf, Int32(91))
+            FfiConverterString.write(messageId, into: &buf)
+
+        case let .calculateRetryBackoff(attempt):
+            writeInt(&buf, Int32(92))
+            FfiConverterUInt32.write(attempt, into: &buf)
+
+        case .getTotalPendingCount:
+            writeInt(&buf, Int32(93))
+
+        case .isOfflineQueueFull:
+            writeInt(&buf, Int32(94))
+
+        case .getOfflineQueueCapacity:
+            writeInt(&buf, Int32(95))
+
+        case let .clearPendingUpdatesForContact(contactId):
+            writeInt(&buf, Int32(96))
+            FfiConverterString.write(contactId, into: &buf)
+
+        case let .getDeliverySummary(messageId):
+            writeInt(&buf, Int32(97))
+            FfiConverterString.write(messageId, into: &buf)
+
+        case let .getDeviceDeliveries(messageId):
+            writeInt(&buf, Int32(98))
+            FfiConverterString.write(messageId, into: &buf)
+
+        case .getPendingDeviceDeliveries:
+            writeInt(&buf, Int32(99))
+
+        case let .createIdentity(displayName):
+            writeInt(&buf, Int32(100))
+            FfiConverterString.write(displayName, into: &buf)
+
+        case .getPublicId:
+            writeInt(&buf, Int32(101))
+
+        case .getDisplayName:
+            writeInt(&buf, Int32(102))
+
+        case .getOwnFingerprint:
+            writeInt(&buf, Int32(103))
+
+        case let .displayNameSuggestions(fullName):
+            writeInt(&buf, Int32(104))
+            FfiConverterString.write(fullName, into: &buf)
+
+        case .resetOnboarding:
+            writeInt(&buf, Int32(105))
+
+        case let .verifyContact(id):
+            writeInt(&buf, Int32(106))
+            FfiConverterString.write(id, into: &buf)
+
+        case let .setProposalTrusted(contactId, trusted):
+            writeInt(&buf, Int32(107))
+            FfiConverterString.write(contactId, into: &buf)
+            FfiConverterBool.write(trusted, into: &buf)
+
+        case .findDuplicates:
+            writeInt(&buf, Int32(108))
+
+        case let .dismissDuplicate(id1, id2):
+            writeInt(&buf, Int32(109))
+            FfiConverterString.write(id1, into: &buf)
+            FfiConverterString.write(id2, into: &buf)
+
+        case let .setContactNote(contactId, note):
+            writeInt(&buf, Int32(110))
+            FfiConverterString.write(contactId, into: &buf)
+            FfiConverterString.write(note, into: &buf)
+
+        case let .getContactNote(contactId):
+            writeInt(&buf, Int32(111))
+            FfiConverterString.write(contactId, into: &buf)
+
+        case let .deleteContactNote(contactId):
+            writeInt(&buf, Int32(112))
+            FfiConverterString.write(contactId, into: &buf)
+
+        case let .setContactFieldNote(contactId, fieldId, note):
+            writeInt(&buf, Int32(113))
+            FfiConverterString.write(contactId, into: &buf)
+            FfiConverterString.write(fieldId, into: &buf)
+            FfiConverterString.write(note, into: &buf)
+
+        case let .getContactFieldNotes(contactId):
+            writeInt(&buf, Int32(114))
+            FfiConverterString.write(contactId, into: &buf)
+
+        case let .deleteContactFieldNote(contactId, fieldId):
+            writeInt(&buf, Int32(115))
+            FfiConverterString.write(contactId, into: &buf)
+            FfiConverterString.write(fieldId, into: &buf)
+
+        case let .setContactNickname(contactId, name):
+            writeInt(&buf, Int32(116))
+            FfiConverterString.write(contactId, into: &buf)
+            FfiConverterString.write(name, into: &buf)
+
+        case let .clearContactNickname(contactId):
+            writeInt(&buf, Int32(117))
+            FfiConverterString.write(contactId, into: &buf)
+
+        case let .setContactCustomAvatar(contactId, data):
+            writeInt(&buf, Int32(118))
+            FfiConverterString.write(contactId, into: &buf)
+            FfiConverterData.write(data, into: &buf)
+
+        case let .clearContactCustomAvatar(contactId):
+            writeInt(&buf, Int32(119))
+            FfiConverterString.write(contactId, into: &buf)
+
+        case let .getContactCustomAvatar(contactId):
+            writeInt(&buf, Int32(120))
+            FfiConverterString.write(contactId, into: &buf)
+
+        case let .searchSocialNetworks(query):
+            writeInt(&buf, Int32(121))
+            FfiConverterString.write(query, into: &buf)
+
+        case let .getProfileUrl(networkId, username):
+            writeInt(&buf, Int32(122))
+            FfiConverterString.write(networkId, into: &buf)
+            FfiConverterString.write(username, into: &buf)
+
+        case .listHiddenContacts:
+            writeInt(&buf, Int32(123))
+
+        case let .contactDetailFooterActionId(contactId):
+            writeInt(&buf, Int32(124))
+            FfiConverterString.write(contactId, into: &buf)
+
+        case let .exportBackup(password):
+            writeInt(&buf, Int32(125))
+            FfiConverterString.write(password, into: &buf)
+
+        case let .importBackup(backupData, password):
+            writeInt(&buf, Int32(126))
+            FfiConverterString.write(backupData, into: &buf)
+            FfiConverterString.write(password, into: &buf)
+
+        case let .exportFullBackup(password):
+            writeInt(&buf, Int32(127))
+            FfiConverterString.write(password, into: &buf)
+
+        case let .importFullBackup(backupData, password):
+            writeInt(&buf, Int32(128))
+            FfiConverterString.write(backupData, into: &buf)
+            FfiConverterString.write(password, into: &buf)
+
+        case let .importContactsFromVcf(data):
+            writeInt(&buf, Int32(129))
+            FfiConverterData.write(data, into: &buf)
+
+        case let .setDisplayNamePreference(contactId, prefJson):
+            writeInt(&buf, Int32(130))
+            FfiConverterString.write(contactId, into: &buf)
+            FfiConverterString.write(prefJson, into: &buf)
+
+        case let .setAvatarPreference(contactId, prefJson):
+            writeInt(&buf, Int32(131))
+            FfiConverterString.write(contactId, into: &buf)
+            FfiConverterString.write(prefJson, into: &buf)
+
+        case let .mergeContacts(primaryId, secondaryId):
+            writeInt(&buf, Int32(132))
+            FfiConverterString.write(primaryId, into: &buf)
+            FfiConverterString.write(secondaryId, into: &buf)
+
+        case .getOnboardingProgress:
+            writeInt(&buf, Int32(133))
+
+        case .currentOnboardingStep:
+            writeInt(&buf, Int32(134))
+
+        case .isOnboardingComplete:
+            writeInt(&buf, Int32(135))
+
+        case .advanceOnboarding:
+            writeInt(&buf, Int32(136))
+
+        case .skipOnboardingStep:
+            writeInt(&buf, Int32(137))
+
+        case let .getContactDisplayOptions(contactId):
+            writeInt(&buf, Int32(138))
+            FfiConverterString.write(contactId, into: &buf)
+
+        case let .listContactsPaginated(offset, limit):
+            writeInt(&buf, Int32(139))
+            FfiConverterUInt32.write(offset, into: &buf)
+            FfiConverterUInt32.write(limit, into: &buf)
+
+        case .isDeliveryReceiptsEnabled:
+            writeInt(&buf, Int32(140))
+
+        case let .setDeliveryReceiptsEnabled(enabled):
+            writeInt(&buf, Int32(141))
+            FfiConverterBool.write(enabled, into: &buf)
+
+        case .isSuppressPresenceEnabled:
+            writeInt(&buf, Int32(142))
+
+        case let .setSuppressPresenceEnabled(enabled):
+            writeInt(&buf, Int32(143))
+            FfiConverterBool.write(enabled, into: &buf)
+
+        case let .contactDetailViewState(contactId):
+            writeInt(&buf, Int32(144))
+            FfiConverterString.write(contactId, into: &buf)
+
+        case .listSocialNetworks:
+            writeInt(&buf, Int32(145))
+
+        case let .encodeMultipartQr(data):
+            writeInt(&buf, Int32(146))
+            FfiConverterData.write(data, into: &buf)
+
+        case let .setPinnedCertificate(certPem):
+            writeInt(&buf, Int32(147))
+            FfiConverterString.write(certPem, into: &buf)
+
+        case .isCertificatePinningEnabled:
+            writeInt(&buf, Int32(148))
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeDomainCommand_lift(_ buf: RustBuffer) throws -> DomainCommand {
+    return try FfiConverterTypeDomainCommand.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeDomainCommand_lower(_ value: DomainCommand) -> RustBuffer {
+    return FfiConverterTypeDomainCommand.lower(value)
+}
+
+extension DomainCommand: Equatable, Hashable {}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/*
+ * Sum type of every legitimate return shape from
+ * [`DomainCommand`] dispatch. Pattern match on the variant your
+ * command produces; mismatched variants in caller code indicate a
+ * bug, not a runtime error.
+ *
+ * Adding a new variant is non-breaking on the UniFFI binding side
+ * — Swift / Kotlin pattern matches gain a new case in
+ * `@unknown default` form. Removing a variant IS breaking; treat
+ * removal as a major-version event.
+ */
+
+public enum DomainCommandResult {
+    /**
+     * Command returned `()` (write-path with no payload).
+     */
+    case unit
+    /**
+     * Boolean result (`check_consent` etc.).
+     */
+    case bool(value: Bool)
+    /**
+     * Aggregated `MobileConsentStatus` (B7 batch 1).
+     */
+    case consentStatus(status: MobileConsentStatus)
+    /**
+     * List of `MobileConsentRecord` (B7 batch 1).
+     */
+    case consentRecords(records: [MobileConsentRecord])
+    /**
+     * Outcome of `CheckContentUpdates` (B7 batch 2).
+     */
+    case updateStatus(status: MobileUpdateStatus)
+    /**
+     * Outcome of `ApplyContentUpdates` (B7 batch 2).
+     */
+    case applyResult(result: MobileApplyResult)
+    /**
+     * List of `MobileSocialNetwork` (B7 batch 2 — `ReloadSocialNetworks`).
+     */
+    case socialNetworks(networks: [MobileSocialNetwork])
+    /**
+     * Numeric `u32` result — used by both B7 batch 3
+     * (`ExecuteIdentityDeletion` revocation count) and B7 batch 5
+     * (`AhaMomentsSeenCount`, `AhaMomentsTotalCount`).
+     */
+    case count(value: UInt32)
+    /**
+     * GDPR export payload (B7 batch 3 — `ExportGdprData`).
+     */
+    case gdprExport(export: MobileGdprExport)
+    /**
+     * Deletion-state snapshot (B7 batch 3 — `ScheduleIdentityDeletion`,
+     * `GetDeletionState`).
+     */
+    case deletionInfo(info: MobileDeletionInfo)
+    /**
+     * Shred-process status snapshot (B7 batch 3 — `ShredStatus`).
+     */
+    case shredStatus(status: MobileShredStatus)
+    /**
+     * Optional aha-moment payload (B7 batch 5 —
+     * `TryTriggerAhaMoment` and friends).
+     */
+    case ahaMomentOpt(moment: MobileAhaMoment?)
+    /**
+     * Optional demo-contact payload (B7 batch 5 —
+     * `InitDemoContactIfNeeded`, `GetDemoContact`,
+     * `TriggerDemoUpdate`, `RestoreDemoContact`).
+     */
+    case demoContactOpt(contact: MobileDemoContact?)
+    /**
+     * Demo-contact tracker state snapshot (B7 batch 5 —
+     * `GetDemoContactState`).
+     */
+    case demoContactState(state: MobileDemoContactState)
+    /**
+     * Own contact card (B7 batch 10 — `GetOwnCard`).
+     */
+    case contactCardPayload(card: MobileContactCard)
+    /**
+     * Optional contact (B7 batch 10 — `GetContact`).
+     */
+    case contactOpt(contact: MobileContact?)
+    /**
+     * List of contacts (B7 batch 10 — `ListContacts`,
+     * `SearchContacts`, `ListArchivedContacts`).
+     */
+    case contacts(contacts: [MobileContact])
+    /**
+     * Recovery-proof verification result (B7 batch 4 —
+     * `VerifyRecoveryProof`).
+     */
+    case recoveryVerification(verification: MobileRecoveryVerification)
+    /**
+     * List of visibility labels (B7 batch 6 — `ListLabels`,
+     * `GetGroupsForContact`).
+     */
+    case labels(labels: [MobileVisibilityLabel])
+    /**
+     * Single visibility label (B7 batch 6 — `CreateLabel`).
+     */
+    case label(label: MobileVisibilityLabel)
+    /**
+     * Visibility label with resolved contact rows (B7 batch 6 —
+     * `GetLabel`).
+     */
+    case labelDetail(detail: MobileVisibilityLabelDetail)
+    /**
+     * List of `String` payload (B7 batch 6 — `GetSuggestedLabels`).
+     */
+    case strings(values: [String])
+    /**
+     * Generic `String` payload (B7 batch 7 — `AddDecoyContact`
+     * returns the generated decoy id).
+     */
+    case text(value: String)
+    /**
+     * Authentication-mode result (B7 batch 7 — `Authenticate`).
+     */
+    case authMode(mode: MobileAuthMode)
+    /**
+     * Optional duress-settings payload (B7 batch 7 —
+     * `GetDuressSettings`).
+     */
+    case duressSettingsOpt(settings: MobileDuressSettings?)
+    /**
+     * List of decoy contacts (B7 batch 7 — `ListDecoyContacts`).
+     */
+    case decoyContacts(contacts: [MobileDecoyContact])
+    /**
+     * Numeric u64 result (B7 batch 8 — `CalculateRetryBackoff`).
+     */
+    case backoffSeconds(seconds: UInt64)
+    /**
+     * Optional delivery record (B7 batch 8 — `GetDeliveryRecord`).
+     */
+    case deliveryRecordOpt(record: MobileDeliveryRecord?)
+    /**
+     * List of delivery records (B7 batch 8 — multiple).
+     */
+    case deliveryRecords(records: [MobileDeliveryRecord])
+    /**
+     * List of retry entries (B7 batch 8).
+     */
+    case retryEntries(entries: [MobileRetryEntry])
+    /**
+     * Multi-device delivery summary (B7 batch 8 — `GetDeliverySummary`).
+     */
+    case deliverySummary(summary: MobileDeliverySummary)
+    /**
+     * List of device delivery records (B7 batch 8 —
+     * `GetDeviceDeliveries`, `GetPendingDeviceDeliveries`).
+     */
+    case deviceDeliveries(records: [MobileDeviceDeliveryRecord])
+    /**
+     * Optional `String` payload (B7 batch 11 — `GetContactNote`,
+     * `GetProfileUrl`).
+     */
+    case stringOpt(value: String?)
+    /**
+     * Optional avatar bytes (B7 batch 11 — `GetContactCustomAvatar`).
+     */
+    case avatarOpt(data: Data?)
+    /**
+     * List of duplicate-contact pairs (B7 batch 11 — `FindDuplicates`).
+     */
+    case duplicatePairs(pairs: [MobileDuplicatePair])
+    /**
+     * List of field-notes (B7 batch 11 — `GetContactFieldNotes`).
+     */
+    case fieldNotes(notes: [MobileFieldNote])
+    /**
+     * vCard import outcome (B7 batch 12 — `ImportContactsFromVcf`).
+     */
+    case importResult(result: MobileImportResult)
+    /**
+     * Single enriched contact (B7 batch 14 — `MergeContacts`).
+     */
+    case contactSingle(contact: MobileContact)
+    /**
+     * Onboarding progress snapshot (B7 batch 16 —
+     * `GetOnboardingProgress`, `AdvanceOnboarding`,
+     * `SkipOnboardingStep`).
+     */
+    case onboardingProgress(progress: MobileOnboardingProgress)
+    /**
+     * Current onboarding step (B7 batch 16 — `CurrentOnboardingStep`).
+     */
+    case onboardingStep(step: MobileOnboardingStep)
+    /**
+     * Contact display options snapshot (B7 batch 17 —
+     * `GetContactDisplayOptions`).
+     */
+    case contactDisplayOptions(options: MobileContactDisplayOptions)
+    /**
+     * Pre-computed contact-detail view state (B7 batch 19 —
+     * `ContactDetailViewState`).
+     */
+    case contactDetailView(state: MobileContactDetailViewState)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeDomainCommandResult: FfiConverterRustBuffer {
+    typealias SwiftType = DomainCommandResult
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> DomainCommandResult {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return .unit
+
+        case 2: return try .bool(value: FfiConverterBool.read(from: &buf))
+
+        case 3: return try .consentStatus(status: FfiConverterTypeMobileConsentStatus.read(from: &buf))
+
+        case 4: return try .consentRecords(records: FfiConverterSequenceTypeMobileConsentRecord.read(from: &buf))
+
+        case 5: return try .updateStatus(status: FfiConverterTypeMobileUpdateStatus.read(from: &buf))
+
+        case 6: return try .applyResult(result: FfiConverterTypeMobileApplyResult.read(from: &buf))
+
+        case 7: return try .socialNetworks(networks: FfiConverterSequenceTypeMobileSocialNetwork.read(from: &buf))
+
+        case 8: return try .count(value: FfiConverterUInt32.read(from: &buf))
+
+        case 9: return try .gdprExport(export: FfiConverterTypeMobileGdprExport.read(from: &buf))
+
+        case 10: return try .deletionInfo(info: FfiConverterTypeMobileDeletionInfo.read(from: &buf))
+
+        case 11: return try .shredStatus(status: FfiConverterTypeMobileShredStatus.read(from: &buf))
+
+        case 12: return try .ahaMomentOpt(moment: FfiConverterOptionTypeMobileAhaMoment.read(from: &buf))
+
+        case 13: return try .demoContactOpt(contact: FfiConverterOptionTypeMobileDemoContact.read(from: &buf))
+
+        case 14: return try .demoContactState(state: FfiConverterTypeMobileDemoContactState.read(from: &buf))
+
+        case 15: return try .contactCardPayload(card: FfiConverterTypeMobileContactCard.read(from: &buf))
+
+        case 16: return try .contactOpt(contact: FfiConverterOptionTypeMobileContact.read(from: &buf))
+
+        case 17: return try .contacts(contacts: FfiConverterSequenceTypeMobileContact.read(from: &buf))
+
+        case 18: return try .recoveryVerification(verification: FfiConverterTypeMobileRecoveryVerification.read(from: &buf))
+
+        case 19: return try .labels(labels: FfiConverterSequenceTypeMobileVisibilityLabel.read(from: &buf))
+
+        case 20: return try .label(label: FfiConverterTypeMobileVisibilityLabel.read(from: &buf))
+
+        case 21: return try .labelDetail(detail: FfiConverterTypeMobileVisibilityLabelDetail.read(from: &buf))
+
+        case 22: return try .strings(values: FfiConverterSequenceString.read(from: &buf))
+
+        case 23: return try .text(value: FfiConverterString.read(from: &buf))
+
+        case 24: return try .authMode(mode: FfiConverterTypeMobileAuthMode.read(from: &buf))
+
+        case 25: return try .duressSettingsOpt(settings: FfiConverterOptionTypeMobileDuressSettings.read(from: &buf))
+
+        case 26: return try .decoyContacts(contacts: FfiConverterSequenceTypeMobileDecoyContact.read(from: &buf))
+
+        case 27: return try .backoffSeconds(seconds: FfiConverterUInt64.read(from: &buf))
+
+        case 28: return try .deliveryRecordOpt(record: FfiConverterOptionTypeMobileDeliveryRecord.read(from: &buf))
+
+        case 29: return try .deliveryRecords(records: FfiConverterSequenceTypeMobileDeliveryRecord.read(from: &buf))
+
+        case 30: return try .retryEntries(entries: FfiConverterSequenceTypeMobileRetryEntry.read(from: &buf))
+
+        case 31: return try .deliverySummary(summary: FfiConverterTypeMobileDeliverySummary.read(from: &buf))
+
+        case 32: return try .deviceDeliveries(records: FfiConverterSequenceTypeMobileDeviceDeliveryRecord.read(from: &buf))
+
+        case 33: return try .stringOpt(value: FfiConverterOptionString.read(from: &buf))
+
+        case 34: return try .avatarOpt(data: FfiConverterOptionData.read(from: &buf))
+
+        case 35: return try .duplicatePairs(pairs: FfiConverterSequenceTypeMobileDuplicatePair.read(from: &buf))
+
+        case 36: return try .fieldNotes(notes: FfiConverterSequenceTypeMobileFieldNote.read(from: &buf))
+
+        case 37: return try .importResult(result: FfiConverterTypeMobileImportResult.read(from: &buf))
+
+        case 38: return try .contactSingle(contact: FfiConverterTypeMobileContact.read(from: &buf))
+
+        case 39: return try .onboardingProgress(progress: FfiConverterTypeMobileOnboardingProgress.read(from: &buf))
+
+        case 40: return try .onboardingStep(step: FfiConverterTypeMobileOnboardingStep.read(from: &buf))
+
+        case 41: return try .contactDisplayOptions(options: FfiConverterTypeMobileContactDisplayOptions.read(from: &buf))
+
+        case 42: return try .contactDetailView(state: FfiConverterTypeMobileContactDetailViewState.read(from: &buf))
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: DomainCommandResult, into buf: inout [UInt8]) {
+        switch value {
+        case .unit:
+            writeInt(&buf, Int32(1))
+
+        case let .bool(value):
+            writeInt(&buf, Int32(2))
+            FfiConverterBool.write(value, into: &buf)
+
+        case let .consentStatus(status):
+            writeInt(&buf, Int32(3))
+            FfiConverterTypeMobileConsentStatus.write(status, into: &buf)
+
+        case let .consentRecords(records):
+            writeInt(&buf, Int32(4))
+            FfiConverterSequenceTypeMobileConsentRecord.write(records, into: &buf)
+
+        case let .updateStatus(status):
+            writeInt(&buf, Int32(5))
+            FfiConverterTypeMobileUpdateStatus.write(status, into: &buf)
+
+        case let .applyResult(result):
+            writeInt(&buf, Int32(6))
+            FfiConverterTypeMobileApplyResult.write(result, into: &buf)
+
+        case let .socialNetworks(networks):
+            writeInt(&buf, Int32(7))
+            FfiConverterSequenceTypeMobileSocialNetwork.write(networks, into: &buf)
+
+        case let .count(value):
+            writeInt(&buf, Int32(8))
+            FfiConverterUInt32.write(value, into: &buf)
+
+        case let .gdprExport(export):
+            writeInt(&buf, Int32(9))
+            FfiConverterTypeMobileGdprExport.write(export, into: &buf)
+
+        case let .deletionInfo(info):
+            writeInt(&buf, Int32(10))
+            FfiConverterTypeMobileDeletionInfo.write(info, into: &buf)
+
+        case let .shredStatus(status):
+            writeInt(&buf, Int32(11))
+            FfiConverterTypeMobileShredStatus.write(status, into: &buf)
+
+        case let .ahaMomentOpt(moment):
+            writeInt(&buf, Int32(12))
+            FfiConverterOptionTypeMobileAhaMoment.write(moment, into: &buf)
+
+        case let .demoContactOpt(contact):
+            writeInt(&buf, Int32(13))
+            FfiConverterOptionTypeMobileDemoContact.write(contact, into: &buf)
+
+        case let .demoContactState(state):
+            writeInt(&buf, Int32(14))
+            FfiConverterTypeMobileDemoContactState.write(state, into: &buf)
+
+        case let .contactCardPayload(card):
+            writeInt(&buf, Int32(15))
+            FfiConverterTypeMobileContactCard.write(card, into: &buf)
+
+        case let .contactOpt(contact):
+            writeInt(&buf, Int32(16))
+            FfiConverterOptionTypeMobileContact.write(contact, into: &buf)
+
+        case let .contacts(contacts):
+            writeInt(&buf, Int32(17))
+            FfiConverterSequenceTypeMobileContact.write(contacts, into: &buf)
+
+        case let .recoveryVerification(verification):
+            writeInt(&buf, Int32(18))
+            FfiConverterTypeMobileRecoveryVerification.write(verification, into: &buf)
+
+        case let .labels(labels):
+            writeInt(&buf, Int32(19))
+            FfiConverterSequenceTypeMobileVisibilityLabel.write(labels, into: &buf)
+
+        case let .label(label):
+            writeInt(&buf, Int32(20))
+            FfiConverterTypeMobileVisibilityLabel.write(label, into: &buf)
+
+        case let .labelDetail(detail):
+            writeInt(&buf, Int32(21))
+            FfiConverterTypeMobileVisibilityLabelDetail.write(detail, into: &buf)
+
+        case let .strings(values):
+            writeInt(&buf, Int32(22))
+            FfiConverterSequenceString.write(values, into: &buf)
+
+        case let .text(value):
+            writeInt(&buf, Int32(23))
+            FfiConverterString.write(value, into: &buf)
+
+        case let .authMode(mode):
+            writeInt(&buf, Int32(24))
+            FfiConverterTypeMobileAuthMode.write(mode, into: &buf)
+
+        case let .duressSettingsOpt(settings):
+            writeInt(&buf, Int32(25))
+            FfiConverterOptionTypeMobileDuressSettings.write(settings, into: &buf)
+
+        case let .decoyContacts(contacts):
+            writeInt(&buf, Int32(26))
+            FfiConverterSequenceTypeMobileDecoyContact.write(contacts, into: &buf)
+
+        case let .backoffSeconds(seconds):
+            writeInt(&buf, Int32(27))
+            FfiConverterUInt64.write(seconds, into: &buf)
+
+        case let .deliveryRecordOpt(record):
+            writeInt(&buf, Int32(28))
+            FfiConverterOptionTypeMobileDeliveryRecord.write(record, into: &buf)
+
+        case let .deliveryRecords(records):
+            writeInt(&buf, Int32(29))
+            FfiConverterSequenceTypeMobileDeliveryRecord.write(records, into: &buf)
+
+        case let .retryEntries(entries):
+            writeInt(&buf, Int32(30))
+            FfiConverterSequenceTypeMobileRetryEntry.write(entries, into: &buf)
+
+        case let .deliverySummary(summary):
+            writeInt(&buf, Int32(31))
+            FfiConverterTypeMobileDeliverySummary.write(summary, into: &buf)
+
+        case let .deviceDeliveries(records):
+            writeInt(&buf, Int32(32))
+            FfiConverterSequenceTypeMobileDeviceDeliveryRecord.write(records, into: &buf)
+
+        case let .stringOpt(value):
+            writeInt(&buf, Int32(33))
+            FfiConverterOptionString.write(value, into: &buf)
+
+        case let .avatarOpt(data):
+            writeInt(&buf, Int32(34))
+            FfiConverterOptionData.write(data, into: &buf)
+
+        case let .duplicatePairs(pairs):
+            writeInt(&buf, Int32(35))
+            FfiConverterSequenceTypeMobileDuplicatePair.write(pairs, into: &buf)
+
+        case let .fieldNotes(notes):
+            writeInt(&buf, Int32(36))
+            FfiConverterSequenceTypeMobileFieldNote.write(notes, into: &buf)
+
+        case let .importResult(result):
+            writeInt(&buf, Int32(37))
+            FfiConverterTypeMobileImportResult.write(result, into: &buf)
+
+        case let .contactSingle(contact):
+            writeInt(&buf, Int32(38))
+            FfiConverterTypeMobileContact.write(contact, into: &buf)
+
+        case let .onboardingProgress(progress):
+            writeInt(&buf, Int32(39))
+            FfiConverterTypeMobileOnboardingProgress.write(progress, into: &buf)
+
+        case let .onboardingStep(step):
+            writeInt(&buf, Int32(40))
+            FfiConverterTypeMobileOnboardingStep.write(step, into: &buf)
+
+        case let .contactDisplayOptions(options):
+            writeInt(&buf, Int32(41))
+            FfiConverterTypeMobileContactDisplayOptions.write(options, into: &buf)
+
+        case let .contactDetailView(state):
+            writeInt(&buf, Int32(42))
+            FfiConverterTypeMobileContactDetailViewState.write(state, into: &buf)
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeDomainCommandResult_lift(_ buf: RustBuffer) throws -> DomainCommandResult {
+    return try FfiConverterTypeDomainCommandResult.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeDomainCommandResult_lower(_ value: DomainCommandResult) -> RustBuffer {
+    return FfiConverterTypeDomainCommandResult.lower(value)
+}
+
+extension DomainCommandResult: Equatable, Hashable {}
+
 /**
  * Error type for platform keychain callback interface.
  *
@@ -17665,6 +20082,66 @@ public func FfiConverterTypeMobileHelpCategory_lower(_ value: MobileHelpCategory
 }
 
 extension MobileHelpCategory: Equatable, Hashable {}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/*
+ * A status badge to render next to a label-contact row.
+ *
+ * Mirrors `MobileContactDetailBadge` so the LabelDetail and
+ * ContactDetail screens share the same canonical predicate set —
+ * frontends iterate the list, never branching on raw `MobileContact`
+ * flags (ADR-021/043 Humble UI). Future variants may surface
+ * recovery-trust or other typed signals without a binding break
+ * thanks to UniFFI's enum-extension semantics.
+ */
+
+public enum MobileLabelContactBadge {
+    /**
+     * Fingerprint manually verified out-of-band — the iOS / Android
+     * LabelDetail screens render a checkmark next to the row.
+     */
+    case verified
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileLabelContactBadge: FfiConverterRustBuffer {
+    typealias SwiftType = MobileLabelContactBadge
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileLabelContactBadge {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return .verified
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileLabelContactBadge, into buf: inout [UInt8]) {
+        switch value {
+        case .verified:
+            writeInt(&buf, Int32(1))
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileLabelContactBadge_lift(_ buf: RustBuffer) throws -> MobileLabelContactBadge {
+    return try FfiConverterTypeMobileLabelContactBadge.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileLabelContactBadge_lower(_ value: MobileLabelContactBadge) -> RustBuffer {
+    return FfiConverterTypeMobileLabelContactBadge.lower(value)
+}
+
+extension MobileLabelContactBadge: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
@@ -21691,6 +24168,31 @@ private struct FfiConverterSequenceTypeMobileExchangeCommand: FfiConverterRustBu
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
+private struct FfiConverterSequenceTypeMobileLabelContactBadge: FfiConverterRustBuffer {
+    typealias SwiftType = [MobileLabelContactBadge]
+
+    static func write(_ value: [MobileLabelContactBadge], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeMobileLabelContactBadge.write(item, into: &buf)
+        }
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileLabelContactBadge] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [MobileLabelContactBadge]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            try seq.append(FfiConverterTypeMobileLabelContactBadge.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
 private struct FfiConverterSequenceTypeMobileOnboardingStep: FfiConverterRustBuffer {
     typealias SwiftType = [MobileOnboardingStep]
 
@@ -22765,6 +25267,9 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_mobileonboardingworkflow_onboarding_data_json() != 59270 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_add_recovery_voucher() != 52821 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_platform_checksum_method_platformappengine_advance_qr_frame_json() != 9415 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -22775,6 +25280,18 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_platformappengine_boot() != 14829 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_configure_emergency_broadcast() != 29950 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_create_device_link_session_initiator() != 27875 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_create_recovery_claim() != 20942 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_create_recovery_voucher() != 11060 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_platformappengine_current_screen_id() != 29912 {
@@ -22789,10 +25306,34 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_platformappengine_default_screen_json() != 8108 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_device_count() != 53285 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_disable_emergency_broadcast() != 20074 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_dispatch_domain_command() != 15437 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_platform_checksum_method_platformappengine_drain_pending_notifications() != 45375 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_platformappengine_form_has_data() != 43012 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_generate_device_link_qr() != 50561 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_get_devices() != 11339 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_get_emergency_config() != 12973 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_get_recovery_proof() != 41954 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_get_recovery_status() != 36259 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_platformappengine_handle_action_json() != 42243 {
@@ -22819,10 +25360,19 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_platformappengine_is_network_online() != 57914 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_is_primary_device() != 9134 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_platform_checksum_method_platformappengine_navigate_back_json() != 55923 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_platformappengine_navigate_to_json() != 60323 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_parse_device_link_qr() != 28105 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_parse_recovery_claim() != 45630 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_platformappengine_periodic_sync_interval_seconds() != 52853 {
@@ -22835,6 +25385,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_platformappengine_poll_notifications() != 29677 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_send_emergency_broadcast() != 3381 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_platformappengine_set_device_capabilities_json() != 56951 {
@@ -22850,6 +25403,18 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_platformappengine_tab_info() != 36149 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_trust_contact_for_recovery() != 50929 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_trusted_contact_count() != 13128 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_unlink_device() != 18395 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_untrust_contact_for_recovery() != 23010 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_add_contact_to_group() != 53515 {

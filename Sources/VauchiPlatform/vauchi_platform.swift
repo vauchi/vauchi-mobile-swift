@@ -19455,8 +19455,8 @@ public enum MobileExchangeCommand {
     case bleDisconnect
     case nfcActivate(payload: Data)
     case nfcDeactivate
-    case audioEmitChallenge(data: Data)
-    case audioListenForResponse(timeoutMs: UInt64)
+    case audioEmitChallenge(samples: [Float], sampleRate: UInt32)
+    case audioListenForResponse(timeoutMs: UInt64, sampleRate: UInt32)
     case audioStop
     case accelerometerStart
     case accelerometerStop
@@ -19498,9 +19498,9 @@ public struct FfiConverterTypeMobileExchangeCommand: FfiConverterRustBuffer {
 
         case 11: return .nfcDeactivate
 
-        case 12: return try .audioEmitChallenge(data: FfiConverterData.read(from: &buf))
+        case 12: return try .audioEmitChallenge(samples: FfiConverterSequenceFloat.read(from: &buf), sampleRate: FfiConverterUInt32.read(from: &buf))
 
-        case 13: return try .audioListenForResponse(timeoutMs: FfiConverterUInt64.read(from: &buf))
+        case 13: return try .audioListenForResponse(timeoutMs: FfiConverterUInt64.read(from: &buf), sampleRate: FfiConverterUInt32.read(from: &buf))
 
         case 14: return .audioStop
 
@@ -19566,13 +19566,15 @@ public struct FfiConverterTypeMobileExchangeCommand: FfiConverterRustBuffer {
         case .nfcDeactivate:
             writeInt(&buf, Int32(11))
 
-        case let .audioEmitChallenge(data):
+        case let .audioEmitChallenge(samples, sampleRate):
             writeInt(&buf, Int32(12))
-            FfiConverterData.write(data, into: &buf)
+            FfiConverterSequenceFloat.write(samples, into: &buf)
+            FfiConverterUInt32.write(sampleRate, into: &buf)
 
-        case let .audioListenForResponse(timeoutMs):
+        case let .audioListenForResponse(timeoutMs, sampleRate):
             writeInt(&buf, Int32(13))
             FfiConverterUInt64.write(timeoutMs, into: &buf)
+            FfiConverterUInt32.write(sampleRate, into: &buf)
 
         case .audioStop:
             writeInt(&buf, Int32(14))
@@ -19645,7 +19647,7 @@ public enum MobileExchangeHardwareEvent {
     case bleCharacteristicNotified(uuid: String, data: Data)
     case bleDisconnected(reason: String)
     case nfcDataReceived(data: Data)
-    case audioResponseReceived(data: Data)
+    case audioSamplesRecorded(samples: [Float], sampleRate: UInt32)
     case accelerometerData(timestampMs: UInt64, xMilliG: Int32, yMilliG: Int32, zMilliG: Int32)
     case impactDetected(timestampMs: UInt64, magnitudeMilliG: Int32)
     case relayEscrowReady(gateHash: Data)
@@ -19684,7 +19686,7 @@ public struct FfiConverterTypeMobileExchangeHardwareEvent: FfiConverterRustBuffe
 
         case 7: return try .nfcDataReceived(data: FfiConverterData.read(from: &buf))
 
-        case 8: return try .audioResponseReceived(data: FfiConverterData.read(from: &buf))
+        case 8: return try .audioSamplesRecorded(samples: FfiConverterSequenceFloat.read(from: &buf), sampleRate: FfiConverterUInt32.read(from: &buf))
 
         case 9: return try .accelerometerData(timestampMs: FfiConverterUInt64.read(from: &buf), xMilliG: FfiConverterInt32.read(from: &buf), yMilliG: FfiConverterInt32.read(from: &buf), zMilliG: FfiConverterInt32.read(from: &buf))
 
@@ -19750,9 +19752,10 @@ public struct FfiConverterTypeMobileExchangeHardwareEvent: FfiConverterRustBuffe
             writeInt(&buf, Int32(7))
             FfiConverterData.write(data, into: &buf)
 
-        case let .audioResponseReceived(data):
+        case let .audioSamplesRecorded(samples, sampleRate):
             writeInt(&buf, Int32(8))
-            FfiConverterData.write(data, into: &buf)
+            FfiConverterSequenceFloat.write(samples, into: &buf)
+            FfiConverterUInt32.write(sampleRate, into: &buf)
 
         case let .accelerometerData(timestampMs, xMilliG, yMilliG, zMilliG):
             writeInt(&buf, Int32(9))
@@ -23412,6 +23415,31 @@ private struct FfiConverterOptionTypeMobileLocale: FfiConverterRustBuffer {
         case 1: return try FfiConverterTypeMobileLocale.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+private struct FfiConverterSequenceFloat: FfiConverterRustBuffer {
+    typealias SwiftType = [Float]
+
+    static func write(_ value: [Float], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterFloat.write(item, into: &buf)
+        }
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [Float] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [Float]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            try seq.append(FfiConverterFloat.read(from: &buf))
+        }
+        return seq
     }
 }
 

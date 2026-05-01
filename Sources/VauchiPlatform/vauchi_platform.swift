@@ -2238,6 +2238,237 @@ public func FfiConverterTypeMobileExchangeSession_lower(_ value: MobileExchangeS
 }
 
 /**
+ * Link-mode responder session handle for mobile platforms.
+ */
+public protocol MobileLinkResponderSessionProtocol: AnyObject {
+    /**
+     * Apply a hardware event from the relay layer. Threadsafe — the
+     * cycle thread holds the same `Mutex` so events serialize with
+     * inspection.
+     */
+    func applyHardwareEvent(event: MobileExchangeHardwareEvent)
+
+    /**
+     * Cancel the session. Sets the cancel flag, waits for the cycle
+     * thread to exit, and drops the listener. Idempotent.
+     */
+    func cancel()
+
+    /**
+     * Decoded gate-hash bytes — the relay address the responder is
+     * polling. Frontends use this to construct
+     * `RelayEscrowReady` / `RelayEscrowBlobReceived` /
+     * `RelayEscrowFailed` events with the matching `gate_hash`.
+     */
+    func gateHashBytes() -> Data
+
+    /**
+     * Register (or replace) the event listener. Safe to call before or
+     * after [`start`](Self::start).
+     */
+    func setListener(listener: LinkResponderSessionListener)
+
+    /**
+     * Spawn the cycle thread. Idempotent — a second call while the
+     * thread is running is a no-op. The thread:
+     *
+     * 1. Drains pending commands → fires `on_commands(...)`.
+     * 2. Polls for state transitions and calls `on_state_changed(...)`
+     * on every change.
+     * 3. Calls `on_finalized` / `on_failed` on terminal transitions.
+     * 4. Sleeps `CYCLE_POLL_INTERVAL_MS` between iterations until
+     * cancellation or terminal state.
+     * 5. Calls `on_session_ended` exactly once and exits.
+     */
+    func start()
+}
+
+/**
+ * Link-mode responder session handle for mobile platforms.
+ */
+open class MobileLinkResponderSession:
+    MobileLinkResponderSessionProtocol
+{
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    // Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noPointer _: NoPointer) {
+        pointer = nil
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_vauchi_platform_fn_clone_mobilelinkrespondersession(self.pointer, $0) }
+    }
+
+    /**
+     * Create a new responder session for the given parsed deep-link
+     * URL + the responder's own encrypted card payload.
+     *
+     * The session derives `EscrowKeys` via DH, builds the two
+     * deposit commands + a `RelayEscrowCheck`, and lands in `Polling`.
+     * Returns a typed [`MobileError`] if the DH output is
+     * non-contributory (small-order point) — the only failure path
+     * at construction time.
+     *
+     * `set_listener` must be called before `start`; otherwise the
+     * cycle thread runs but every callback is dropped.
+     */
+    public convenience init(parsedUrl: String, ourEncryptedCard: Data) throws {
+        let pointer =
+            try rustCallWithError(FfiConverterTypeMobileError.lift) {
+                uniffi_vauchi_platform_fn_constructor_mobilelinkrespondersession_new(
+                    FfiConverterString.lower(parsedUrl),
+                    FfiConverterData.lower(ourEncryptedCard), $0
+                )
+            }
+        self.init(unsafeFromRawPointer: pointer)
+    }
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_vauchi_platform_fn_free_mobilelinkrespondersession(pointer, $0) }
+    }
+
+    /**
+     * Apply a hardware event from the relay layer. Threadsafe — the
+     * cycle thread holds the same `Mutex` so events serialize with
+     * inspection.
+     */
+    open func applyHardwareEvent(event: MobileExchangeHardwareEvent) {
+        try! rustCall {
+            uniffi_vauchi_platform_fn_method_mobilelinkrespondersession_apply_hardware_event(self.uniffiClonePointer(),
+                                                                                             FfiConverterTypeMobileExchangeHardwareEvent.lower(event), $0)
+        }
+    }
+
+    /**
+     * Cancel the session. Sets the cancel flag, waits for the cycle
+     * thread to exit, and drops the listener. Idempotent.
+     */
+    open func cancel() {
+        try! rustCall {
+            uniffi_vauchi_platform_fn_method_mobilelinkrespondersession_cancel(self.uniffiClonePointer(), $0)
+        }
+    }
+
+    /**
+     * Decoded gate-hash bytes — the relay address the responder is
+     * polling. Frontends use this to construct
+     * `RelayEscrowReady` / `RelayEscrowBlobReceived` /
+     * `RelayEscrowFailed` events with the matching `gate_hash`.
+     */
+    open func gateHashBytes() -> Data {
+        return try! FfiConverterData.lift(try! rustCall {
+            uniffi_vauchi_platform_fn_method_mobilelinkrespondersession_gate_hash_bytes(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Register (or replace) the event listener. Safe to call before or
+     * after [`start`](Self::start).
+     */
+    open func setListener(listener: LinkResponderSessionListener) {
+        try! rustCall {
+            uniffi_vauchi_platform_fn_method_mobilelinkrespondersession_set_listener(self.uniffiClonePointer(),
+                                                                                     FfiConverterCallbackInterfaceLinkResponderSessionListener.lower(listener), $0)
+        }
+    }
+
+    /**
+     * Spawn the cycle thread. Idempotent — a second call while the
+     * thread is running is a no-op. The thread:
+     *
+     * 1. Drains pending commands → fires `on_commands(...)`.
+     * 2. Polls for state transitions and calls `on_state_changed(...)`
+     * on every change.
+     * 3. Calls `on_finalized` / `on_failed` on terminal transitions.
+     * 4. Sleeps `CYCLE_POLL_INTERVAL_MS` between iterations until
+     * cancellation or terminal state.
+     * 5. Calls `on_session_ended` exactly once and exits.
+     */
+    open func start() {
+        try! rustCall {
+            uniffi_vauchi_platform_fn_method_mobilelinkrespondersession_start(self.uniffiClonePointer(), $0)
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileLinkResponderSession: FfiConverter {
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = MobileLinkResponderSession
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileLinkResponderSession {
+        return MobileLinkResponderSession(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: MobileLinkResponderSession) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileLinkResponderSession {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if ptr == nil {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: MobileLinkResponderSession, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileLinkResponderSession_lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileLinkResponderSession {
+    return try FfiConverterTypeMobileLinkResponderSession.lift(pointer)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileLinkResponderSession_lower(_ value: MobileLinkResponderSession) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeMobileLinkResponderSession.lower(value)
+}
+
+/**
  * Multi-stage exchange session handle for mobile platforms.
  *
  * Holds the protocol state machine plus the event-cycle thread that drives
@@ -20206,6 +20437,155 @@ extension MobileLabelContactStatus: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /*
+ * Why the responder cycle ended without a finalized contact.
+ */
+
+public enum MobileLinkResponderFailureReason {
+    /**
+     * Polling exhausted the deadline without a `RelayEscrowReady`.
+     */
+    case pollingTimedOut
+    /**
+     * Card retrieved but symmetric decryption failed. The detail is
+     * the underlying error's `Display` so logs are useful.
+     */
+    case decryptError(detail: String)
+    /**
+     * `RelayEscrowFailed` arrived for our gate. Most often the same
+     * user re-opened a link they had already accepted (slot already
+     * occupied — see R2 in the investigation's risk register).
+     */
+    case depositRejected
+    /**
+     * User-initiated cancel via the Polling screen's Cancel action,
+     * or the engine's `Drop` impl on navigate-back.
+     */
+    case cancelled
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileLinkResponderFailureReason: FfiConverterRustBuffer {
+    typealias SwiftType = MobileLinkResponderFailureReason
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileLinkResponderFailureReason {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return .pollingTimedOut
+
+        case 2: return try .decryptError(detail: FfiConverterString.read(from: &buf))
+
+        case 3: return .depositRejected
+
+        case 4: return .cancelled
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileLinkResponderFailureReason, into buf: inout [UInt8]) {
+        switch value {
+        case .pollingTimedOut:
+            writeInt(&buf, Int32(1))
+
+        case let .decryptError(detail):
+            writeInt(&buf, Int32(2))
+            FfiConverterString.write(detail, into: &buf)
+
+        case .depositRejected:
+            writeInt(&buf, Int32(3))
+
+        case .cancelled:
+            writeInt(&buf, Int32(4))
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileLinkResponderFailureReason_lift(_ buf: RustBuffer) throws -> MobileLinkResponderFailureReason {
+    return try FfiConverterTypeMobileLinkResponderFailureReason.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileLinkResponderFailureReason_lower(_ value: MobileLinkResponderFailureReason) -> RustBuffer {
+    return FfiConverterTypeMobileLinkResponderFailureReason.lower(value)
+}
+
+extension MobileLinkResponderFailureReason: Equatable, Hashable {}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/*
+ * UniFFI-friendly mirror of [`LinkResponderState`]. The cycle thread
+ * emits one `on_state_changed` callback per transition.
+ */
+
+public enum MobileLinkResponderState {
+    /**
+     * Deposits dispatched (2 × `RelayEscrowDeposit` + 1 × `RelayEscrowCheck`),
+     * waiting on `RelayEscrowReady` from the relay or for the polling
+     * deadline to expire.
+     */
+    case polling
+    /**
+     * `RelayEscrowReady` arrived; `RelayEscrowRetrieve` dispatched;
+     * waiting on `RelayEscrowBlobReceived`.
+     */
+    case retrieving
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileLinkResponderState: FfiConverterRustBuffer {
+    typealias SwiftType = MobileLinkResponderState
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileLinkResponderState {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return .polling
+
+        case 2: return .retrieving
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileLinkResponderState, into buf: inout [UInt8]) {
+        switch value {
+        case .polling:
+            writeInt(&buf, Int32(1))
+
+        case .retrieving:
+            writeInt(&buf, Int32(2))
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileLinkResponderState_lift(_ buf: RustBuffer) throws -> MobileLinkResponderState {
+    return try FfiConverterTypeMobileLinkResponderState.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileLinkResponderState_lower(_ value: MobileLinkResponderState) -> RustBuffer {
+    return FfiConverterTypeMobileLinkResponderState.lower(value)
+}
+
+extension MobileLinkResponderState: Equatable, Hashable {}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/*
  * Supported locales for the app.
  */
 
@@ -21805,6 +22185,245 @@ private enum FfiConverterCallbackInterfaceDeviceLinkSessionListener {
 #endif
 extension FfiConverterCallbackInterfaceDeviceLinkSessionListener: FfiConverter {
     typealias SwiftType = DeviceLinkSessionListener
+    typealias FfiType = UInt64
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public static func lift(_ handle: UInt64) throws -> SwiftType {
+        try handleMap.get(handle: handle)
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public static func lower(_ v: SwiftType) -> UInt64 {
+        return handleMap.insert(obj: v)
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public static func write(_ v: SwiftType, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(v))
+    }
+}
+
+/**
+ * Push-based callback interface for link-mode responder events.
+ *
+ * Frontends implement this trait (in Swift / Kotlin via UniFFI) and
+ * register it with [`MobileLinkResponderSession::set_listener`] before
+ * calling [`MobileLinkResponderSession::start`]. Once `start()` is
+ * called, an internal `vauchi-link-responder-cycle` thread drives the
+ * state machine clock and invokes these callbacks as state advances.
+ *
+ * # Threading
+ *
+ * Callbacks fire from the cycle thread, **not** the main / UI thread.
+ * Consumers must marshal to their platform's UI thread before touching
+ * UI state.
+ *
+ * # Callback ordering contract
+ *
+ * - Success path: `on_state_changed(*) → on_state_changed(Retrieving) → on_finalized → on_session_ended`
+ * - Failure path: `on_state_changed(*) → on_failed(reason) → on_session_ended`
+ * - Cancel path: `on_failed(Cancelled) → on_session_ended`
+ *
+ * `on_finalized` and `on_failed` are mutually exclusive — exactly one
+ * fires per session. `on_session_ended` is always last.
+ */
+public protocol LinkResponderSessionListener: AnyObject {
+    /**
+     * State machine transitioned. Fires once per actual transition;
+     * state values are the user-facing subset (`Polling`, `Retrieving`).
+     */
+    func onStateChanged(state: MobileLinkResponderState)
+
+    /**
+     * New commands the frontend should dispatch via its existing
+     * `ExchangeCommandHandler` (or platform equivalent). The cycle
+     * thread emits these whenever the state machine adds entries
+     * to its pending queue. The frontend feeds the resulting hardware
+     * events back via [`MobileLinkResponderSession::apply_hardware_event`].
+     */
+    func onCommands(commands: [MobileExchangeCommand])
+
+    /**
+     * Exchange finalized successfully. `card_bytes` carries the
+     * decrypted card payload the frontend hands to its persistence
+     * layer. Fires exactly once on the success path, before
+     * [`on_session_ended`](Self::on_session_ended).
+     */
+    func onFinalized(cardBytes: Data)
+
+    /**
+     * Exchange ended in failure. `reason` is typed so the frontend
+     * can render a specific toast / error state. Fires at most once
+     * before [`on_session_ended`](Self::on_session_ended).
+     */
+    func onFailed(reason: MobileLinkResponderFailureReason)
+
+    /**
+     * Session has fully ended — last callback. Always fires after
+     * `on_finalized` or `on_failed`, or as the sole callback after
+     * [`MobileLinkResponderSession::cancel`].
+     */
+    func onSessionEnded()
+}
+
+/// Put the implementation in a struct so we don't pollute the top-level namespace
+private enum UniffiCallbackInterfaceLinkResponderSessionListener {
+    /// Create the VTable using a series of closures.
+    /// Swift automatically converts these into C callback functions.
+    static var vtable: UniffiVTableCallbackInterfaceLinkResponderSessionListener = .init(
+        onStateChanged: { (
+            uniffiHandle: UInt64,
+            state: RustBuffer,
+            _: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceLinkResponderSessionListener.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return try uniffiObj.onStateChanged(
+                    state: FfiConverterTypeMobileLinkResponderState.lift(state)
+                )
+            }
+
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        onCommands: { (
+            uniffiHandle: UInt64,
+            commands: RustBuffer,
+            _: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceLinkResponderSessionListener.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return try uniffiObj.onCommands(
+                    commands: FfiConverterSequenceTypeMobileExchangeCommand.lift(commands)
+                )
+            }
+
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        onFinalized: { (
+            uniffiHandle: UInt64,
+            cardBytes: RustBuffer,
+            _: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceLinkResponderSessionListener.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return try uniffiObj.onFinalized(
+                    cardBytes: FfiConverterData.lift(cardBytes)
+                )
+            }
+
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        onFailed: { (
+            uniffiHandle: UInt64,
+            reason: RustBuffer,
+            _: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceLinkResponderSessionListener.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return try uniffiObj.onFailed(
+                    reason: FfiConverterTypeMobileLinkResponderFailureReason.lift(reason)
+                )
+            }
+
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        onSessionEnded: { (
+            uniffiHandle: UInt64,
+            _: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceLinkResponderSessionListener.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.onSessionEnded(
+                )
+            }
+
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        uniffiFree: { (uniffiHandle: UInt64) in
+            let result = try? FfiConverterCallbackInterfaceLinkResponderSessionListener.handleMap.remove(handle: uniffiHandle)
+            if result == nil {
+                print("Uniffi callback interface LinkResponderSessionListener: handle missing in uniffiFree")
+            }
+        }
+    )
+}
+
+private func uniffiCallbackInitLinkResponderSessionListener() {
+    uniffi_vauchi_platform_fn_init_callback_vtable_linkrespondersessionlistener(&UniffiCallbackInterfaceLinkResponderSessionListener.vtable)
+}
+
+// FfiConverter protocol for callback interfaces
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+private enum FfiConverterCallbackInterfaceLinkResponderSessionListener {
+    fileprivate static var handleMap = UniffiHandleMap<LinkResponderSessionListener>()
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+extension FfiConverterCallbackInterfaceLinkResponderSessionListener: FfiConverter {
+    typealias SwiftType = LinkResponderSessionListener
     typealias FfiType = UInt64
 
     #if swift(>=5.8)
@@ -25238,6 +25857,21 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_mobileexchangesession_verification_confidence() != 33982 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_method_mobilelinkrespondersession_apply_hardware_event() != 55849 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_mobilelinkrespondersession_cancel() != 64411 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_mobilelinkrespondersession_gate_hash_bytes() != 15650 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_mobilelinkrespondersession_set_listener() != 25259 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_mobilelinkrespondersession_start() != 57907 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_platform_checksum_method_mobilemultistagesession_cancel() != 40973 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -26024,6 +26658,9 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_constructor_mobilebleexchangesession_new() != 46873 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_constructor_mobilelinkrespondersession_new() != 12193 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_platform_checksum_constructor_mobilemultistagesession_new() != 44223 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -26058,6 +26695,21 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_devicelinksessionlistener_on_session_ended() != 40009 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_linkrespondersessionlistener_on_state_changed() != 44767 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_linkrespondersessionlistener_on_commands() != 3847 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_linkrespondersessionlistener_on_finalized() != 28158 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_linkrespondersessionlistener_on_failed() != 55549 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_linkrespondersessionlistener_on_session_ended() != 52394 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_mobilebledelegate_send_data() != 31030 {
@@ -26131,6 +26783,7 @@ private var initializationResult: InitializationResult = {
     }
 
     uniffiCallbackInitDeviceLinkSessionListener()
+    uniffiCallbackInitLinkResponderSessionListener()
     uniffiCallbackInitMobileBleDelegate()
     uniffiCallbackInitMobileNfcTransport()
     uniffiCallbackInitMobilePlatformKeychain()

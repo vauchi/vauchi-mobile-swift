@@ -7,8 +7,8 @@
 import Foundation
 import PackageDescription
 
-let version = "0.35.0"
-let checksum = "8496fdfbf86ce78241ea88f9a49affcae9470863a61a5e64277945386e224f0b" // Updated by CI on release
+let version = "0.36.0"
+let checksum = "f03cce81a5129286098f4ee703565d6f38421c4e6090e67a1731f6e90fbbab78" // Updated by CI on release
 
 // Binary-target source: defaults to the published URL artifact (verified
 // by `checksum` above). When VAUCHI_PLATFORM_USE_LOCAL_XCFRAMEWORK is set

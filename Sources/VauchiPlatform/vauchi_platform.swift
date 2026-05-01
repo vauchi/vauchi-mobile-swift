@@ -2326,24 +2326,26 @@ open class MobileLinkResponderSession:
     }
 
     /**
-     * Create a new responder session for the given parsed deep-link
-     * URL + the responder's own encrypted card payload.
+     * Create a new responder session for the given deep-link URL and
+     * the responder's own raw card-payload bytes.
      *
-     * The session derives `EscrowKeys` via DH, builds the two
-     * deposit commands + a `RelayEscrowCheck`, and lands in `Polling`.
-     * Returns a typed [`MobileError`] if the DH output is
-     * non-contributory (small-order point) — the only failure path
-     * at construction time.
+     * The session derives `EscrowKeys` via DH, encrypts `our_card_bytes`
+     * with the derived `card_key`, builds the two deposit commands +
+     * a `RelayEscrowCheck`, and lands in `Polling`.
+     *
+     * Returns a typed [`MobileError`] if the URL is malformed, the DH
+     * output is non-contributory (small-order point), or the AEAD
+     * encryption RNG fails.
      *
      * `set_listener` must be called before `start`; otherwise the
      * cycle thread runs but every callback is dropped.
      */
-    public convenience init(parsedUrl: String, ourEncryptedCard: Data) throws {
+    public convenience init(parsedUrl: String, ourCardBytes: Data) throws {
         let pointer =
             try rustCallWithError(FfiConverterTypeMobileError.lift) {
                 uniffi_vauchi_platform_fn_constructor_mobilelinkrespondersession_new(
                     FfiConverterString.lower(parsedUrl),
-                    FfiConverterData.lower(ourEncryptedCard), $0
+                    FfiConverterData.lower(ourCardBytes), $0
                 )
             }
         self.init(unsafeFromRawPointer: pointer)
@@ -3493,6 +3495,24 @@ public protocol PlatformAppEngineProtocol: AnyObject {
     func createRecoveryVoucher(claimB64: String) throws -> MobileRecoveryVoucher
 
     /**
+     * Fetch the engine-owned link-mode responder session for the
+     * `DeepLinkResponder` screen. Lazily constructs + caches on the
+     * first call after navigation enters the screen; subsequent calls
+     * return the same `Arc`. Returns `None` whenever the engine is on
+     * any other screen.
+     *
+     * Phase 1.6 of `_private/docs/problems/2026-04-27-deep-link-responder-flow`.
+     * The frontend calls this when it observes
+     * `screen_id == "link_responder_waiting"`, attaches its own
+     * `LinkResponderSessionListener`, and calls `start()`. The engine
+     * `cancel()`s + drops the cached session in
+     * `after_screen_transition` whenever navigation leaves the
+     * responder screen, so the same `current_link_responder_session()`
+     * call after navigate-back returns `None` again.
+     */
+    func currentLinkResponderSession() throws -> MobileLinkResponderSession?
+
+    /**
      * Returns the current screen's screen_id (lightweight query).
      *
      * Useful for tab bar highlighting without deserializing the full ScreenModel.
@@ -4115,6 +4135,28 @@ open class PlatformAppEngine:
         return try FfiConverterTypeMobileRecoveryVoucher.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_platformappengine_create_recovery_voucher(self.uniffiClonePointer(),
                                                                                        FfiConverterString.lower(claimB64), $0)
+        })
+    }
+
+    /**
+     * Fetch the engine-owned link-mode responder session for the
+     * `DeepLinkResponder` screen. Lazily constructs + caches on the
+     * first call after navigation enters the screen; subsequent calls
+     * return the same `Arc`. Returns `None` whenever the engine is on
+     * any other screen.
+     *
+     * Phase 1.6 of `_private/docs/problems/2026-04-27-deep-link-responder-flow`.
+     * The frontend calls this when it observes
+     * `screen_id == "link_responder_waiting"`, attaches its own
+     * `LinkResponderSessionListener`, and calls `start()`. The engine
+     * `cancel()`s + drops the cached session in
+     * `after_screen_transition` whenever navigation leaves the
+     * responder screen, so the same `current_link_responder_session()`
+     * call after navigate-back returns `None` again.
+     */
+    open func currentLinkResponderSession() throws -> MobileLinkResponderSession? {
+        return try FfiConverterOptionTypeMobileLinkResponderSession.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_current_link_responder_session(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -23800,6 +23842,30 @@ private struct FfiConverterOptionData: FfiConverterRustBuffer {
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
+private struct FfiConverterOptionTypeMobileLinkResponderSession: FfiConverterRustBuffer {
+    typealias SwiftType = MobileLinkResponderSession?
+
+    static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeMobileLinkResponderSession.write(value, into: &buf)
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeMobileLinkResponderSession.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
 private struct FfiConverterOptionTypeMobileAhaMoment: FfiConverterRustBuffer {
     typealias SwiftType = MobileAhaMoment?
 
@@ -25956,6 +26022,9 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_platformappengine_create_recovery_voucher() != 11060 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_current_link_responder_session() != 12830 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_platform_checksum_method_platformappengine_current_screen_id() != 29912 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -26658,7 +26727,7 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_constructor_mobilebleexchangesession_new() != 46873 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_constructor_mobilelinkrespondersession_new() != 12193 {
+    if uniffi_vauchi_platform_checksum_constructor_mobilelinkrespondersession_new() != 2803 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_constructor_mobilemultistagesession_new() != 44223 {

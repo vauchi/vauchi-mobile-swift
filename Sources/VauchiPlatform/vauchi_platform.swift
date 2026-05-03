@@ -4842,6 +4842,13 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func ahaMomentsTotalCount() -> UInt32
 
     /**
+     * Loads app preferences (theme + language). Returns the default
+     * (`follow_system_*` both `true`, both ids `None`) if no row has
+     * been written yet. Storage-only — no identity required.
+     */
+    func appPreferences() throws -> MobileAppPreferences
+
+    /**
      * Apply available content updates.
      *
      * Downloads and caches any available updates. After applying,
@@ -5759,6 +5766,13 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func sendEmergencyBroadcast() throws -> MobileBroadcastResult
 
     /**
+     * Saves app preferences (theme + language) to the singleton row.
+     * Storage-only — no identity required (the Settings screen is
+     * reachable from More before onboarding).
+     */
+    func setAppPreferences(prefs: MobileAppPreferences) throws
+
+    /**
      * Set the avatar preference for a contact.
      *
      * `pref_json` is a JSON-serialized `AvatarPreference`:
@@ -6202,6 +6216,17 @@ open class VauchiPlatform:
     open func ahaMomentsTotalCount() -> UInt32 {
         return try! FfiConverterUInt32.lift(try! rustCall {
             uniffi_vauchi_platform_fn_method_vauchiplatform_aha_moments_total_count(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Loads app preferences (theme + language). Returns the default
+     * (`follow_system_*` both `true`, both ids `None`) if no row has
+     * been written yet. Storage-only — no identity required.
+     */
+    open func appPreferences() throws -> MobileAppPreferences {
+        return try FfiConverterTypeMobileAppPreferences.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_vauchiplatform_app_preferences(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -7783,6 +7808,18 @@ open class VauchiPlatform:
     }
 
     /**
+     * Saves app preferences (theme + language) to the singleton row.
+     * Storage-only — no identity required (the Settings screen is
+     * reachable from More before onboarding).
+     */
+    open func setAppPreferences(prefs: MobileAppPreferences) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_vauchiplatform_set_app_preferences(self.uniffiClonePointer(),
+                                                                                FfiConverterTypeMobileAppPreferences.lower(prefs), $0)
+        }
+    }
+
+    /**
      * Set the avatar preference for a contact.
      *
      * `pref_json` is a JSON-serialized `AvatarPreference`:
@@ -8506,6 +8543,125 @@ public func FfiConverterTypeMobileAnimatedQrConfig_lift(_ buf: RustBuffer) throw
 #endif
 public func FfiConverterTypeMobileAnimatedQrConfig_lower(_ value: MobileAnimatedQrConfig) -> RustBuffer {
     return FfiConverterTypeMobileAnimatedQrConfig.lower(value)
+}
+
+/**
+ * User preferences for theme + language (mirror of
+ * [`vauchi_core::types::AppPreferences`]).
+ *
+ * Singleton, device-local — preferences do not sync. Wired into the
+ * Settings screen Theme + Language `Component::Dropdown`s by the
+ * `SettingsEngine`; the `AppEngine::persist_settings_toggle` intercept
+ * writes through `Vauchi::set_app_preferences`. Frontends use these
+ * methods to drive Compose theme / locale resolution from the same
+ * singleton row, so the inline dropdown is the single source of truth.
+ *
+ * Phase 2a/A3a of `2026-05-01-android-humble-ui-deep-retirement`.
+ */
+public struct MobileAppPreferences {
+    /**
+     * Explicit theme id from the design tokens catalogue, or `None`
+     * if never set. Ignored when `follow_system_theme` is `true`.
+     */
+    public var themeId: String?
+    /**
+     * IETF language tag (e.g. `en`, `de`), or `None` if never set.
+     * Ignored when `follow_system_language` is `true`.
+     */
+    public var languageCode: String?
+    /**
+     * Whether to follow the OS theme appearance (light/dark).
+     */
+    public var followSystemTheme: Bool
+    /**
+     * Whether to follow the OS preferred language.
+     */
+    public var followSystemLanguage: Bool
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(
+        /*
+         * Explicit theme id from the design tokens catalogue, or `None`
+         * if never set. Ignored when `follow_system_theme` is `true`.
+         */ themeId: String?,
+        /*
+            * IETF language tag (e.g. `en`, `de`), or `None` if never set.
+            * Ignored when `follow_system_language` is `true`.
+            */ languageCode: String?,
+        /*
+            * Whether to follow the OS theme appearance (light/dark).
+            */ followSystemTheme: Bool,
+        /*
+            * Whether to follow the OS preferred language.
+            */ followSystemLanguage: Bool
+    ) {
+        self.themeId = themeId
+        self.languageCode = languageCode
+        self.followSystemTheme = followSystemTheme
+        self.followSystemLanguage = followSystemLanguage
+    }
+}
+
+extension MobileAppPreferences: Equatable, Hashable {
+    public static func == (lhs: MobileAppPreferences, rhs: MobileAppPreferences) -> Bool {
+        if lhs.themeId != rhs.themeId {
+            return false
+        }
+        if lhs.languageCode != rhs.languageCode {
+            return false
+        }
+        if lhs.followSystemTheme != rhs.followSystemTheme {
+            return false
+        }
+        if lhs.followSystemLanguage != rhs.followSystemLanguage {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(themeId)
+        hasher.combine(languageCode)
+        hasher.combine(followSystemTheme)
+        hasher.combine(followSystemLanguage)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileAppPreferences: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileAppPreferences {
+        return
+            try MobileAppPreferences(
+                themeId: FfiConverterOptionString.read(from: &buf),
+                languageCode: FfiConverterOptionString.read(from: &buf),
+                followSystemTheme: FfiConverterBool.read(from: &buf),
+                followSystemLanguage: FfiConverterBool.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileAppPreferences, into buf: inout [UInt8]) {
+        FfiConverterOptionString.write(value.themeId, into: &buf)
+        FfiConverterOptionString.write(value.languageCode, into: &buf)
+        FfiConverterBool.write(value.followSystemTheme, into: &buf)
+        FfiConverterBool.write(value.followSystemLanguage, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileAppPreferences_lift(_ buf: RustBuffer) throws -> MobileAppPreferences {
+    return try FfiConverterTypeMobileAppPreferences.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileAppPreferences_lower(_ value: MobileAppPreferences) -> RustBuffer {
+    return FfiConverterTypeMobileAppPreferences.lower(value)
 }
 
 /**
@@ -26169,6 +26325,9 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_aha_moments_total_count() != 28566 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_app_preferences() != 64751 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_apply_content_updates() != 51432 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -26593,6 +26752,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_send_emergency_broadcast() != 15809 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_vauchiplatform_set_app_preferences() != 16166 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_set_avatar_preference() != 44295 {

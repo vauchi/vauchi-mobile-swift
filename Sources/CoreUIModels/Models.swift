@@ -1485,59 +1485,75 @@ public enum ExchangeCommandDTO: Decodable {
     case imagePickFromLibrary
     case imageCaptureFromCamera
     case imagePickFromFile
+    case filePickFromUser(acceptedMimeTypes: [String], purpose: FilePickPurpose)
     case unknown
 
     public init(from decoder: Decoder) throws {
-        if let container = try? decoder.singleValueContainer(),
-           let stringValue = try? container.decode(String.self)
-        {
-            switch stringValue {
-            case "QrRequestScan": self = .qrRequestScan
-            case "BleStopScanning": self = .bleStopScanning
-            case "BleDisconnect": self = .bleDisconnect
-            case "NfcDeactivate": self = .nfcDeactivate
-            case "AudioStop": self = .audioStop
-            case "ImagePickFromLibrary": self = .imagePickFromLibrary
-            case "ImageCaptureFromCamera": self = .imageCaptureFromCamera
-            case "ImagePickFromFile": self = .imagePickFromFile
-            default: self = .unknown
-            }
+        if let bare = try? Self.decodeBareString(decoder) {
+            self = bare
             return
         }
-
         let container = try decoder.container(keyedBy: CommandKey.self)
+        self = try Self.decodeKeyed(container)
+    }
+
+    private static func decodeBareString(_ decoder: Decoder) throws -> ExchangeCommandDTO {
+        let container = try decoder.singleValueContainer()
+        let stringValue = try container.decode(String.self)
+        switch stringValue {
+        case "QrRequestScan": return .qrRequestScan
+        case "BleStopScanning": return .bleStopScanning
+        case "BleDisconnect": return .bleDisconnect
+        case "NfcDeactivate": return .nfcDeactivate
+        case "AudioStop": return .audioStop
+        case "ImagePickFromLibrary": return .imagePickFromLibrary
+        case "ImageCaptureFromCamera": return .imageCaptureFromCamera
+        case "ImagePickFromFile": return .imagePickFromFile
+        default: return .unknown
+        }
+    }
+
+    private static func decodeKeyed(
+        _ container: KeyedDecodingContainer<CommandKey>
+    ) throws -> ExchangeCommandDTO {
         if container.contains(.qrDisplay) {
             let data = try container.decode(QrDisplayData.self, forKey: .qrDisplay)
-            self = .qrDisplay(data: data.data)
+            return .qrDisplay(data: data.data)
         } else if container.contains(.bleStartScanning) {
             let data = try container.decode(BleServiceData.self, forKey: .bleStartScanning)
-            self = .bleStartScanning(serviceUuid: data.serviceUuid)
+            return .bleStartScanning(serviceUuid: data.serviceUuid)
         } else if container.contains(.bleConnect) {
             let data = try container.decode(BleConnectData.self, forKey: .bleConnect)
-            self = .bleConnect(deviceId: data.deviceId)
+            return .bleConnect(deviceId: data.deviceId)
         } else if container.contains(.bleStartAdvertising) {
             let data = try container.decode(BleAdvertisingData.self, forKey: .bleStartAdvertising)
-            self = .bleStartAdvertising(serviceUuid: data.serviceUuid, payload: data.payload)
+            return .bleStartAdvertising(serviceUuid: data.serviceUuid, payload: data.payload)
         } else if container.contains(.bleWriteCharacteristic) {
             let data = try container.decode(BleCharacteristicData.self, forKey: .bleWriteCharacteristic)
-            self = .bleWriteCharacteristic(uuid: data.uuid, data: data.data)
+            return .bleWriteCharacteristic(uuid: data.uuid, data: data.data)
         } else if container.contains(.bleReadCharacteristic) {
             let data = try container.decode(BleReadData.self, forKey: .bleReadCharacteristic)
-            self = .bleReadCharacteristic(uuid: data.uuid)
+            return .bleReadCharacteristic(uuid: data.uuid)
         } else if container.contains(.nfcActivate) {
             let data = try container.decode(NfcActivateData.self, forKey: .nfcActivate)
-            self = .nfcActivate(payload: data.payload)
+            return .nfcActivate(payload: data.payload)
         } else if container.contains(.audioEmitChallenge) {
             let data = try container.decode(AudioChallengeData.self, forKey: .audioEmitChallenge)
-            self = .audioEmitChallenge(data: data.data)
+            return .audioEmitChallenge(data: data.data)
         } else if container.contains(.audioListenForResponse) {
             let data = try container.decode(AudioListenData.self, forKey: .audioListenForResponse)
-            self = .audioListenForResponse(timeoutMs: data.timeoutMs)
+            return .audioListenForResponse(timeoutMs: data.timeoutMs)
         } else if container.contains(.directSend) {
             let data = try container.decode(DirectSendData.self, forKey: .directSend)
-            self = .directSend(payload: data.payload, isInitiator: data.isInitiator)
+            return .directSend(payload: data.payload, isInitiator: data.isInitiator)
+        } else if container.contains(.filePickFromUser) {
+            let data = try container.decode(FilePickFromUserData.self, forKey: .filePickFromUser)
+            return .filePickFromUser(
+                acceptedMimeTypes: data.acceptedMimeTypes,
+                purpose: data.purpose
+            )
         } else {
-            self = .unknown
+            return .unknown
         }
     }
 
@@ -1552,6 +1568,7 @@ public enum ExchangeCommandDTO: Decodable {
         case audioEmitChallenge = "AudioEmitChallenge"
         case audioListenForResponse = "AudioListenForResponse"
         case directSend = "DirectSend"
+        case filePickFromUser = "FilePickFromUser"
     }
 
     private struct QrDisplayData: Decodable { let data: String }
@@ -1564,4 +1581,67 @@ public enum ExchangeCommandDTO: Decodable {
     private struct AudioChallengeData: Decodable { let data: [UInt8] }
     private struct AudioListenData: Decodable { let timeoutMs: UInt64 }
     private struct DirectSendData: Decodable { let payload: [UInt8]; let isInitiator: Bool }
+}
+
+/// Decoded payload for `ExchangeCommandDTO.filePickFromUser`. Hoisted
+/// out of `ExchangeCommandDTO` so the snake-case `CodingKeys` enum
+/// stays at 1 level of nesting (SwiftLint `nesting` rule).
+private struct FilePickFromUserData: Decodable {
+    let acceptedMimeTypes: [String]
+    let purpose: FilePickPurpose
+
+    private enum CodingKeys: String, CodingKey {
+        case acceptedMimeTypes = "accepted_mime_types"
+        case purpose
+    }
+}
+
+/// DTO for the file-picker `purpose` field on
+/// `ExchangeCommandDTO.filePickFromUser` (ADR-031, Phase 1 of
+/// `2026-05-03-core-file-picker-command`).
+///
+/// Decodes the JSON shape emitted by `vauchi-core::exchange::command::
+/// FilePickPurpose` — bare-string variants for the well-known purposes
+/// and a struct variant for `Other { label_key: String }`.
+public enum FilePickPurpose: Decodable, Equatable {
+    case importContacts
+    case importBackup
+    case other(labelKey: String)
+    case unknown
+
+    public init(from decoder: Decoder) throws {
+        if let container = try? decoder.singleValueContainer(),
+           let stringValue = try? container.decode(String.self)
+        {
+            switch stringValue {
+            case "ImportContacts": self = .importContacts
+            case "ImportBackup": self = .importBackup
+            default: self = .unknown
+            }
+            return
+        }
+
+        let container = try decoder.container(keyedBy: PurposeKey.self)
+        if container.contains(.other) {
+            let data = try container.decode(FilePickPurposeOtherData.self, forKey: .other)
+            self = .other(labelKey: data.labelKey)
+        } else {
+            self = .unknown
+        }
+    }
+
+    private enum PurposeKey: String, CodingKey {
+        case other = "Other"
+    }
+}
+
+/// Decoded payload for `FilePickPurpose.other`. Hoisted out of
+/// `FilePickPurpose` so the snake-case `CodingKeys` enum stays at
+/// 1 level of nesting (SwiftLint `nesting` rule).
+private struct FilePickPurposeOtherData: Decodable {
+    let labelKey: String
+
+    private enum CodingKeys: String, CodingKey {
+        case labelKey = "label_key"
+    }
 }

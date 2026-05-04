@@ -1583,16 +1583,19 @@ public enum ExchangeCommandDTO: Decodable {
 }
 
 /// Decoded payload for `ExchangeCommandDTO.filePickFromUser`. Hoisted
-/// out of `ExchangeCommandDTO` so the snake-case `CodingKeys` enum
-/// stays at 1 level of nesting (SwiftLint `nesting` rule).
+/// out of `ExchangeCommandDTO` to keep the variant decoder readable.
+///
+/// No explicit `CodingKeys`: `coreJSONDecoder` uses
+/// `.convertFromSnakeCase`, which rewrites the JSON key
+/// `accepted_mime_types` to `acceptedMimeTypes` *before* the synthesized
+/// `Decodable` lookup runs. Adding a `CodingKey` whose `rawValue` is the
+/// pre-conversion snake_case spelling silently breaks decoding (the
+/// lookup is against the post-conversion key). Mirrors the other
+/// inline DTOs in this file (`BleAdvertisingData`, `BleCharacteristicData`,
+/// etc.), which all rely on the implicit conversion.
 private struct FilePickFromUserData: Decodable {
     let acceptedMimeTypes: [String]
     let purpose: FilePickPurpose
-
-    private enum CodingKeys: String, CodingKey {
-        case acceptedMimeTypes = "accepted_mime_types"
-        case purpose
-    }
 }
 
 /// DTO for the file-picker `purpose` field on

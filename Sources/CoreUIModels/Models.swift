@@ -290,9 +290,9 @@ public enum Component: Decodable {
     case textInput(TextInputComponent)
     case toggleList(ToggleListComponent)
     case fieldList(FieldListComponent)
-    case cardPreview(CardPreviewComponent)
+    case preview(PreviewComponent)
     case infoPanel(InfoPanelComponent)
-    case contactList(ContactListComponent)
+    case list(ListComponent)
     case settingsGroup(SettingsGroupComponent)
     case actionList(ActionListComponent)
     case statusIndicator(StatusIndicatorComponent)
@@ -338,12 +338,12 @@ public enum Component: Decodable {
             self = try .toggleList(container.decode(ToggleListComponent.self, forKey: .toggleList))
         } else if container.contains(.fieldList) {
             self = try .fieldList(container.decode(FieldListComponent.self, forKey: .fieldList))
-        } else if container.contains(.cardPreview) {
-            self = try .cardPreview(container.decode(CardPreviewComponent.self, forKey: .cardPreview))
+        } else if container.contains(.preview) {
+            self = try .preview(container.decode(PreviewComponent.self, forKey: .preview))
         } else if container.contains(.infoPanel) {
             self = try .infoPanel(container.decode(InfoPanelComponent.self, forKey: .infoPanel))
-        } else if container.contains(.contactList) {
-            self = try .contactList(container.decode(ContactListComponent.self, forKey: .contactList))
+        } else if container.contains(.list) {
+            self = try .list(container.decode(ListComponent.self, forKey: .list))
         } else if container.contains(.settingsGroup) {
             self = try .settingsGroup(container.decode(SettingsGroupComponent.self, forKey: .settingsGroup))
         } else if container.contains(.actionList) {
@@ -384,9 +384,9 @@ public enum Component: Decodable {
         case textInput = "TextInput"
         case toggleList = "ToggleList"
         case fieldList = "FieldList"
-        case cardPreview = "CardPreview"
+        case preview = "Preview"
         case infoPanel = "InfoPanel"
-        case contactList = "ContactList"
+        case list = "List"
         case settingsGroup = "SettingsGroup"
         case actionList = "ActionList"
         case statusIndicator = "StatusIndicator"
@@ -510,12 +510,12 @@ public struct ToggleItem: Decodable, Identifiable {
 
 public struct FieldListComponent: Decodable {
     public let id: String
-    public let fields: [FieldDisplay]
+    public let fields: [Field]
     public let visibilityMode: VisibilityMode
     public let availableGroups: [String]
     public var a11y: A11y?
 
-    public init(id: String, fields: [FieldDisplay], visibilityMode: VisibilityMode, availableGroups: [String], a11y: A11y? = nil) {
+    public init(id: String, fields: [Field], visibilityMode: VisibilityMode, availableGroups: [String], a11y: A11y? = nil) {
         self.id = id
         self.fields = fields
         self.visibilityMode = visibilityMode
@@ -529,7 +529,7 @@ public enum VisibilityMode: String, Decodable {
     case perGroup = "PerGroup"
 }
 
-public struct FieldDisplay: Decodable, Identifiable {
+public struct Field: Decodable, Identifiable {
     public let id: String
     public let fieldType: String
     public let label: String
@@ -582,34 +582,34 @@ public enum UiFieldVisibility: Decodable {
     }
 }
 
-public struct CardPreviewComponent: Decodable {
+public struct PreviewComponent: Decodable {
     public let name: String
     public let avatarData: [UInt8]?
-    public let fields: [FieldDisplay]
-    public let groupViews: [GroupCardView]
-    public let selectedGroup: String?
+    public let fields: [Field]
+    public let variants: [PreviewVariant]
+    public let selectedVariant: String?
     /// G1 (ADR-021/043, core!695): pre-filtered list emitted by core's
     /// `build_visible_fields` helper. Frontends should render this
     /// directly rather than reproducing the filter / fallback in Swift.
     /// Defaults to `[]` so pre-G1 ScreenModel JSON still decodes;
     /// frontends fall back to `fields` when the list is empty.
-    public let visibleFields: [FieldDisplay]
+    public let visibleFields: [Field]
     public var a11y: A11y?
 
     public init(
         name: String,
         avatarData: [UInt8]? = nil,
-        fields: [FieldDisplay],
-        groupViews: [GroupCardView],
-        selectedGroup: String? = nil,
-        visibleFields: [FieldDisplay] = [],
+        fields: [Field],
+        variants: [PreviewVariant],
+        selectedVariant: String? = nil,
+        visibleFields: [Field] = [],
         a11y: A11y? = nil
     ) {
         self.name = name
         self.avatarData = avatarData
         self.fields = fields
-        self.groupViews = groupViews
-        self.selectedGroup = selectedGroup
+        self.variants = variants
+        self.selectedVariant = selectedVariant
         self.visibleFields = visibleFields
         self.a11y = a11y
     }
@@ -618,35 +618,35 @@ public struct CardPreviewComponent: Decodable {
         /// Raw values match property names (camelCase) so the consumer's
         /// `convertFromSnakeCase` strategy can resolve `avatar_data` → `avatarData`
         /// before key lookup. Snake_case raw values would mask convertFromSnakeCase
-        /// and break decode (group_views fixture lookup miss, observed v0.28.1+ tag).
-        case name, avatarData, fields, groupViews, selectedGroup, visibleFields, a11y
+        /// and break decode (variants fixture lookup miss, observed v0.28.1+ tag).
+        case name, avatarData, fields, variants, selectedVariant, visibleFields, a11y
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         name = try container.decode(String.self, forKey: .name)
         avatarData = try container.decodeIfPresent([UInt8].self, forKey: .avatarData)
-        fields = try container.decode([FieldDisplay].self, forKey: .fields)
-        groupViews = try container.decode([GroupCardView].self, forKey: .groupViews)
-        selectedGroup = try container.decodeIfPresent(String.self, forKey: .selectedGroup)
-        visibleFields = try container.decodeIfPresent([FieldDisplay].self, forKey: .visibleFields) ?? []
+        fields = try container.decode([Field].self, forKey: .fields)
+        variants = try container.decode([PreviewVariant].self, forKey: .variants)
+        selectedVariant = try container.decodeIfPresent(String.self, forKey: .selectedVariant)
+        visibleFields = try container.decodeIfPresent([Field].self, forKey: .visibleFields) ?? []
         a11y = try container.decodeIfPresent(A11y.self, forKey: .a11y)
     }
 }
 
-public struct GroupCardView: Decodable, Identifiable {
-    public let groupName: String
+public struct PreviewVariant: Decodable, Identifiable {
+    public let variantId: String
     public let displayName: String
-    public let visibleFields: [FieldDisplay]
+    public let visibleFields: [Field]
 
-    public init(groupName: String, displayName: String, visibleFields: [FieldDisplay]) {
-        self.groupName = groupName
+    public init(variantId: String, displayName: String, visibleFields: [Field]) {
+        self.variantId = variantId
         self.displayName = displayName
         self.visibleFields = visibleFields
     }
 
     public var id: String {
-        groupName
+        variantId
     }
 }
 
@@ -682,27 +682,30 @@ public struct InfoItem: Decodable, Identifiable {
     }
 }
 
-// MARK: - ContactList Component
+// MARK: - List Component
 
-public struct ContactListComponent: Decodable {
+public struct ListComponent: Decodable {
     public let id: String
-    public let contacts: [ContactItem]
+    public let items: [Item]
     public let searchable: Bool
 
-    public init(id: String, contacts: [ContactItem], searchable: Bool) {
+    public init(id: String, items: [Item], searchable: Bool) {
         self.id = id
-        self.contacts = contacts
+        self.items = items
         self.searchable = searchable
     }
 }
 
-public struct ContactItem: Decodable, Identifiable {
+/// A lightweight item rendered by `Component::List`. Wire Humble: the
+/// renderer doesn't know what kind of thing it represents — engine
+/// produces UI-shaped items from any domain (contacts, decoy contacts,
+/// quorum members, etc.).
+public struct Item: Decodable, Identifiable {
     public let id: String
     public let name: String
     public let subtitle: String?
     public let avatarInitials: String
     public let status: String?
-    public var searchableFields: [String] = []
     public var actions: [ListItemAction] = []
     public var a11y: A11y?
 
@@ -712,7 +715,6 @@ public struct ContactItem: Decodable, Identifiable {
         subtitle: String? = nil,
         avatarInitials: String,
         status: String? = nil,
-        searchableFields: [String] = [],
         actions: [ListItemAction] = [],
         a11y: A11y? = nil
     ) {
@@ -721,19 +723,17 @@ public struct ContactItem: Decodable, Identifiable {
         self.subtitle = subtitle
         self.avatarInitials = avatarInitials
         self.status = status
-        self.searchableFields = searchableFields
         self.actions = actions
         self.a11y = a11y
     }
 
     /// Default Decodable synthesis matches: `coreJSONDecoder` above sets
-    /// `.convertFromSnakeCase`, so wire keys like `avatar_initials` and
-    /// `searchable_fields` are mapped automatically to their camelCase
-    /// property names here. The custom init only exists so new fields
-    /// (`searchableFields`, `actions`) default to empty when absent
+    /// `.convertFromSnakeCase`, so wire keys like `avatar_initials` are
+    /// mapped automatically to their camelCase property names here. The
+    /// custom init only exists so `actions` defaults to empty when absent
     /// from legacy fixtures or older engine versions.
     private enum CodingKeys: String, CodingKey {
-        case id, name, subtitle, avatarInitials, status, searchableFields, actions, a11y
+        case id, name, subtitle, avatarInitials, status, actions, a11y
     }
 
     public init(from decoder: Decoder) throws {
@@ -743,7 +743,6 @@ public struct ContactItem: Decodable, Identifiable {
         subtitle = try c.decodeIfPresent(String.self, forKey: .subtitle)
         avatarInitials = try c.decode(String.self, forKey: .avatarInitials)
         status = try c.decodeIfPresent(String.self, forKey: .status)
-        searchableFields = (try? c.decode([String].self, forKey: .searchableFields)) ?? []
         actions = (try? c.decode([ListItemAction].self, forKey: .actions)) ?? []
         a11y = try? c.decode(A11y.self, forKey: .a11y)
     }

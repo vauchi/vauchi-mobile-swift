@@ -1323,7 +1323,6 @@ public enum ActionResult: Decodable {
     case complete
     case completeWith(destination: PostOnboardingDestination)
     case startDeviceLink
-    case startBackupImport
     case openContact(contactId: String)
     case editContact(contactId: String)
     case openUrl(url: String)
@@ -1345,7 +1344,6 @@ public enum ActionResult: Decodable {
             switch stringValue {
             case "Complete": self = .complete
             case "StartDeviceLink": self = .startDeviceLink
-            case "StartBackupImport": self = .startBackupImport
             case "RequestCamera": self = .requestCamera
             case "WipeComplete": self = .wipeComplete
             default: self = .unknown

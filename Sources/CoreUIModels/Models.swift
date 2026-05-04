@@ -1638,12 +1638,14 @@ public enum FilePickPurpose: Decodable, Equatable {
 }
 
 /// Decoded payload for `FilePickPurpose.other`. Hoisted out of
-/// `FilePickPurpose` so the snake-case `CodingKeys` enum stays at
-/// 1 level of nesting (SwiftLint `nesting` rule).
+/// `FilePickPurpose` to keep the variant decoder readable.
+///
+/// No explicit `CodingKeys` — same trap as `FilePickFromUserData` (see
+/// the comment there): a rawValue of `"label_key"` would be looked up
+/// *after* `coreJSONDecoder`'s `.convertFromSnakeCase` has already
+/// rewritten the JSON key to `labelKey`, and the lookup would miss.
+/// Latent until a `FilePickPurpose::Other` ever ships from core; fixing
+/// it now keeps the file consistent.
 private struct FilePickPurposeOtherData: Decodable {
     let labelKey: String
-
-    private enum CodingKeys: String, CodingKey {
-        case labelKey = "label_key"
-    }
 }

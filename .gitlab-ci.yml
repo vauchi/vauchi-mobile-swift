@@ -27,7 +27,7 @@ workflow:
 # Validate Package.swift syntax on every push
 validate:package:
   stage: validate
-  image: swift:5.9
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/swift:5.9
   tags: [docker]
   script:
     - swift package dump-package
@@ -49,7 +49,7 @@ validate:package:
 # follow-up — re-tagging via the proper pipeline — is unmistakable.
 validate:tag-version-invariant:
   stage: validate
-  image: alpine:3.21
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/alpine:3.21
   tags: [docker]
   script:
     - |

@@ -27,7 +27,11 @@ workflow:
 # Validate Package.swift syntax on every push
 validate:package:
   stage: validate
-  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/swift:5.9
+  # Pin to a versioned tag — the GitLab dependency proxy returns 404
+  # for the unversioned `swift:5.9` (Docker Hub stopped serving the
+  # floating tag, or the proxy can't resolve aliases). 5.9.2 is the
+  # final 5.9.x release; bump to 5.10/6.x in a separate MR.
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/swift:5.9.2
   tags: [docker]
   script:
     - swift package dump-package

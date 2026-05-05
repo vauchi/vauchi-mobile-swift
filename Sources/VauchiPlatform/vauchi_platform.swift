@@ -1817,7 +1817,7 @@ public protocol MobileExchangeSessionProtocol: AnyObject {
      *
      * After calling this, use `drain_pending_commands()` to get response commands.
      */
-    func applyHardwareEvent(event: MobileExchangeHardwareEvent) throws
+    func applyHardwareEvent(event: MobileEvent) throws
 
     /**
      * Complete the card exchange. Transitions AwaitingCardExchange -> Complete.
@@ -1847,7 +1847,7 @@ public protocol MobileExchangeSessionProtocol: AnyObject {
      *
      * Returns an empty list if no commands are pending.
      */
-    func drainPendingCommands() -> [MobileExchangeCommand]
+    func drainPendingCommands() -> [MobileCommand]
 
     /**
      * Enable exchange debug logging.
@@ -2000,10 +2000,10 @@ open class MobileExchangeSession:
      *
      * After calling this, use `drain_pending_commands()` to get response commands.
      */
-    open func applyHardwareEvent(event: MobileExchangeHardwareEvent) throws {
+    open func applyHardwareEvent(event: MobileEvent) throws {
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_mobileexchangesession_apply_hardware_event(self.uniffiClonePointer(),
-                                                                                        FfiConverterTypeMobileExchangeHardwareEvent.lower(event), $0)
+                                                                                        FfiConverterTypeMobileEvent.lower(event), $0)
         }
     }
 
@@ -2044,8 +2044,8 @@ open class MobileExchangeSession:
      *
      * Returns an empty list if no commands are pending.
      */
-    open func drainPendingCommands() -> [MobileExchangeCommand] {
-        return try! FfiConverterSequenceTypeMobileExchangeCommand.lift(try! rustCall {
+    open func drainPendingCommands() -> [MobileCommand] {
+        return try! FfiConverterSequenceTypeMobileCommand.lift(try! rustCall {
             uniffi_vauchi_platform_fn_method_mobileexchangesession_drain_pending_commands(self.uniffiClonePointer(), $0)
         })
     }
@@ -2246,7 +2246,7 @@ public protocol MobileLinkResponderSessionProtocol: AnyObject {
      * cycle thread holds the same `Mutex` so events serialize with
      * inspection.
      */
-    func applyHardwareEvent(event: MobileExchangeHardwareEvent)
+    func applyHardwareEvent(event: MobileEvent)
 
     /**
      * Cancel the session. Sets the cancel flag, waits for the cycle
@@ -2364,10 +2364,10 @@ open class MobileLinkResponderSession:
      * cycle thread holds the same `Mutex` so events serialize with
      * inspection.
      */
-    open func applyHardwareEvent(event: MobileExchangeHardwareEvent) {
+    open func applyHardwareEvent(event: MobileEvent) {
         try! rustCall {
             uniffi_vauchi_platform_fn_method_mobilelinkrespondersession_apply_hardware_event(self.uniffiClonePointer(),
-                                                                                             FfiConverterTypeMobileExchangeHardwareEvent.lower(event), $0)
+                                                                                             FfiConverterTypeMobileEvent.lower(event), $0)
         }
     }
 
@@ -3679,7 +3679,7 @@ public protocol PlatformAppEngineProtocol: AnyObject {
      * }
      * ```
      */
-    func handleHardwareEvent(event: MobileExchangeHardwareEvent) throws -> String?
+    func handleHardwareEvent(event: MobileEvent) throws -> String?
 
     /**
      * Returns whether the user has created an identity.
@@ -4399,10 +4399,10 @@ open class PlatformAppEngine:
      * }
      * ```
      */
-    open func handleHardwareEvent(event: MobileExchangeHardwareEvent) throws -> String? {
+    open func handleHardwareEvent(event: MobileEvent) throws -> String? {
         return try FfiConverterOptionString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_platformappengine_handle_hardware_event(self.uniffiClonePointer(),
-                                                                                     FfiConverterTypeMobileExchangeHardwareEvent.lower(event), $0)
+                                                                                     FfiConverterTypeMobileEvent.lower(event), $0)
         })
     }
 
@@ -18907,6 +18907,202 @@ extension MobileBleTransportError: Foundation.LocalizedError {
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /*
+ * Exchange command sent from core to the frontend (ADR-031).
+ *
+ * Mobile apps match on these and dispatch to platform-specific APIs
+ * (camera, BLE stack, NFC reader, audio subsystem).
+ */
+
+public enum MobileCommand {
+    case qrDisplay(data: String)
+    case qrRequestScan
+    case bleStartAdvertising(serviceUuid: String, payload: Data)
+    case bleStartScanning(serviceUuid: String)
+    case bleStopScanning
+    case bleConnect(deviceId: String)
+    case bleWriteCharacteristic(uuid: String, data: Data)
+    case bleReadCharacteristic(uuid: String)
+    case bleDisconnect
+    case nfcActivate(payload: Data)
+    case nfcDeactivate
+    case audioEmitChallenge(samples: [Float], sampleRate: UInt32)
+    case audioListenForResponse(timeoutMs: UInt64, sampleRate: UInt32)
+    case audioStop
+    case accelerometerStart
+    case accelerometerStop
+    case relayEscrowDeposit(gateHash: Data, slotHash: Data, encryptedCard: Data, ttlSeconds: UInt32)
+    case relayEscrowCheck(gateHash: Data, suggestedIntervalMs: UInt32)
+    case relayEscrowRetrieve(gateHash: Data, slotHash: Data)
+    case showShareSheet(url: String)
+    case directSend(payload: Data, isInitiator: Bool)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileCommand: FfiConverterRustBuffer {
+    typealias SwiftType = MobileCommand
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileCommand {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return try .qrDisplay(data: FfiConverterString.read(from: &buf))
+
+        case 2: return .qrRequestScan
+
+        case 3: return try .bleStartAdvertising(serviceUuid: FfiConverterString.read(from: &buf), payload: FfiConverterData.read(from: &buf))
+
+        case 4: return try .bleStartScanning(serviceUuid: FfiConverterString.read(from: &buf))
+
+        case 5: return .bleStopScanning
+
+        case 6: return try .bleConnect(deviceId: FfiConverterString.read(from: &buf))
+
+        case 7: return try .bleWriteCharacteristic(uuid: FfiConverterString.read(from: &buf), data: FfiConverterData.read(from: &buf))
+
+        case 8: return try .bleReadCharacteristic(uuid: FfiConverterString.read(from: &buf))
+
+        case 9: return .bleDisconnect
+
+        case 10: return try .nfcActivate(payload: FfiConverterData.read(from: &buf))
+
+        case 11: return .nfcDeactivate
+
+        case 12: return try .audioEmitChallenge(samples: FfiConverterSequenceFloat.read(from: &buf), sampleRate: FfiConverterUInt32.read(from: &buf))
+
+        case 13: return try .audioListenForResponse(timeoutMs: FfiConverterUInt64.read(from: &buf), sampleRate: FfiConverterUInt32.read(from: &buf))
+
+        case 14: return .audioStop
+
+        case 15: return .accelerometerStart
+
+        case 16: return .accelerometerStop
+
+        case 17: return try .relayEscrowDeposit(gateHash: FfiConverterData.read(from: &buf), slotHash: FfiConverterData.read(from: &buf), encryptedCard: FfiConverterData.read(from: &buf), ttlSeconds: FfiConverterUInt32.read(from: &buf))
+
+        case 18: return try .relayEscrowCheck(gateHash: FfiConverterData.read(from: &buf), suggestedIntervalMs: FfiConverterUInt32.read(from: &buf))
+
+        case 19: return try .relayEscrowRetrieve(gateHash: FfiConverterData.read(from: &buf), slotHash: FfiConverterData.read(from: &buf))
+
+        case 20: return try .showShareSheet(url: FfiConverterString.read(from: &buf))
+
+        case 21: return try .directSend(payload: FfiConverterData.read(from: &buf), isInitiator: FfiConverterBool.read(from: &buf))
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileCommand, into buf: inout [UInt8]) {
+        switch value {
+        case let .qrDisplay(data):
+            writeInt(&buf, Int32(1))
+            FfiConverterString.write(data, into: &buf)
+
+        case .qrRequestScan:
+            writeInt(&buf, Int32(2))
+
+        case let .bleStartAdvertising(serviceUuid, payload):
+            writeInt(&buf, Int32(3))
+            FfiConverterString.write(serviceUuid, into: &buf)
+            FfiConverterData.write(payload, into: &buf)
+
+        case let .bleStartScanning(serviceUuid):
+            writeInt(&buf, Int32(4))
+            FfiConverterString.write(serviceUuid, into: &buf)
+
+        case .bleStopScanning:
+            writeInt(&buf, Int32(5))
+
+        case let .bleConnect(deviceId):
+            writeInt(&buf, Int32(6))
+            FfiConverterString.write(deviceId, into: &buf)
+
+        case let .bleWriteCharacteristic(uuid, data):
+            writeInt(&buf, Int32(7))
+            FfiConverterString.write(uuid, into: &buf)
+            FfiConverterData.write(data, into: &buf)
+
+        case let .bleReadCharacteristic(uuid):
+            writeInt(&buf, Int32(8))
+            FfiConverterString.write(uuid, into: &buf)
+
+        case .bleDisconnect:
+            writeInt(&buf, Int32(9))
+
+        case let .nfcActivate(payload):
+            writeInt(&buf, Int32(10))
+            FfiConverterData.write(payload, into: &buf)
+
+        case .nfcDeactivate:
+            writeInt(&buf, Int32(11))
+
+        case let .audioEmitChallenge(samples, sampleRate):
+            writeInt(&buf, Int32(12))
+            FfiConverterSequenceFloat.write(samples, into: &buf)
+            FfiConverterUInt32.write(sampleRate, into: &buf)
+
+        case let .audioListenForResponse(timeoutMs, sampleRate):
+            writeInt(&buf, Int32(13))
+            FfiConverterUInt64.write(timeoutMs, into: &buf)
+            FfiConverterUInt32.write(sampleRate, into: &buf)
+
+        case .audioStop:
+            writeInt(&buf, Int32(14))
+
+        case .accelerometerStart:
+            writeInt(&buf, Int32(15))
+
+        case .accelerometerStop:
+            writeInt(&buf, Int32(16))
+
+        case let .relayEscrowDeposit(gateHash, slotHash, encryptedCard, ttlSeconds):
+            writeInt(&buf, Int32(17))
+            FfiConverterData.write(gateHash, into: &buf)
+            FfiConverterData.write(slotHash, into: &buf)
+            FfiConverterData.write(encryptedCard, into: &buf)
+            FfiConverterUInt32.write(ttlSeconds, into: &buf)
+
+        case let .relayEscrowCheck(gateHash, suggestedIntervalMs):
+            writeInt(&buf, Int32(18))
+            FfiConverterData.write(gateHash, into: &buf)
+            FfiConverterUInt32.write(suggestedIntervalMs, into: &buf)
+
+        case let .relayEscrowRetrieve(gateHash, slotHash):
+            writeInt(&buf, Int32(19))
+            FfiConverterData.write(gateHash, into: &buf)
+            FfiConverterData.write(slotHash, into: &buf)
+
+        case let .showShareSheet(url):
+            writeInt(&buf, Int32(20))
+            FfiConverterString.write(url, into: &buf)
+
+        case let .directSend(payload, isInitiator):
+            writeInt(&buf, Int32(21))
+            FfiConverterData.write(payload, into: &buf)
+            FfiConverterBool.write(isInitiator, into: &buf)
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileCommand_lift(_ buf: RustBuffer) throws -> MobileCommand {
+    return try FfiConverterTypeMobileCommand.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileCommand_lower(_ value: MobileCommand) -> RustBuffer {
+    return FfiConverterTypeMobileCommand.lower(value)
+}
+
+extension MobileCommand: Equatable, Hashable {}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/*
  * Types of consent that can be granted or revoked.
  */
 
@@ -19866,209 +20062,13 @@ extension MobileError: Foundation.LocalizedError {
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /*
- * Exchange command sent from core to the frontend (ADR-031).
- *
- * Mobile apps match on these and dispatch to platform-specific APIs
- * (camera, BLE stack, NFC reader, audio subsystem).
- */
-
-public enum MobileExchangeCommand {
-    case qrDisplay(data: String)
-    case qrRequestScan
-    case bleStartAdvertising(serviceUuid: String, payload: Data)
-    case bleStartScanning(serviceUuid: String)
-    case bleStopScanning
-    case bleConnect(deviceId: String)
-    case bleWriteCharacteristic(uuid: String, data: Data)
-    case bleReadCharacteristic(uuid: String)
-    case bleDisconnect
-    case nfcActivate(payload: Data)
-    case nfcDeactivate
-    case audioEmitChallenge(samples: [Float], sampleRate: UInt32)
-    case audioListenForResponse(timeoutMs: UInt64, sampleRate: UInt32)
-    case audioStop
-    case accelerometerStart
-    case accelerometerStop
-    case relayEscrowDeposit(gateHash: Data, slotHash: Data, encryptedCard: Data, ttlSeconds: UInt32)
-    case relayEscrowCheck(gateHash: Data, suggestedIntervalMs: UInt32)
-    case relayEscrowRetrieve(gateHash: Data, slotHash: Data)
-    case showShareSheet(url: String)
-    case directSend(payload: Data, isInitiator: Bool)
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public struct FfiConverterTypeMobileExchangeCommand: FfiConverterRustBuffer {
-    typealias SwiftType = MobileExchangeCommand
-
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileExchangeCommand {
-        let variant: Int32 = try readInt(&buf)
-        switch variant {
-        case 1: return try .qrDisplay(data: FfiConverterString.read(from: &buf))
-
-        case 2: return .qrRequestScan
-
-        case 3: return try .bleStartAdvertising(serviceUuid: FfiConverterString.read(from: &buf), payload: FfiConverterData.read(from: &buf))
-
-        case 4: return try .bleStartScanning(serviceUuid: FfiConverterString.read(from: &buf))
-
-        case 5: return .bleStopScanning
-
-        case 6: return try .bleConnect(deviceId: FfiConverterString.read(from: &buf))
-
-        case 7: return try .bleWriteCharacteristic(uuid: FfiConverterString.read(from: &buf), data: FfiConverterData.read(from: &buf))
-
-        case 8: return try .bleReadCharacteristic(uuid: FfiConverterString.read(from: &buf))
-
-        case 9: return .bleDisconnect
-
-        case 10: return try .nfcActivate(payload: FfiConverterData.read(from: &buf))
-
-        case 11: return .nfcDeactivate
-
-        case 12: return try .audioEmitChallenge(samples: FfiConverterSequenceFloat.read(from: &buf), sampleRate: FfiConverterUInt32.read(from: &buf))
-
-        case 13: return try .audioListenForResponse(timeoutMs: FfiConverterUInt64.read(from: &buf), sampleRate: FfiConverterUInt32.read(from: &buf))
-
-        case 14: return .audioStop
-
-        case 15: return .accelerometerStart
-
-        case 16: return .accelerometerStop
-
-        case 17: return try .relayEscrowDeposit(gateHash: FfiConverterData.read(from: &buf), slotHash: FfiConverterData.read(from: &buf), encryptedCard: FfiConverterData.read(from: &buf), ttlSeconds: FfiConverterUInt32.read(from: &buf))
-
-        case 18: return try .relayEscrowCheck(gateHash: FfiConverterData.read(from: &buf), suggestedIntervalMs: FfiConverterUInt32.read(from: &buf))
-
-        case 19: return try .relayEscrowRetrieve(gateHash: FfiConverterData.read(from: &buf), slotHash: FfiConverterData.read(from: &buf))
-
-        case 20: return try .showShareSheet(url: FfiConverterString.read(from: &buf))
-
-        case 21: return try .directSend(payload: FfiConverterData.read(from: &buf), isInitiator: FfiConverterBool.read(from: &buf))
-
-        default: throw UniffiInternalError.unexpectedEnumCase
-        }
-    }
-
-    public static func write(_ value: MobileExchangeCommand, into buf: inout [UInt8]) {
-        switch value {
-        case let .qrDisplay(data):
-            writeInt(&buf, Int32(1))
-            FfiConverterString.write(data, into: &buf)
-
-        case .qrRequestScan:
-            writeInt(&buf, Int32(2))
-
-        case let .bleStartAdvertising(serviceUuid, payload):
-            writeInt(&buf, Int32(3))
-            FfiConverterString.write(serviceUuid, into: &buf)
-            FfiConverterData.write(payload, into: &buf)
-
-        case let .bleStartScanning(serviceUuid):
-            writeInt(&buf, Int32(4))
-            FfiConverterString.write(serviceUuid, into: &buf)
-
-        case .bleStopScanning:
-            writeInt(&buf, Int32(5))
-
-        case let .bleConnect(deviceId):
-            writeInt(&buf, Int32(6))
-            FfiConverterString.write(deviceId, into: &buf)
-
-        case let .bleWriteCharacteristic(uuid, data):
-            writeInt(&buf, Int32(7))
-            FfiConverterString.write(uuid, into: &buf)
-            FfiConverterData.write(data, into: &buf)
-
-        case let .bleReadCharacteristic(uuid):
-            writeInt(&buf, Int32(8))
-            FfiConverterString.write(uuid, into: &buf)
-
-        case .bleDisconnect:
-            writeInt(&buf, Int32(9))
-
-        case let .nfcActivate(payload):
-            writeInt(&buf, Int32(10))
-            FfiConverterData.write(payload, into: &buf)
-
-        case .nfcDeactivate:
-            writeInt(&buf, Int32(11))
-
-        case let .audioEmitChallenge(samples, sampleRate):
-            writeInt(&buf, Int32(12))
-            FfiConverterSequenceFloat.write(samples, into: &buf)
-            FfiConverterUInt32.write(sampleRate, into: &buf)
-
-        case let .audioListenForResponse(timeoutMs, sampleRate):
-            writeInt(&buf, Int32(13))
-            FfiConverterUInt64.write(timeoutMs, into: &buf)
-            FfiConverterUInt32.write(sampleRate, into: &buf)
-
-        case .audioStop:
-            writeInt(&buf, Int32(14))
-
-        case .accelerometerStart:
-            writeInt(&buf, Int32(15))
-
-        case .accelerometerStop:
-            writeInt(&buf, Int32(16))
-
-        case let .relayEscrowDeposit(gateHash, slotHash, encryptedCard, ttlSeconds):
-            writeInt(&buf, Int32(17))
-            FfiConverterData.write(gateHash, into: &buf)
-            FfiConverterData.write(slotHash, into: &buf)
-            FfiConverterData.write(encryptedCard, into: &buf)
-            FfiConverterUInt32.write(ttlSeconds, into: &buf)
-
-        case let .relayEscrowCheck(gateHash, suggestedIntervalMs):
-            writeInt(&buf, Int32(18))
-            FfiConverterData.write(gateHash, into: &buf)
-            FfiConverterUInt32.write(suggestedIntervalMs, into: &buf)
-
-        case let .relayEscrowRetrieve(gateHash, slotHash):
-            writeInt(&buf, Int32(19))
-            FfiConverterData.write(gateHash, into: &buf)
-            FfiConverterData.write(slotHash, into: &buf)
-
-        case let .showShareSheet(url):
-            writeInt(&buf, Int32(20))
-            FfiConverterString.write(url, into: &buf)
-
-        case let .directSend(payload, isInitiator):
-            writeInt(&buf, Int32(21))
-            FfiConverterData.write(payload, into: &buf)
-            FfiConverterBool.write(isInitiator, into: &buf)
-        }
-    }
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMobileExchangeCommand_lift(_ buf: RustBuffer) throws -> MobileExchangeCommand {
-    return try FfiConverterTypeMobileExchangeCommand.lift(buf)
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMobileExchangeCommand_lower(_ value: MobileExchangeCommand) -> RustBuffer {
-    return FfiConverterTypeMobileExchangeCommand.lower(value)
-}
-
-extension MobileExchangeCommand: Equatable, Hashable {}
-
-// Note that we don't yet support `indirect` for enums.
-// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/*
  * Hardware event reported by the frontend back to core (ADR-031).
  *
  * Mobile apps create these after executing a command (e.g., QR scanned,
  * BLE data received) and feed them back via `apply_hardware_event()`.
  */
 
-public enum MobileExchangeHardwareEvent {
+public enum MobileEvent {
     case qrScanned(data: String)
     case bleDeviceDiscovered(id: String, rssi: Int16, advData: Data)
     case bleConnected(deviceId: String)
@@ -20097,10 +20097,10 @@ public enum MobileExchangeHardwareEvent {
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeMobileExchangeHardwareEvent: FfiConverterRustBuffer {
-    typealias SwiftType = MobileExchangeHardwareEvent
+public struct FfiConverterTypeMobileEvent: FfiConverterRustBuffer {
+    typealias SwiftType = MobileEvent
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileExchangeHardwareEvent {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileEvent {
         let variant: Int32 = try readInt(&buf)
         switch variant {
         case 1: return try .qrScanned(data: FfiConverterString.read(from: &buf))
@@ -20153,7 +20153,7 @@ public struct FfiConverterTypeMobileExchangeHardwareEvent: FfiConverterRustBuffe
         }
     }
 
-    public static func write(_ value: MobileExchangeHardwareEvent, into buf: inout [UInt8]) {
+    public static func write(_ value: MobileEvent, into buf: inout [UInt8]) {
         switch value {
         case let .qrScanned(data):
             writeInt(&buf, Int32(1))
@@ -20263,18 +20263,18 @@ public struct FfiConverterTypeMobileExchangeHardwareEvent: FfiConverterRustBuffe
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
-public func FfiConverterTypeMobileExchangeHardwareEvent_lift(_ buf: RustBuffer) throws -> MobileExchangeHardwareEvent {
-    return try FfiConverterTypeMobileExchangeHardwareEvent.lift(buf)
+public func FfiConverterTypeMobileEvent_lift(_ buf: RustBuffer) throws -> MobileEvent {
+    return try FfiConverterTypeMobileEvent.lift(buf)
 }
 
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
-public func FfiConverterTypeMobileExchangeHardwareEvent_lower(_ value: MobileExchangeHardwareEvent) -> RustBuffer {
-    return FfiConverterTypeMobileExchangeHardwareEvent.lower(value)
+public func FfiConverterTypeMobileEvent_lower(_ value: MobileEvent) -> RustBuffer {
+    return FfiConverterTypeMobileEvent.lower(value)
 }
 
-extension MobileExchangeHardwareEvent: Equatable, Hashable {}
+extension MobileEvent: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
@@ -22462,12 +22462,12 @@ public protocol LinkResponderSessionListener: AnyObject {
 
     /**
      * New commands the frontend should dispatch via its existing
-     * `ExchangeCommandHandler` (or platform equivalent). The cycle
+     * `CommandHandler` (or platform equivalent). The cycle
      * thread emits these whenever the state machine adds entries
      * to its pending queue. The frontend feeds the resulting hardware
      * events back via [`MobileLinkResponderSession::apply_hardware_event`].
      */
-    func onCommands(commands: [MobileExchangeCommand])
+    func onCommands(commands: [MobileCommand])
 
     /**
      * Exchange finalized successfully. `card_bytes` carries the
@@ -22532,7 +22532,7 @@ private enum UniffiCallbackInterfaceLinkResponderSessionListener {
                     throw UniffiInternalError.unexpectedStaleHandle
                 }
                 return try uniffiObj.onCommands(
-                    commands: FfiConverterSequenceTypeMobileExchangeCommand.lift(commands)
+                    commands: FfiConverterSequenceTypeMobileCommand.lift(commands)
                 )
             }
 
@@ -24926,6 +24926,31 @@ private struct FfiConverterSequenceTypeMobileVisibilityLabel: FfiConverterRustBu
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
+private struct FfiConverterSequenceTypeMobileCommand: FfiConverterRustBuffer {
+    typealias SwiftType = [MobileCommand]
+
+    static func write(_ value: [MobileCommand], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeMobileCommand.write(item, into: &buf)
+        }
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileCommand] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [MobileCommand]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            try seq.append(FfiConverterTypeMobileCommand.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
 private struct FfiConverterSequenceTypeMobileContactDetailAction: FfiConverterRustBuffer {
     typealias SwiftType = [MobileContactDetailAction]
 
@@ -25018,31 +25043,6 @@ private struct FfiConverterSequenceTypeMobileContentType: FfiConverterRustBuffer
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
             try seq.append(FfiConverterTypeMobileContentType.read(from: &buf))
-        }
-        return seq
-    }
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-private struct FfiConverterSequenceTypeMobileExchangeCommand: FfiConverterRustBuffer {
-    typealias SwiftType = [MobileExchangeCommand]
-
-    static func write(_ value: [MobileExchangeCommand], into buf: inout [UInt8]) {
-        let len = Int32(value.count)
-        writeInt(&buf, len)
-        for item in value {
-            FfiConverterTypeMobileExchangeCommand.write(item, into: &buf)
-        }
-    }
-
-    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileExchangeCommand] {
-        let len: Int32 = try readInt(&buf)
-        var seq = [MobileExchangeCommand]()
-        seq.reserveCapacity(Int(len))
-        for _ in 0 ..< len {
-            try seq.append(FfiConverterTypeMobileExchangeCommand.read(from: &buf))
         }
         return seq
     }
@@ -26042,7 +26042,7 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_mobiledevicelinksession_start() != 13114 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_mobileexchangesession_apply_hardware_event() != 3482 {
+    if uniffi_vauchi_platform_checksum_method_mobileexchangesession_apply_hardware_event() != 5 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_mobileexchangesession_complete_card_exchange() != 63295 {
@@ -26051,7 +26051,7 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_mobileexchangesession_confirm_proximity() != 50473 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_mobileexchangesession_drain_pending_commands() != 51499 {
+    if uniffi_vauchi_platform_checksum_method_mobileexchangesession_drain_pending_commands() != 13489 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_mobileexchangesession_enable_debug_log() != 48820 {
@@ -26093,7 +26093,7 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_mobileexchangesession_verification_confidence() != 33982 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_mobilelinkrespondersession_apply_hardware_event() != 55849 {
+    if uniffi_vauchi_platform_checksum_method_mobilelinkrespondersession_apply_hardware_event() != 64628 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_mobilelinkrespondersession_cancel() != 64411 {
@@ -26246,7 +26246,7 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_platformappengine_handle_deep_link_uri() != 4136 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_platformappengine_handle_hardware_event() != 34688 {
+    if uniffi_vauchi_platform_checksum_method_platformappengine_handle_hardware_event() != 53688 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_platformappengine_has_identity() != 9989 {
@@ -26945,7 +26945,7 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_linkrespondersessionlistener_on_state_changed() != 44767 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_linkrespondersessionlistener_on_commands() != 3847 {
+    if uniffi_vauchi_platform_checksum_method_linkrespondersessionlistener_on_commands() != 56112 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_linkrespondersessionlistener_on_finalized() != 28158 {

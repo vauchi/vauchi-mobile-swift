@@ -1331,7 +1331,7 @@ public enum ActionResult: Decodable {
     case openEntryDetail(fieldId: String)
     case showToast(message: String, undoActionId: String?)
     case wipeComplete
-    case exchangeCommands(commands: [ExchangeCommandDTO])
+    case commands(commands: [CommandDTO])
     case showFormDialog(dialogType: String, contextId: String?)
     case previewAs(contactId: String)
     case unknown
@@ -1382,9 +1382,9 @@ public enum ActionResult: Decodable {
         } else if container.contains(.showToast) {
             let data = try container.decode(ShowToastData.self, forKey: .showToast)
             self = .showToast(message: data.message, undoActionId: data.undoActionId)
-        } else if container.contains(.exchangeCommands) {
-            let data = try container.decode(ExchangeCommandsData.self, forKey: .exchangeCommands)
-            self = .exchangeCommands(commands: data.commands)
+        } else if container.contains(.commands) {
+            let data = try container.decode(CommandsData.self, forKey: .commands)
+            self = .commands(commands: data.commands)
         } else if container.contains(.showFormDialog) {
             let data = try container.decode(ShowFormDialogData.self, forKey: .showFormDialog)
             self = .showFormDialog(dialogType: data.dialogType, contextId: data.contextId)
@@ -1407,7 +1407,7 @@ public enum ActionResult: Decodable {
         case showAlert = "ShowAlert"
         case openEntryDetail = "OpenEntryDetail"
         case showToast = "ShowToast"
-        case exchangeCommands = "ExchangeCommands"
+        case commands = "Commands"
         case showFormDialog = "ShowFormDialog"
         case previewAs = "PreviewAs"
     }
@@ -1447,8 +1447,8 @@ public enum ActionResult: Decodable {
         let undoActionId: String?
     }
 
-    private struct ExchangeCommandsData: Decodable {
-        let commands: [ExchangeCommandDTO]
+    private struct CommandsData: Decodable {
+        let commands: [CommandDTO]
     }
 
     private struct ShowFormDialogData: Decodable {
@@ -1463,7 +1463,7 @@ public enum ActionResult: Decodable {
 
 /// DTO for exchange commands from core (ADR-031).
 /// Maps to: `vauchi-core::exchange::command::ExchangeCommand`
-public enum ExchangeCommandDTO: Decodable {
+public enum CommandDTO: Decodable {
     case qrDisplay(data: String)
     case qrRequestScan
     case bleStartAdvertising(serviceUuid: String, payload: [UInt8])
@@ -1483,6 +1483,13 @@ public enum ExchangeCommandDTO: Decodable {
     case imageCaptureFromCamera
     case imagePickFromFile
     case filePickFromUser(acceptedMimeTypes: [String], purpose: FilePickPurpose)
+    case showShareSheet(url: String)
+    case switchCamera(useFront: Bool)
+    /// `level == nil` means "restore platform default"; the frontend's
+    /// `CommandHandler` is responsible for snapshotting the prior
+    /// brightness on the first non-nil value.
+    case setScreenBrightness(level: Float?)
+    case setIdleTimerDisabled(disabled: Bool)
     case unknown
 
     public init(from decoder: Decoder) throws {
@@ -1494,7 +1501,7 @@ public enum ExchangeCommandDTO: Decodable {
         self = try Self.decodeKeyed(container)
     }
 
-    private static func decodeBareString(_ decoder: Decoder) throws -> ExchangeCommandDTO {
+    private static func decodeBareString(_ decoder: Decoder) throws -> CommandDTO {
         let container = try decoder.singleValueContainer()
         let stringValue = try container.decode(String.self)
         switch stringValue {
@@ -1512,7 +1519,7 @@ public enum ExchangeCommandDTO: Decodable {
 
     private static func decodeKeyed(
         _ container: KeyedDecodingContainer<CommandKey>
-    ) throws -> ExchangeCommandDTO {
+    ) throws -> CommandDTO {
         if container.contains(.qrDisplay) {
             let data = try container.decode(QrDisplayData.self, forKey: .qrDisplay)
             return .qrDisplay(data: data.data)
@@ -1549,6 +1556,24 @@ public enum ExchangeCommandDTO: Decodable {
                 acceptedMimeTypes: data.acceptedMimeTypes,
                 purpose: data.purpose
             )
+        } else if container.contains(.showShareSheet) {
+            let data = try container.decode(ShowShareSheetData.self, forKey: .showShareSheet)
+            return .showShareSheet(url: data.url)
+        } else if container.contains(.switchCamera) {
+            let data = try container.decode(SwitchCameraData.self, forKey: .switchCamera)
+            return .switchCamera(useFront: data.useFront)
+        } else if container.contains(.setScreenBrightness) {
+            let data = try container.decode(
+                SetScreenBrightnessData.self,
+                forKey: .setScreenBrightness
+            )
+            return .setScreenBrightness(level: data.level)
+        } else if container.contains(.setIdleTimerDisabled) {
+            let data = try container.decode(
+                SetIdleTimerDisabledData.self,
+                forKey: .setIdleTimerDisabled
+            )
+            return .setIdleTimerDisabled(disabled: data.disabled)
         } else {
             return .unknown
         }
@@ -1566,6 +1591,10 @@ public enum ExchangeCommandDTO: Decodable {
         case audioListenForResponse = "AudioListenForResponse"
         case directSend = "DirectSend"
         case filePickFromUser = "FilePickFromUser"
+        case showShareSheet = "ShowShareSheet"
+        case switchCamera = "SwitchCamera"
+        case setScreenBrightness = "SetScreenBrightness"
+        case setIdleTimerDisabled = "SetIdleTimerDisabled"
     }
 
     private struct QrDisplayData: Decodable { let data: String }
@@ -1578,10 +1607,39 @@ public enum ExchangeCommandDTO: Decodable {
     private struct AudioChallengeData: Decodable { let data: [UInt8] }
     private struct AudioListenData: Decodable { let timeoutMs: UInt64 }
     private struct DirectSendData: Decodable { let payload: [UInt8]; let isInitiator: Bool }
+    private struct ShowShareSheetData: Decodable { let url: String }
+    private struct SwitchCameraData: Decodable { let useFront: Bool }
+    private struct SetScreenBrightnessData: Decodable { let level: Float? }
+    private struct SetIdleTimerDisabledData: Decodable { let disabled: Bool }
 }
 
-/// Decoded payload for `ExchangeCommandDTO.filePickFromUser`. Hoisted
-/// out of `ExchangeCommandDTO` to keep the variant decoder readable.
+/// Envelope returned by `PlatformAppEngine.navigateToJson` /
+/// `navigateBackJson` (Phase 2b of
+/// `2026-05-04-exchange-command-screen-presentation`). Carries the
+/// rendered `ScreenModel` plus any `CommandDTO`s emitted by the
+/// `WorkflowEngine`'s `screen_entered` / `screen_exited` lifecycle
+/// hooks during the navigation.
+public struct ScreenEnvelope: Decodable {
+    public let screen: ScreenModel
+    public let commands: [CommandDTO]
+}
+
+/// Envelope returned by `PlatformAppEngine.handleActionJson`. Carries
+/// the engine's `ActionResult` plus any `CommandDTO`s emitted as a
+/// side-effect of navigation during the action.
+///
+/// JSON shape: `{"action_result": <ActionResult>, "commands": [...]}`.
+/// `coreJSONDecoder` uses `.convertFromSnakeCase` which rewrites
+/// `action_result` → `actionResult` before the synthesized `Decodable`
+/// lookup, so no explicit `CodingKeys` is needed (matches the
+/// `FilePickFromUserData` pattern above).
+public struct ActionResultEnvelope: Decodable {
+    public let actionResult: ActionResult
+    public let commands: [CommandDTO]
+}
+
+/// Decoded payload for `CommandDTO.filePickFromUser`. Hoisted
+/// out of `CommandDTO` to keep the variant decoder readable.
 ///
 /// No explicit `CodingKeys`: `coreJSONDecoder` uses
 /// `.convertFromSnakeCase`, which rewrites the JSON key
@@ -1597,7 +1655,7 @@ private struct FilePickFromUserData: Decodable {
 }
 
 /// DTO for the file-picker `purpose` field on
-/// `ExchangeCommandDTO.filePickFromUser` (ADR-031, Phase 1 of
+/// `CommandDTO.filePickFromUser` (ADR-031, Phase 1 of
 /// `2026-05-03-core-file-picker-command`).
 ///
 /// Decodes the JSON shape emitted by `vauchi-core::exchange::command::

@@ -3722,7 +3722,10 @@ public protocol PlatformAppEngineProtocol: AnyObject {
     /**
      * Navigate back in the history stack.
      *
-     * Returns the previous screen model as JSON.
+     * Returns the previous screen model as JSON envelope:
+     * `{"screen": <ScreenModel>, "commands": [<Command>, ...]}`.
+     * `commands` carries any screen-presentation `Command`s emitted by
+     * the lifecycle hooks of the outgoing + incoming engines (Phase 2b).
      */
     func navigateBackJson() throws -> String
 
@@ -4468,7 +4471,10 @@ open class PlatformAppEngine:
     /**
      * Navigate back in the history stack.
      *
-     * Returns the previous screen model as JSON.
+     * Returns the previous screen model as JSON envelope:
+     * `{"screen": <ScreenModel>, "commands": [<Command>, ...]}`.
+     * `commands` carries any screen-presentation `Command`s emitted by
+     * the lifecycle hooks of the outgoing + incoming engines (Phase 2b).
      */
     open func navigateBackJson() throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
@@ -26264,7 +26270,7 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_platformappengine_is_primary_device() != 9134 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_platformappengine_navigate_back_json() != 55923 {
+    if uniffi_vauchi_platform_checksum_method_platformappengine_navigate_back_json() != 25405 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_platformappengine_navigate_to_json() != 60323 {

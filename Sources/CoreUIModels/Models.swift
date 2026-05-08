@@ -1490,6 +1490,10 @@ public enum CommandDTO: Decodable {
     /// brightness on the first non-nil value.
     case setScreenBrightness(level: Float?)
     case setIdleTimerDisabled(disabled: Bool)
+    /// `orientation == nil` means "unlock to platform default"; the
+    /// frontend's `CommandHandler` is responsible for applying the
+    /// requested lock and clearing it on `nil`.
+    case setOrientationLock(orientation: OrientationDTO?)
     case unknown
 
     public init(from decoder: Decoder) throws {
@@ -1517,6 +1521,12 @@ public enum CommandDTO: Decodable {
         }
     }
 
+    // swiftlint:disable function_body_length
+    // Flat dispatch table for the closed `CommandKey` set. Each
+    // `else if` decodes the matching `*Data` struct and re-wraps it
+    // into the corresponding `CommandDTO` case. The body grows
+    // linearly with new variants by design — splitting it would
+    // scatter the table without improving readability.
     private static func decodeKeyed(
         _ container: KeyedDecodingContainer<CommandKey>
     ) throws -> CommandDTO {
@@ -1574,10 +1584,18 @@ public enum CommandDTO: Decodable {
                 forKey: .setIdleTimerDisabled
             )
             return .setIdleTimerDisabled(disabled: data.disabled)
+        } else if container.contains(.setOrientationLock) {
+            let data = try container.decode(
+                SetOrientationLockData.self,
+                forKey: .setOrientationLock
+            )
+            return .setOrientationLock(orientation: data.orientation)
         } else {
             return .unknown
         }
     }
+
+    // swiftlint:enable function_body_length
 
     private enum CommandKey: String, CodingKey {
         case qrDisplay = "QrDisplay"
@@ -1595,6 +1613,7 @@ public enum CommandDTO: Decodable {
         case switchCamera = "SwitchCamera"
         case setScreenBrightness = "SetScreenBrightness"
         case setIdleTimerDisabled = "SetIdleTimerDisabled"
+        case setOrientationLock = "SetOrientationLock"
     }
 
     private struct QrDisplayData: Decodable { let data: String }
@@ -1611,6 +1630,13 @@ public enum CommandDTO: Decodable {
     private struct SwitchCameraData: Decodable { let useFront: Bool }
     private struct SetScreenBrightnessData: Decodable { let level: Float? }
     private struct SetIdleTimerDisabledData: Decodable { let disabled: Bool }
+    private struct SetOrientationLockData: Decodable { let orientation: OrientationDTO? }
+}
+
+/// DTO for orientation lock requests. Mirrors `vauchi-core::Orientation`.
+public enum OrientationDTO: String, Decodable {
+    case portrait = "Portrait"
+    case landscape = "Landscape"
 }
 
 /// Envelope returned by `PlatformAppEngine.navigateToJson` /

@@ -2479,6 +2479,14 @@ public func FfiConverterTypeMobileLinkResponderSession_lower(_ value: MobileLink
  */
 public protocol MobileMultiStageSessionProtocol: AnyObject {
     /**
+     * Returns the current audio-proximity state of the inner session.
+     * Hover sessions transition through the state machine driven by
+     * `MultiStageSession::set_audio_proximity`; Glance sessions stay
+     * at `Pending` for their lifetime.
+     */
+    func audioProximity() -> MobileAudioProximityState
+
+    /**
      * Cancel the session. Sets the cancellation flag, waits for the cycle
      * thread to exit, wipes sensitive state, and drops the registered
      * listener. Idempotent — safe to call before `start`, multiple times,
@@ -2496,6 +2504,16 @@ public protocol MobileMultiStageSessionProtocol: AnyObject {
      * transition.
      */
     func processScannedQr(raw: String) -> MobileProtocolState
+
+    /**
+     * Register (or replace) the audio-proximity listener. Optional —
+     * sessions that don't register one simply never receive audio
+     * callbacks (Glance flows, harness tests). Phase 1.C.3d wires
+     * the wrapper-side orchestrator that fires this callback;
+     * until then, registering a listener is harmless dormant
+     * plumbing.
+     */
+    func setAudioListener(listener: MultiStageAudioListener)
 
     /**
      * Register (or replace) the event listener. Safe to call before or
@@ -2593,6 +2611,18 @@ open class MobileMultiStageSession:
     }
 
     /**
+     * Returns the current audio-proximity state of the inner session.
+     * Hover sessions transition through the state machine driven by
+     * `MultiStageSession::set_audio_proximity`; Glance sessions stay
+     * at `Pending` for their lifetime.
+     */
+    open func audioProximity() -> MobileAudioProximityState {
+        return try! FfiConverterTypeMobileAudioProximityState.lift(try! rustCall {
+            uniffi_vauchi_platform_fn_method_mobilemultistagesession_audio_proximity(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
      * Cancel the session. Sets the cancellation flag, waits for the cycle
      * thread to exit, wipes sensitive state, and drops the registered
      * listener. Idempotent — safe to call before `start`, multiple times,
@@ -2618,6 +2648,21 @@ open class MobileMultiStageSession:
             uniffi_vauchi_platform_fn_method_mobilemultistagesession_process_scanned_qr(self.uniffiClonePointer(),
                                                                                         FfiConverterString.lower(raw), $0)
         })
+    }
+
+    /**
+     * Register (or replace) the audio-proximity listener. Optional —
+     * sessions that don't register one simply never receive audio
+     * callbacks (Glance flows, harness tests). Phase 1.C.3d wires
+     * the wrapper-side orchestrator that fires this callback;
+     * until then, registering a listener is harmless dormant
+     * plumbing.
+     */
+    open func setAudioListener(listener: MultiStageAudioListener) {
+        try! rustCall {
+            uniffi_vauchi_platform_fn_method_mobilemultistagesession_set_audio_listener(self.uniffiClonePointer(),
+                                                                                        FfiConverterCallbackInterfaceMultiStageAudioListener.lower(listener), $0)
+        }
     }
 
     /**
@@ -3875,6 +3920,26 @@ public protocol PlatformAppEngineProtocol: AnyObject {
     func setNetworkOnline(online: Bool) throws
 
     /**
+     * Push render-context preferences (locale + theme_id) from
+     * frontend OS-native storage to core.
+     *
+     * Category-1 settings per
+     * [ADR-047](../../../../_private/docs/decisions/adr-047-settings-storage-by-sensitivity.md):
+     * frontends own the canonical copy in OS-native sandboxed
+     * storage (`SharedPreferences`, `UserDefaults`, …) and push
+     * the active values to core at app boot + on every Settings
+     * dropdown change. Core uses them to render Settings dropdown
+     * `selected` values (S3 of the implementation plan) and,
+     * later, to resolve locale-keyed strings into ScreenModel.
+     *
+     * JSON shape: `{ "locale": "de", "theme_id": "cyber" }`.
+     * Both fields optional — `null` / absent means "frontend has
+     * no value yet". Field names are UI-shaped to preserve the
+     * humble-allowlist invariant (no domain words).
+     */
+    func setRenderContextJson(json: String) throws
+
+    /**
      * Returns desktop-sidebar metadata — all top-level navigable
      * screens with locale-resolved labels. Wider than `tab_info()`
      * because desktop frames accommodate more entries than a phone
@@ -4678,6 +4743,31 @@ open class PlatformAppEngine:
     }
 
     /**
+     * Push render-context preferences (locale + theme_id) from
+     * frontend OS-native storage to core.
+     *
+     * Category-1 settings per
+     * [ADR-047](../../../../_private/docs/decisions/adr-047-settings-storage-by-sensitivity.md):
+     * frontends own the canonical copy in OS-native sandboxed
+     * storage (`SharedPreferences`, `UserDefaults`, …) and push
+     * the active values to core at app boot + on every Settings
+     * dropdown change. Core uses them to render Settings dropdown
+     * `selected` values (S3 of the implementation plan) and,
+     * later, to resolve locale-keyed strings into ScreenModel.
+     *
+     * JSON shape: `{ "locale": "de", "theme_id": "cyber" }`.
+     * Both fields optional — `null` / absent means "frontend has
+     * no value yet". Field names are UI-shaped to preserve the
+     * humble-allowlist invariant (no domain words).
+     */
+    open func setRenderContextJson(json: String) throws {
+        try rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_set_render_context_json(self.uniffiClonePointer(),
+                                                                                       FfiConverterString.lower(json), $0)
+        }
+    }
+
+    /**
      * Returns desktop-sidebar metadata — all top-level navigable
      * screens with locale-resolved labels. Wider than `tab_info()`
      * because desktop frames accommodate more entries than a phone
@@ -4804,11 +4894,6 @@ public func FfiConverterTypePlatformAppEngine_lower(_ value: PlatformAppEngine) 
  * Uses on-demand storage connections for thread safety.
  */
 public protocol VauchiPlatformProtocol: AnyObject {
-    /**
-     * Add a contact to a label.
-     */
-    func addContactToGroup(labelId: String, contactId: String) throws
-
     /**
      * Adds a decoy contact for duress mode.
      *
@@ -5021,11 +5106,6 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func createIdentity(displayName: String) throws
 
     /**
-     * Create a new visibility label.
-     */
-    func createLabel(name: String) throws -> MobileVisibilityLabel
-
-    /**
      * Create a multi-stage exchange session with the local identity and card.
      *
      * Serializes the identity public key and contact card into an exchange
@@ -5100,11 +5180,6 @@ public protocol VauchiPlatformProtocol: AnyObject {
      * Deletes a decoy contact by ID.
      */
     func deleteDecoyContact(id: String) throws
-
-    /**
-     * Delete a label.
-     */
-    func deleteLabel(labelId: String) throws
 
     /**
      * Delete a retry entry (after successful delivery or max attempts).
@@ -5351,22 +5426,6 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func getFailedDeliveryRecords() throws -> [MobileDeliveryRecord]
 
     /**
-     * Get all labels that contain a contact.
-     */
-    func getGroupsForContact(contactId: String) throws -> [MobileVisibilityLabel]
-
-    /**
-     * Get a label by ID with full details.
-     *
-     * Populates `label_contacts` and `stale_reference_count` by resolving
-     * the label's `contact_ids` against storage — frontends should render
-     * `label_contacts` instead of joining `contact_ids` against the
-     * contacts list themselves (ADR-021/043 Humble UI). See
-     * `resolve_label_contacts` for the missing-contact policy.
-     */
-    func getLabel(labelId: String) throws -> MobileVisibilityLabelDetail
-
-    /**
      * Get remaining capacity in the offline queue.
      */
     func getOfflineQueueCapacity() throws -> UInt32
@@ -5434,11 +5493,6 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func getRetryCount() throws -> UInt32
 
     /**
-     * Get suggested default labels.
-     */
-    func getSuggestedLabels() -> [String]
-
-    /**
      * Get sync status.
      */
     func getSyncStatus() -> MobileSyncStatus
@@ -5489,11 +5543,6 @@ public protocol VauchiPlatformProtocol: AnyObject {
      * Routes through the Vauchi API to ensure `ContactHidden` events are dispatched.
      */
     func hideContact(contactId: String) throws
-
-    /**
-     * Hide field from contact.
-     */
-    func hideFieldFromContact(contactId: String, fieldLabel: String) throws
 
     /**
      * Import backup.
@@ -5550,11 +5599,6 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func isDuressEnabled() throws -> Bool
 
     /**
-     * Check if field is visible to contact.
-     */
-    func isFieldVisibleToContact(contactId: String, fieldLabel: String) throws -> Bool
-
-    /**
      * Check if the offline queue is full.
      *
      * Default max size is 1000 updates.
@@ -5606,11 +5650,6 @@ public protocol VauchiPlatformProtocol: AnyObject {
      * Routes through the Vauchi API for consistency with hide/unhide operations.
      */
     func listHiddenContacts() throws -> [MobileContact]
-
-    /**
-     * List all visibility labels.
-     */
-    func listLabels() throws -> [MobileVisibilityLabel]
 
     /**
      * List available social networks.
@@ -5685,24 +5724,9 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func removeContact(id: String) throws -> Bool
 
     /**
-     * Remove a per-contact override for field visibility.
-     */
-    func removeContactFieldOverride(contactId: String, fieldLabel: String) throws
-
-    /**
-     * Remove a contact from a label.
-     */
-    func removeContactFromGroup(labelId: String, contactId: String) throws
-
-    /**
      * Remove field from card.
      */
     func removeField(label: String) throws -> Bool
-
-    /**
-     * Rename a label.
-     */
-    func renameLabel(labelId: String, newName: String) throws
 
     /**
      * Reset all aha moments (for testing/debugging).
@@ -5800,13 +5824,6 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func setContactFieldNote(contactId: String, fieldId: String, note: String) throws
 
     /**
-     * Set a per-contact override for field visibility.
-     *
-     * Per-contact overrides take precedence over label-based visibility.
-     */
-    func setContactFieldOverride(contactId: String, fieldLabel: String, isVisible: Bool) throws
-
-    /**
      * Set a local nickname for a contact.
      */
     func setContactNickname(contactId: String, name: String) throws
@@ -5836,11 +5853,6 @@ public protocol VauchiPlatformProtocol: AnyObject {
      * `"primary"`, `{"shared_name":{"name":"Alice"}}`, `"custom"`.
      */
     func setDisplayNamePreference(contactId: String, prefJson: String) throws
-
-    /**
-     * Set whether a field is visible to contacts in a label.
-     */
-    func setGroupFieldVisibility(labelId: String, fieldLabel: String, isVisible: Bool) throws
 
     /**
      * Set own avatar image.
@@ -5892,11 +5904,6 @@ public protocol VauchiPlatformProtocol: AnyObject {
      * Requires an app password to be configured first.
      */
     func setupDuressPassword(duressPassword: String) throws
-
-    /**
-     * Show field to contact.
-     */
-    func showFieldToContact(contactId: String, fieldLabel: String) throws
 
     /**
      * Get current shred status.
@@ -6144,17 +6151,6 @@ open class VauchiPlatform:
                 FfiConverterData.lower(storageKeyBytes), $0
             )
         })
-    }
-
-    /**
-     * Add a contact to a label.
-     */
-    open func addContactToGroup(labelId: String, contactId: String) throws {
-        try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_add_contact_to_group(self.uniffiClonePointer(),
-                                                                                 FfiConverterString.lower(labelId),
-                                                                                 FfiConverterString.lower(contactId), $0)
-        }
     }
 
     /**
@@ -6503,16 +6499,6 @@ open class VauchiPlatform:
     }
 
     /**
-     * Create a new visibility label.
-     */
-    open func createLabel(name: String) throws -> MobileVisibilityLabel {
-        return try FfiConverterTypeMobileVisibilityLabel.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_create_label(self.uniffiClonePointer(),
-                                                                         FfiConverterString.lower(name), $0)
-        })
-    }
-
-    /**
      * Create a multi-stage exchange session with the local identity and card.
      *
      * Serializes the identity public key and contact card into an exchange
@@ -6636,16 +6622,6 @@ open class VauchiPlatform:
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_vauchiplatform_delete_decoy_contact(self.uniffiClonePointer(),
                                                                                  FfiConverterString.lower(id), $0)
-        }
-    }
-
-    /**
-     * Delete a label.
-     */
-    open func deleteLabel(labelId: String) throws {
-        try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_delete_label(self.uniffiClonePointer(),
-                                                                         FfiConverterString.lower(labelId), $0)
         }
     }
 
@@ -7065,32 +7041,6 @@ open class VauchiPlatform:
     }
 
     /**
-     * Get all labels that contain a contact.
-     */
-    open func getGroupsForContact(contactId: String) throws -> [MobileVisibilityLabel] {
-        return try FfiConverterSequenceTypeMobileVisibilityLabel.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_get_groups_for_contact(self.uniffiClonePointer(),
-                                                                                   FfiConverterString.lower(contactId), $0)
-        })
-    }
-
-    /**
-     * Get a label by ID with full details.
-     *
-     * Populates `label_contacts` and `stale_reference_count` by resolving
-     * the label's `contact_ids` against storage — frontends should render
-     * `label_contacts` instead of joining `contact_ids` against the
-     * contacts list themselves (ADR-021/043 Humble UI). See
-     * `resolve_label_contacts` for the missing-contact policy.
-     */
-    open func getLabel(labelId: String) throws -> MobileVisibilityLabelDetail {
-        return try FfiConverterTypeMobileVisibilityLabelDetail.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_get_label(self.uniffiClonePointer(),
-                                                                      FfiConverterString.lower(labelId), $0)
-        })
-    }
-
-    /**
      * Get remaining capacity in the offline queue.
      */
     open func getOfflineQueueCapacity() throws -> UInt32 {
@@ -7209,15 +7159,6 @@ open class VauchiPlatform:
     }
 
     /**
-     * Get suggested default labels.
-     */
-    open func getSuggestedLabels() -> [String] {
-        return try! FfiConverterSequenceString.lift(try! rustCall {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_get_suggested_labels(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
      * Get sync status.
      */
     open func getSyncStatus() -> MobileSyncStatus {
@@ -7303,17 +7244,6 @@ open class VauchiPlatform:
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_vauchiplatform_hide_contact(self.uniffiClonePointer(),
                                                                          FfiConverterString.lower(contactId), $0)
-        }
-    }
-
-    /**
-     * Hide field from contact.
-     */
-    open func hideFieldFromContact(contactId: String, fieldLabel: String) throws {
-        try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_hide_field_from_contact(self.uniffiClonePointer(),
-                                                                                    FfiConverterString.lower(contactId),
-                                                                                    FfiConverterString.lower(fieldLabel), $0)
         }
     }
 
@@ -7413,17 +7343,6 @@ open class VauchiPlatform:
     }
 
     /**
-     * Check if field is visible to contact.
-     */
-    open func isFieldVisibleToContact(contactId: String, fieldLabel: String) throws -> Bool {
-        return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_is_field_visible_to_contact(self.uniffiClonePointer(),
-                                                                                        FfiConverterString.lower(contactId),
-                                                                                        FfiConverterString.lower(fieldLabel), $0)
-        })
-    }
-
-    /**
      * Check if the offline queue is full.
      *
      * Default max size is 1000 updates.
@@ -7515,15 +7434,6 @@ open class VauchiPlatform:
     open func listHiddenContacts() throws -> [MobileContact] {
         return try FfiConverterSequenceTypeMobileContact.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_vauchiplatform_list_hidden_contacts(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * List all visibility labels.
-     */
-    open func listLabels() throws -> [MobileVisibilityLabel] {
-        return try FfiConverterSequenceTypeMobileVisibilityLabel.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_list_labels(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -7647,28 +7557,6 @@ open class VauchiPlatform:
     }
 
     /**
-     * Remove a per-contact override for field visibility.
-     */
-    open func removeContactFieldOverride(contactId: String, fieldLabel: String) throws {
-        try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_remove_contact_field_override(self.uniffiClonePointer(),
-                                                                                          FfiConverterString.lower(contactId),
-                                                                                          FfiConverterString.lower(fieldLabel), $0)
-        }
-    }
-
-    /**
-     * Remove a contact from a label.
-     */
-    open func removeContactFromGroup(labelId: String, contactId: String) throws {
-        try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_remove_contact_from_group(self.uniffiClonePointer(),
-                                                                                      FfiConverterString.lower(labelId),
-                                                                                      FfiConverterString.lower(contactId), $0)
-        }
-    }
-
-    /**
      * Remove field from card.
      */
     open func removeField(label: String) throws -> Bool {
@@ -7676,17 +7564,6 @@ open class VauchiPlatform:
             uniffi_vauchi_platform_fn_method_vauchiplatform_remove_field(self.uniffiClonePointer(),
                                                                          FfiConverterString.lower(label), $0)
         })
-    }
-
-    /**
-     * Rename a label.
-     */
-    open func renameLabel(labelId: String, newName: String) throws {
-        try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_rename_label(self.uniffiClonePointer(),
-                                                                         FfiConverterString.lower(labelId),
-                                                                         FfiConverterString.lower(newName), $0)
-        }
     }
 
     /**
@@ -7866,20 +7743,6 @@ open class VauchiPlatform:
     }
 
     /**
-     * Set a per-contact override for field visibility.
-     *
-     * Per-contact overrides take precedence over label-based visibility.
-     */
-    open func setContactFieldOverride(contactId: String, fieldLabel: String, isVisible: Bool) throws {
-        try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_set_contact_field_override(self.uniffiClonePointer(),
-                                                                                       FfiConverterString.lower(contactId),
-                                                                                       FfiConverterString.lower(fieldLabel),
-                                                                                       FfiConverterBool.lower(isVisible), $0)
-        }
-    }
-
-    /**
      * Set a local nickname for a contact.
      */
     open func setContactNickname(contactId: String, name: String) throws {
@@ -7935,18 +7798,6 @@ open class VauchiPlatform:
             uniffi_vauchi_platform_fn_method_vauchiplatform_set_display_name_preference(self.uniffiClonePointer(),
                                                                                         FfiConverterString.lower(contactId),
                                                                                         FfiConverterString.lower(prefJson), $0)
-        }
-    }
-
-    /**
-     * Set whether a field is visible to contacts in a label.
-     */
-    open func setGroupFieldVisibility(labelId: String, fieldLabel: String, isVisible: Bool) throws {
-        try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_set_group_field_visibility(self.uniffiClonePointer(),
-                                                                                       FfiConverterString.lower(labelId),
-                                                                                       FfiConverterString.lower(fieldLabel),
-                                                                                       FfiConverterBool.lower(isVisible), $0)
         }
     }
 
@@ -8034,17 +7885,6 @@ open class VauchiPlatform:
         try rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_vauchiplatform_setup_duress_password(self.uniffiClonePointer(),
                                                                                   FfiConverterString.lower(duressPassword), $0)
-        }
-    }
-
-    /**
-     * Show field to contact.
-     */
-    open func showFieldToContact(contactId: String, fieldLabel: String) throws {
-        try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_show_field_to_contact(self.uniffiClonePointer(),
-                                                                                  FfiConverterString.lower(contactId),
-                                                                                  FfiConverterString.lower(fieldLabel), $0)
         }
     }
 
@@ -18546,6 +18386,83 @@ extension MobileApplyResult: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /*
+ * Mobile-facing audio proximity state. UniFFI-exposed mirror of
+ * [`vauchi_core::exchange::AudioProximityState`] (kept as a sibling
+ * enum so the wire shape is independent of the core internal type,
+ * matching the [`MobileProtocolState`] / [`ProtocolState`] pattern).
+ *
+ * Glance never transitions out of `Pending`; Hover walks
+ * `Pending → Listening → Confirmed` on success or
+ * `Pending → Listening → Failed` on the proximity timeout. Phase
+ * 1.C.3c plumbing — the wrapper-side orchestrator (Phase 1.C.3d)
+ * drives transitions via `MultiStageSession::set_audio_proximity`
+ * and surfaces them via [`MultiStageAudioListener::on_audio_state_changed`].
+ */
+
+public enum MobileAudioProximityState {
+    case pending
+    case listening
+    case confirmed
+    case failed
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileAudioProximityState: FfiConverterRustBuffer {
+    typealias SwiftType = MobileAudioProximityState
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileAudioProximityState {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return .pending
+
+        case 2: return .listening
+
+        case 3: return .confirmed
+
+        case 4: return .failed
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileAudioProximityState, into buf: inout [UInt8]) {
+        switch value {
+        case .pending:
+            writeInt(&buf, Int32(1))
+
+        case .listening:
+            writeInt(&buf, Int32(2))
+
+        case .confirmed:
+            writeInt(&buf, Int32(3))
+
+        case .failed:
+            writeInt(&buf, Int32(4))
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileAudioProximityState_lift(_ buf: RustBuffer) throws -> MobileAudioProximityState {
+    return try FfiConverterTypeMobileAudioProximityState.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileAudioProximityState_lower(_ value: MobileAudioProximityState) -> RustBuffer {
+    return FfiConverterTypeMobileAudioProximityState.lower(value)
+}
+
+extension MobileAudioProximityState: Equatable, Hashable {}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/*
  * Authentication mode result for mobile platforms.
  */
 
@@ -23583,6 +23500,119 @@ extension FfiConverterCallbackInterfaceMobileWifiAwareHandler: FfiConverter {
 }
 
 /**
+ * Audio-proximity-only listener for Hover ultrasonic handshake state
+ * updates.
+ *
+ * Sibling of [`MultiStageSessionListener`] rather than an extension,
+ * so adding the audio callback does not break existing Swift / Kotlin
+ * consumers of the base listener. Mobile clients that don't care about
+ * audio (Glance-only flows, headless tooling) simply don't register
+ * one and the audio path stays inert.
+ *
+ * Phase 1.C.3d wires the wrapper-side orchestrator (ProximityVerifier
+ * invocation + `Command::AudioEmitChallenge` / `AudioListenForResponse`
+ * emission) that calls
+ * [`on_audio_state_changed`](Self::on_audio_state_changed) whenever
+ * the inner [`MultiStageSession::set_audio_proximity`] transition
+ * succeeds. Until then, this trait + the slot below are dormant
+ * plumbing — register a listener, but no callbacks fire yet.
+ */
+public protocol MultiStageAudioListener: AnyObject {
+    /**
+     * The session's audio-proximity state changed. Fires once per
+     * real transition (the wrapper preflights the state graph so
+     * rejected transitions never reach this callback).
+     */
+    func onAudioStateChanged(state: MobileAudioProximityState)
+}
+
+/// Put the implementation in a struct so we don't pollute the top-level namespace
+private enum UniffiCallbackInterfaceMultiStageAudioListener {
+    /// Create the VTable using a series of closures.
+    /// Swift automatically converts these into C callback functions.
+    static var vtable: UniffiVTableCallbackInterfaceMultiStageAudioListener = .init(
+        onAudioStateChanged: { (
+            uniffiHandle: UInt64,
+            state: RustBuffer,
+            _: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceMultiStageAudioListener.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return try uniffiObj.onAudioStateChanged(
+                    state: FfiConverterTypeMobileAudioProximityState.lift(state)
+                )
+            }
+
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        uniffiFree: { (uniffiHandle: UInt64) in
+            let result = try? FfiConverterCallbackInterfaceMultiStageAudioListener.handleMap.remove(handle: uniffiHandle)
+            if result == nil {
+                print("Uniffi callback interface MultiStageAudioListener: handle missing in uniffiFree")
+            }
+        }
+    )
+}
+
+private func uniffiCallbackInitMultiStageAudioListener() {
+    uniffi_vauchi_platform_fn_init_callback_vtable_multistageaudiolistener(&UniffiCallbackInterfaceMultiStageAudioListener.vtable)
+}
+
+// FfiConverter protocol for callback interfaces
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+private enum FfiConverterCallbackInterfaceMultiStageAudioListener {
+    fileprivate static var handleMap = UniffiHandleMap<MultiStageAudioListener>()
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+extension FfiConverterCallbackInterfaceMultiStageAudioListener: FfiConverter {
+    typealias SwiftType = MultiStageAudioListener
+    typealias FfiType = UInt64
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public static func lift(_ handle: UInt64) throws -> SwiftType {
+        try handleMap.get(handle: handle)
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public static func lower(_ v: SwiftType) -> UInt64 {
+        return handleMap.insert(obj: v)
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public static func write(_ v: SwiftType, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(v))
+    }
+}
+
+/**
  * Push-based callback interface for multi-stage exchange events.
  *
  * Frontends implement this trait (in Swift/Kotlin via UniFFI) and register
@@ -26114,10 +26144,16 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_mobilelinkrespondersession_start() != 57907 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_method_mobilemultistagesession_audio_proximity() != 59237 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_platform_checksum_method_mobilemultistagesession_cancel() != 40973 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_mobilemultistagesession_process_scanned_qr() != 7450 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_mobilemultistagesession_set_audio_listener() != 61158 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_mobilemultistagesession_set_listener() != 59160 {
@@ -26306,6 +26342,9 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_platformappengine_set_network_online() != 63768 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_set_render_context_json() != 58791 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_platform_checksum_method_platformappengine_sidebar_items() != 40006 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -26322,9 +26361,6 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_platformappengine_untrust_contact_for_recovery() != 23010 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_add_contact_to_group() != 53515 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_add_decoy_contact() != 30419 {
@@ -26411,9 +26447,6 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_create_identity() != 4138 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_create_label() != 30678 {
-        return InitializationResult.apiChecksumMismatch
-    }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_create_multistage_session() != 51044 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -26445,9 +26478,6 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_delete_decoy_contact() != 38092 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_delete_label() != 52365 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_delete_retry() != 21919 {
@@ -26564,12 +26594,6 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_failed_delivery_records() != 26398 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_groups_for_contact() != 50060 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_label() != 10391 {
-        return InitializationResult.apiChecksumMismatch
-    }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_offline_queue_capacity() != 11142 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -26606,9 +26630,6 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_retry_count() != 5525 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_suggested_labels() != 24806 {
-        return InitializationResult.apiChecksumMismatch
-    }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_sync_status() != 56380 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -26631,9 +26652,6 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_hide_contact() != 48166 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_hide_field_from_contact() != 25415 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_import_backup() != 6890 {
@@ -26661,9 +26679,6 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_is_duress_enabled() != 44839 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_is_field_visible_to_contact() != 47560 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_is_offline_queue_full() != 30607 {
@@ -26696,9 +26711,6 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_list_hidden_contacts() != 48119 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_list_labels() != 11443 {
-        return InitializationResult.apiChecksumMismatch
-    }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_list_social_networks() != 13035 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -26729,16 +26741,7 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_remove_contact() != 38469 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_remove_contact_field_override() != 17410 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_remove_contact_from_group() != 36649 {
-        return InitializationResult.apiChecksumMismatch
-    }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_remove_field() != 52877 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_rename_label() != 55757 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_reset_aha_moments() != 21889 {
@@ -26786,9 +26789,6 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_set_contact_field_note() != 34512 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_set_contact_field_override() != 40155 {
-        return InitializationResult.apiChecksumMismatch
-    }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_set_contact_nickname() != 41465 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -26802,9 +26802,6 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_set_display_name_preference() != 36504 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_set_group_field_visibility() != 38564 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_set_own_avatar() != 25569 {
@@ -26826,9 +26823,6 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_setup_duress_password() != 4608 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_show_field_to_contact() != 31034 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_shred_status() != 22132 {
@@ -27017,6 +27011,9 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_mobilewifiawarehandler_on_error() != 2429 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_vauchi_platform_checksum_method_multistageaudiolistener_on_audio_state_changed() != 61568 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_vauchi_platform_checksum_method_multistagesessionlistener_on_qr_payload() != 45339 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -27040,6 +27037,7 @@ private var initializationResult: InitializationResult = {
     uniffiCallbackInitMobilePlatformKeychain()
     uniffiCallbackInitMobileProximityHandler()
     uniffiCallbackInitMobileWifiAwareHandler()
+    uniffiCallbackInitMultiStageAudioListener()
     uniffiCallbackInitMultiStageSessionListener()
     uniffiCallbackInitPlatformEventListener()
     return InitializationResult.ok

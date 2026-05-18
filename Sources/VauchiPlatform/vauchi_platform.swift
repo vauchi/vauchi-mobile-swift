@@ -3159,271 +3159,6 @@ public func FfiConverterTypeMobileNfcHandshake_lower(_ value: MobileNfcHandshake
     return FfiConverterTypeMobileNfcHandshake.lower(value)
 }
 
-/**
- * Stateful onboarding workflow for mobile platforms.
- *
- * **Deprecated**: Use [`PlatformAppEngine`](crate::PlatformAppEngine) instead.
- * `PlatformAppEngine` wraps the full `AppEngine` orchestrator, providing
- * unified navigation, validation error resolution, and engine caching.
- *
- * Wraps the core `OnboardingEngine` state machine. All screen data and
- * action results are exchanged as JSON strings — see module docs for why.
- *
- * # Usage from Swift/Kotlin
- *
- * ```swift
- * let workflow = MobileOnboardingWorkflow()
- * let screenJson = try workflow.currentScreenJson()
- * // decode screenJson into your ScreenModel Codable struct
- *
- * let actionJson = """
- * {"ActionPressed": {"action_id": "get_started"}}
- * """
- * let resultJson = try workflow.handleActionJson(actionJson: actionJson)
- * ```
- */
-public protocol MobileOnboardingWorkflowProtocol: AnyObject {
-    /**
-     * Returns the current screen as a JSON string.
-     *
-     * The JSON structure matches `ScreenModel` from vauchi-core:
-     * ```json
-     * {
-     * "screen_id": "welcome",
-     * "title": "Welcome to Vauchi",
-     * "subtitle": "Your contacts, your rules.",
-     * "components": [...],
-     * "actions": [...],
-     * "progress": { "current_step": 1, "total_steps": 9, "label": null }
-     * }
-     * ```
-     */
-    func currentScreenJson() throws -> String
-
-    /**
-     * Handles a user action (as JSON) and returns the result as JSON.
-     *
-     * The action JSON must match the `UserAction` enum format:
-     * - `{"ActionPressed": {"action_id": "get_started"}}`
-     * - `{"TextChanged": {"component_id": "display_name", "value": "Alice"}}`
-     * - `{"ItemToggled": {"component_id": "groups", "item_id": "Family"}}`
-     * - `{"FieldVisibilityChanged": {"field_id": "field_0", "group_id": null, "visible": true}}`
-     * - `{"GroupViewSelected": {"group_name": "Family"}}`
-     *
-     * The result JSON matches the `ActionResult` enum:
-     * - `{"UpdateScreen": {...}}` — re-render the current screen
-     * - `{"NavigateTo": {...}}` — navigate to a new screen
-     * - `{"ValidationError": {"component_id": "...", "message": "..."}}` — show error
-     * - `"Complete"` — onboarding is finished, persist data
-     */
-    func handleActionJson(actionJson: String) throws -> String
-
-    /**
-     * Returns the collected onboarding data as JSON when the workflow is complete.
-     *
-     * The JSON structure matches `OnboardingData`:
-     * ```json
-     * {
-     * "display_name": "Alice",
-     * "selected_groups": [{"name": "Family", "selected": true, "name_override": null}],
-     * "fields": [{"field_type": "Phone", "label": "Mobile", "value": "+1...", ...}]
-     * }
-     * ```
-     */
-    func onboardingDataJson() throws -> String
-}
-
-/**
- * Stateful onboarding workflow for mobile platforms.
- *
- * **Deprecated**: Use [`PlatformAppEngine`](crate::PlatformAppEngine) instead.
- * `PlatformAppEngine` wraps the full `AppEngine` orchestrator, providing
- * unified navigation, validation error resolution, and engine caching.
- *
- * Wraps the core `OnboardingEngine` state machine. All screen data and
- * action results are exchanged as JSON strings — see module docs for why.
- *
- * # Usage from Swift/Kotlin
- *
- * ```swift
- * let workflow = MobileOnboardingWorkflow()
- * let screenJson = try workflow.currentScreenJson()
- * // decode screenJson into your ScreenModel Codable struct
- *
- * let actionJson = """
- * {"ActionPressed": {"action_id": "get_started"}}
- * """
- * let resultJson = try workflow.handleActionJson(actionJson: actionJson)
- * ```
- */
-open class MobileOnboardingWorkflow:
-    MobileOnboardingWorkflowProtocol
-{
-    fileprivate let pointer: UnsafeMutableRawPointer!
-
-    // Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
-    #if swift(>=5.8)
-        @_documentation(visibility: private)
-    #endif
-    public struct NoPointer {
-        public init() {}
-    }
-
-    // TODO: We'd like this to be `private` but for Swifty reasons,
-    // we can't implement `FfiConverter` without making this `required` and we can't
-    // make it `required` without making it `public`.
-    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
-        self.pointer = pointer
-    }
-
-    // This constructor can be used to instantiate a fake object.
-    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
-    //
-    // - Warning:
-    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
-    #if swift(>=5.8)
-        @_documentation(visibility: private)
-    #endif
-    public init(noPointer _: NoPointer) {
-        pointer = nil
-    }
-
-    #if swift(>=5.8)
-        @_documentation(visibility: private)
-    #endif
-    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
-        return try! rustCall { uniffi_vauchi_platform_fn_clone_mobileonboardingworkflow(self.pointer, $0) }
-    }
-
-    /**
-     * Creates a new onboarding workflow starting at the Welcome screen.
-     */
-    public convenience init() {
-        let pointer =
-            try! rustCall {
-                uniffi_vauchi_platform_fn_constructor_mobileonboardingworkflow_new($0)
-            }
-        self.init(unsafeFromRawPointer: pointer)
-    }
-
-    deinit {
-        guard let pointer = pointer else {
-            return
-        }
-
-        try! rustCall { uniffi_vauchi_platform_fn_free_mobileonboardingworkflow(pointer, $0) }
-    }
-
-    /**
-     * Returns the current screen as a JSON string.
-     *
-     * The JSON structure matches `ScreenModel` from vauchi-core:
-     * ```json
-     * {
-     * "screen_id": "welcome",
-     * "title": "Welcome to Vauchi",
-     * "subtitle": "Your contacts, your rules.",
-     * "components": [...],
-     * "actions": [...],
-     * "progress": { "current_step": 1, "total_steps": 9, "label": null }
-     * }
-     * ```
-     */
-    open func currentScreenJson() throws -> String {
-        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_mobileonboardingworkflow_current_screen_json(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Handles a user action (as JSON) and returns the result as JSON.
-     *
-     * The action JSON must match the `UserAction` enum format:
-     * - `{"ActionPressed": {"action_id": "get_started"}}`
-     * - `{"TextChanged": {"component_id": "display_name", "value": "Alice"}}`
-     * - `{"ItemToggled": {"component_id": "groups", "item_id": "Family"}}`
-     * - `{"FieldVisibilityChanged": {"field_id": "field_0", "group_id": null, "visible": true}}`
-     * - `{"GroupViewSelected": {"group_name": "Family"}}`
-     *
-     * The result JSON matches the `ActionResult` enum:
-     * - `{"UpdateScreen": {...}}` — re-render the current screen
-     * - `{"NavigateTo": {...}}` — navigate to a new screen
-     * - `{"ValidationError": {"component_id": "...", "message": "..."}}` — show error
-     * - `"Complete"` — onboarding is finished, persist data
-     */
-    open func handleActionJson(actionJson: String) throws -> String {
-        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_mobileonboardingworkflow_handle_action_json(self.uniffiClonePointer(),
-                                                                                         FfiConverterString.lower(actionJson), $0)
-        })
-    }
-
-    /**
-     * Returns the collected onboarding data as JSON when the workflow is complete.
-     *
-     * The JSON structure matches `OnboardingData`:
-     * ```json
-     * {
-     * "display_name": "Alice",
-     * "selected_groups": [{"name": "Family", "selected": true, "name_override": null}],
-     * "fields": [{"field_type": "Phone", "label": "Mobile", "value": "+1...", ...}]
-     * }
-     * ```
-     */
-    open func onboardingDataJson() throws -> String {
-        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_mobileonboardingworkflow_onboarding_data_json(self.uniffiClonePointer(), $0)
-        })
-    }
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public struct FfiConverterTypeMobileOnboardingWorkflow: FfiConverter {
-    typealias FfiType = UnsafeMutableRawPointer
-    typealias SwiftType = MobileOnboardingWorkflow
-
-    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileOnboardingWorkflow {
-        return MobileOnboardingWorkflow(unsafeFromRawPointer: pointer)
-    }
-
-    public static func lower(_ value: MobileOnboardingWorkflow) -> UnsafeMutableRawPointer {
-        return value.uniffiClonePointer()
-    }
-
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileOnboardingWorkflow {
-        let v: UInt64 = try readInt(&buf)
-        // The Rust code won't compile if a pointer won't fit in a UInt64.
-        // We have to go via `UInt` because that's the thing that's the size of a pointer.
-        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
-        if ptr == nil {
-            throw UniffiInternalError.unexpectedNullPointer
-        }
-        return try lift(ptr!)
-    }
-
-    public static func write(_ value: MobileOnboardingWorkflow, into buf: inout [UInt8]) {
-        // This fiddling is because `Int` is the thing that's the same size as a pointer.
-        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
-        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
-    }
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMobileOnboardingWorkflow_lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileOnboardingWorkflow {
-    return try FfiConverterTypeMobileOnboardingWorkflow.lift(pointer)
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMobileOnboardingWorkflow_lower(_ value: MobileOnboardingWorkflow) -> UnsafeMutableRawPointer {
-    return FfiConverterTypeMobileOnboardingWorkflow.lower(value)
-}
-
 public protocol PlatformAppEngineProtocol: AnyObject {
     /**
      * Add a voucher to the in-progress recovery proof. Requires that
@@ -4849,110 +4584,9 @@ public func FfiConverterTypePlatformAppEngine_lower(_ value: PlatformAppEngine) 
  */
 public protocol VauchiPlatformProtocol: AnyObject {
     /**
-     * Adds a decoy contact for duress mode.
-     *
-     * The card_json should be a JSON-serialized ContactCard.
-     * Returns the generated ID.
-     */
-    func addDecoyContact(name: String, cardJson: String) throws -> String
-
-    /**
-     * Add a voucher to the current recovery claim.
-     *
-     * Returns the updated progress.
-     */
-    func addRecoveryVoucher(voucherB64: String) throws -> MobileRecoveryProgress
-
-    /**
-     * Advance onboarding to the next step.
-     *
-     * Marks the current step as completed and moves forward.
-     * Returns the updated progress.
-     */
-    func advanceOnboarding() throws -> MobileOnboardingProgress
-
-    /**
-     * Get the count of seen aha moments.
-     */
-    func ahaMomentsSeenCount() -> UInt32
-
-    /**
-     * Get the total count of aha moments.
-     */
-    func ahaMomentsTotalCount() -> UInt32
-
-    /**
-     * Loads app preferences (theme + language). Returns the default
-     * (`follow_system_*` both `true`, both ids `None`) if no row has
-     * been written yet. Storage-only — no identity required.
-     */
-    func appPreferences() throws -> MobileAppPreferences
-
-    /**
-     * Authenticates with a password.
-     *
-     * Returns the authentication mode:
-     * - `Normal` if the real password matches
-     * - `Duress` if the duress PIN matches
-     * - Returns an error if neither matches
-     */
-    func authenticate(password: String) throws -> MobileAuthMode
-
-    /**
-     * Auto-remove demo contact after first real exchange.
-     * Call this after a successful contact exchange.
-     */
-    func autoRemoveDemoContact() throws -> Bool
-
-    /**
-     * Calculate the backoff time for a given retry attempt.
-     *
-     * Returns seconds until next retry: 2^attempt, max 3600 (1 hour).
-     */
-    func calculateRetryBackoff(attempt: UInt32) -> UInt64
-
-    /**
-     * Cancel a scheduled identity deletion.
-     */
-    func cancelIdentityDeletion() throws
-
-    /**
      * Cancel a scheduled shred during the grace period.
      */
     func cancelShred(token: MobileShredToken) throws
-
-    /**
-     * Check whether consent is currently granted for a type.
-     */
-    func checkConsent(consentType: MobileConsentType) throws -> Bool
-
-    /**
-     * Clear all pending updates for a contact.
-     *
-     * Returns the number of cleared updates.
-     */
-    func clearPendingUpdatesForContact(contactId: String) throws -> UInt32
-
-    /**
-     * Configures duress alert settings.
-     *
-     * Sets which contacts receive alerts, the alert message, and
-     * whether to include device location.
-     */
-    func configureDuressAlerts(contactIds: [String], message: String) throws
-
-    /**
-     * Configures the emergency broadcast system.
-     *
-     * Sets which contacts receive emergency alerts, the alert message,
-     * and whether to include device location.
-     */
-    func configureEmergencyBroadcast(contactIds: [String], message: String, includeLocation: Bool) throws
-
-    /**
-     * Count failed deliveries.
-     */
-    func countFailedDeliveries() throws -> UInt32
 
     /**
      * Create a device-link session for the existing device
@@ -5014,66 +4648,11 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func createQrExchangeManual() throws -> MobileExchangeSession
 
     /**
-     * Create a recovery claim for a lost identity.
-     *
-     * The old_pk_hex is the hex-encoded public key of the lost identity.
-     * This starts the recovery process by creating a claim that contacts
-     * can vouch for.
-     */
-    func createRecoveryClaim(oldPkHex: String) throws -> MobileRecoveryClaim
-
-    /**
-     * Create a voucher for someone's recovery claim.
-     *
-     * This vouches that you trust the person claiming to own the old identity
-     * is the same person as the new identity.
-     */
-    func createRecoveryVoucher(claimB64: String) throws -> MobileRecoveryVoucher
-
-    /**
-     * Get the current onboarding step.
-     */
-    func currentOnboardingStep() throws -> MobileOnboardingStep
-
-    /**
-     * Deletes a decoy contact by ID.
-     */
-    func deleteDecoyContact(id: String) throws
-
-    /**
-     * Delete a retry entry (after successful delivery or max attempts).
-     */
-    func deleteRetry(messageId: String) throws -> Bool
-
-    /**
      * Get the device count.
      *
      * Returns the number of devices linked to this identity.
      */
     func deviceCount() throws -> UInt32
-
-    /**
-     * Disables duress mode and clears duress hash/salt.
-     */
-    func disableDuress() throws
-
-    /**
-     * Disables the emergency broadcast by deleting the configuration.
-     */
-    func disableEmergencyBroadcast() throws
-
-    /**
-     * Dismiss the demo contact.
-     */
-    func dismissDemoContact() throws
-
-    /**
-     * Get display name suggestions from a full name.
-     *
-     * Given "Alexandra Johnson", returns suggestions like
-     * "Alexandra", "Alex", "A. Johnson".
-     */
-    func displayNameSuggestions(fullName: String) -> [String]
 
     /**
      * Encode data into multipart QR chunk strings for animated display.
@@ -5083,32 +4662,6 @@ public protocol VauchiPlatformProtocol: AnyObject {
      * device to reassemble using `MobileMultipartDecoder`.
      */
     func encodeMultipartQr(data: Data) -> [String]
-
-    /**
-     * Execute identity deletion (only after grace period).
-     *
-     * Generates revocation messages for all contacts and shreds CEKs.
-     * Returns the number of revocation messages generated (caller should
-     * arrange relay delivery).
-     */
-    func executeIdentityDeletion() throws -> UInt32
-
-    /**
-     * Export encrypted backup.
-     */
-    func exportBackup(password: String) throws -> String
-
-    /**
-     * Export full v3 backup (identity + contacts + own card + labels).
-     *
-     * Returns base64-encoded backup data.
-     */
-    func exportFullBackup(password: String) throws -> String
-
-    /**
-     * Export all user data for GDPR compliance.
-     */
-    func exportGdprData() throws -> MobileGdprExport
 
     /**
      * Export the current storage key bytes for migration to secure storage.
@@ -5146,64 +4699,6 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func generateDeviceLinkQr() throws -> MobileDeviceLinkData
 
     /**
-     * Get all delivery records.
-     */
-    func getAllDeliveryRecords() throws -> [MobileDeliveryRecord]
-
-    /**
-     * Get all consent records.
-     */
-    func getConsentRecords() throws -> [MobileConsentRecord]
-
-    /**
-     * Get the aggregated consent status for a specific type.
-     *
-     * Returns granted state, last change timestamp, and policy version
-     * in a single call. Replaces inline consent record filtering in clients.
-     */
-    func getConsentStatus(consentType: MobileConsentType) throws -> MobileConsentStatus
-
-    /**
-     * Get current deletion state.
-     */
-    func getDeletionState() throws -> MobileDeletionInfo
-
-    /**
-     * Get delivery count by status.
-     */
-    func getDeliveryCountByStatus(status: MobileDeliveryStatus) throws -> UInt32
-
-    /**
-     * Get delivery record for a message.
-     */
-    func getDeliveryRecord(messageId: String) throws -> MobileDeliveryRecord?
-
-    /**
-     * Get all delivery records for a recipient.
-     */
-    func getDeliveryRecordsForContact(recipientId: String) throws -> [MobileDeliveryRecord]
-
-    /**
-     * Get delivery summary for a message (X of Y devices delivered).
-     */
-    func getDeliverySummary(messageId: String) throws -> MobileDeliverySummary
-
-    /**
-     * Get the current demo contact if active.
-     */
-    func getDemoContact() throws -> MobileDemoContact?
-
-    /**
-     * Get the demo contact state.
-     */
-    func getDemoContactState() -> MobileDemoContactState
-
-    /**
-     * Get all device delivery records for a message.
-     */
-    func getDeviceDeliveries(messageId: String) throws -> [MobileDeviceDeliveryRecord]
-
-    /**
      * Get list of linked devices.
      *
      * Returns information about all devices linked to this identity.
@@ -5217,45 +4712,6 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func getDisplayName() throws -> String
 
     /**
-     * Get all retry entries that are due for retry.
-     */
-    func getDueRetries() throws -> [MobileRetryEntry]
-
-    /**
-     * Gets the current duress alert settings.
-     *
-     * Returns `None` if no settings have been configured.
-     */
-    func getDuressSettings() throws -> MobileDuressSettings?
-
-    /**
-     * Gets the current emergency broadcast configuration.
-     *
-     * Returns `None` if no configuration has been set.
-     */
-    func getEmergencyConfig() throws -> MobileEmergencyConfig?
-
-    /**
-     * Get all failed delivery records.
-     *
-     * Frontends should call this instead of fetching `get_all_delivery_records()`
-     * and filtering by `status == Failed` themselves — see ADR-021/043
-     * (the Humble UI). The partition decision lives in core so iOS, Android,
-     * and any future frontend render the same list without divergence.
-     */
-    func getFailedDeliveryRecords() throws -> [MobileDeliveryRecord]
-
-    /**
-     * Get remaining capacity in the offline queue.
-     */
-    func getOfflineQueueCapacity() throws -> UInt32
-
-    /**
-     * Get the current onboarding progress.
-     */
-    func getOnboardingProgress() throws -> MobileOnboardingProgress
-
-    /**
      * Get formatted fingerprint of own identity public key.
      *
      * Returns the fingerprint as 16 groups of 4 uppercase hex characters,
@@ -5264,58 +4720,14 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func getOwnFingerprint() throws -> String
 
     /**
-     * Get all pending (non-terminal) deliveries.
-     */
-    func getPendingDeliveries() throws -> [MobileDeliveryRecord]
-
-    /**
-     * Get all pending device deliveries.
-     */
-    func getPendingDeviceDeliveries() throws -> [MobileDeviceDeliveryRecord]
-
-    /**
      * Get public ID.
      */
     func getPublicId() throws -> String
 
     /**
-     * Get the completed recovery proof as base64.
-     *
-     * Returns None if recovery is not complete.
-     */
-    func getRecoveryProof() throws -> String?
-
-    /**
-     * Get the current recovery progress.
-     *
-     * Returns None if no recovery is in progress.
-     */
-    func getRecoveryStatus() throws -> MobileRecoveryProgress?
-
-    /**
-     * Get all retry entries for a contact.
-     */
-    func getRetriesForContact(contactId: String) throws -> [MobileRetryEntry]
-
-    /**
-     * Get the total count of retry entries.
-     */
-    func getRetryCount() throws -> UInt32
-
-    /**
      * Get sync status.
      */
     func getSyncStatus() -> MobileSyncStatus
-
-    /**
-     * Get total count of all pending updates across all contacts.
-     */
-    func getTotalPendingCount() throws -> UInt32
-
-    /**
-     * Grant consent for a specific type.
-     */
-    func grantConsent(consentType: MobileConsentType) throws
 
     /**
      * Execute irreversible crypto-shredding (Hard Shred).
@@ -5334,16 +4746,6 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func hasIdentity() -> Bool
 
     /**
-     * Check if an aha moment has been seen.
-     */
-    func hasSeenAhaMoment(momentType: MobileAhaMomentType) -> Bool
-
-    /**
-     * Import backup.
-     */
-    func importBackup(backupData: String, password: String) throws
-
-    /**
      * Import contacts from vCard data (supports 2.1 / 3.0 / 4.0).
      *
      * Pass the raw bytes of a `.vcf` file. Each parsed vCard becomes an
@@ -5353,69 +4755,14 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func importContactsFromVcf(data: Data) throws -> MobileImportResult
 
     /**
-     * Import full v3 backup (identity + contacts + own card + labels).
-     *
-     * Accepts base64-encoded backup data from `export_full_backup`.
-     */
-    func importFullBackup(backupData: String, password: String) throws
-
-    /**
-     * Initialize the demo contact if user has no real contacts.
-     * Call this after onboarding completes.
-     */
-    func initDemoContactIfNeeded() throws -> MobileDemoContact?
-
-    /**
      * Check if certificate pinning is enabled.
      */
     func isCertificatePinningEnabled() -> Bool
 
     /**
-     * Returns whether delivery receipts (ReceivedByRecipient ACKs) are enabled.
-     */
-    func isDeliveryReceiptsEnabled() -> Bool
-
-    /**
-     * Check if a demo update is available.
-     */
-    func isDemoUpdateAvailable() -> Bool
-
-    /**
-     * Returns whether duress mode is enabled.
-     */
-    func isDuressEnabled() throws -> Bool
-
-    /**
-     * Check if the offline queue is full.
-     *
-     * Default max size is 1000 updates.
-     */
-    func isOfflineQueueFull() throws -> Bool
-
-    /**
-     * Check if onboarding has been completed.
-     */
-    func isOnboardingComplete() throws -> Bool
-
-    /**
-     * Returns whether an app password has been configured.
-     */
-    func isPasswordEnabled() throws -> Bool
-
-    /**
      * Check if this device is the primary device (index 0).
      */
     func isPrimaryDevice() throws -> Bool
-
-    /**
-     * Returns whether presence suppression is enabled.
-     */
-    func isSuppressPresenceEnabled() -> Bool
-
-    /**
-     * Lists all decoy contacts.
-     */
-    func listDecoyContacts() throws -> [MobileDecoyContact]
 
     /**
      * Listen for incoming device link request via relay (existing device / initiator).
@@ -5424,13 +4771,6 @@ public protocol VauchiPlatformProtocol: AnyObject {
      * device claims it. Returns the encrypted request and a token for the response.
      */
     func listenForDeviceLinkRequest(timeoutSecs: UInt64) throws -> MobileDeviceLinkRequest
-
-    /**
-     * Manually retry a failed delivery.
-     *
-     * Returns true if the retry entry was found and rescheduled.
-     */
-    func manualRetry(messageId: String) throws -> Bool
 
     /**
      * Execute immediate crypto-shredding without grace period (Panic Shred).
@@ -5452,52 +4792,6 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func parseDeviceLinkQr(qrData: String) throws -> MobileDeviceLinkInfo
 
     /**
-     * Parse a recovery claim from base64.
-     *
-     * Used to inspect a claim before vouching for it.
-     */
-    func parseRecoveryClaim(claimB64: String) throws -> MobileRecoveryClaim
-
-    /**
-     * Get pending update count.
-     */
-    func pendingUpdateCount() throws -> UInt32
-
-    /**
-     * Reset all aha moments (for testing/debugging).
-     */
-    func resetAhaMoments() throws
-
-    /**
-     * Reset onboarding to the beginning.
-     *
-     * Useful for "replay onboarding" from settings.
-     */
-    func resetOnboarding() throws
-
-    /**
-     * Restore the demo contact from Settings.
-     */
-    func restoreDemoContact() throws -> MobileDemoContact?
-
-    /**
-     * Revoke consent for a specific type.
-     */
-    func revokeConsent(consentType: MobileConsentType) throws
-
-    /**
-     * Save a recovery response (accept, reject, or remind_me_later).
-     *
-     * Used by the RecoveryClaimReviewEngine to persist the user's decision.
-     */
-    func saveRecoveryResponse(claimId: String, contactId: String, response: String, remindAt: UInt64?) throws
-
-    /**
-     * Schedule identity deletion with 7-day grace period.
-     */
-    func scheduleIdentityDeletion() throws -> MobileDeletionInfo
-
-    /**
      * Send device link request via relay and wait for response (new device / responder).
      *
      * Uses two HTTP exchange cycles: creates a return channel, claims the
@@ -5512,25 +4806,6 @@ public protocol VauchiPlatformProtocol: AnyObject {
      * encrypted response payload.
      */
     func sendDeviceLinkResponse(senderToken: String, encryptedResponse: Data) throws
-
-    /**
-     * Sends an emergency broadcast to all trusted contacts.
-     *
-     * Returns the number of alerts sent and total configured.
-     */
-    func sendEmergencyBroadcast() throws -> MobileBroadcastResult
-
-    /**
-     * Saves app preferences (theme + language) to the singleton row.
-     * Storage-only — no identity required (the Settings screen is
-     * reachable from More before onboarding).
-     */
-    func setAppPreferences(prefs: MobileAppPreferences) throws
-
-    /**
-     * Sets whether delivery receipts are enabled.
-     */
-    func setDeliveryReceiptsEnabled(enabled: Bool)
 
     /**
      * Set the pinned certificate for relay TLS connections.
@@ -5548,40 +4823,6 @@ public protocol VauchiPlatformProtocol: AnyObject {
      * Android KeyStore) for SMK management.
      */
     func setPlatformKeychain(keychain: MobilePlatformKeychain)
-
-    /**
-     * Sets whether presence suppression is enabled.
-     */
-    func setSuppressPresenceEnabled(enabled: Bool)
-
-    /**
-     * Sets up an app password (PIN).
-     *
-     * Requires an identity to be created first.
-     */
-    func setupAppPassword(password: String) throws
-
-    /**
-     * Sets up a duress PIN.
-     *
-     * Requires an app password to be configured first.
-     */
-    func setupDuressPassword(duressPassword: String) throws
-
-    /**
-     * Get current shred status.
-     *
-     * Returns whether no shred is in progress, one is scheduled (with remaining
-     * time), or has been executed.
-     */
-    func shredStatus() throws -> MobileShredStatus
-
-    /**
-     * Skip the current onboarding step without marking it completed.
-     *
-     * Returns the updated progress.
-     */
-    func skipOnboardingStep() throws -> MobileOnboardingProgress
 
     /**
      * Schedule crypto-shredding with 7-day grace period (Soft Shred).
@@ -5626,21 +4867,6 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func syncAsync() async throws -> MobileSyncResult
 
     /**
-     * Trigger a demo update and get the new content.
-     */
-    func triggerDemoUpdate() throws -> MobileDemoContact?
-
-    /**
-     * Try to trigger an aha moment. Returns the moment if not yet seen, None otherwise.
-     */
-    func tryTriggerAhaMoment(momentType: MobileAhaMomentType) throws -> MobileAhaMoment?
-
-    /**
-     * Try to trigger an aha moment with context (e.g., contact name).
-     */
-    func tryTriggerAhaMomentWithContext(momentType: MobileAhaMomentType, context: String) throws -> MobileAhaMoment?
-
-    /**
      * Unlink a device from this identity.
      *
      * This marks the device as revoked. It will no longer receive updates
@@ -5651,23 +4877,6 @@ public protocol VauchiPlatformProtocol: AnyObject {
      * The device_index is the position in the devices list (0-based).
      */
     func unlinkDevice(deviceIndex: UInt32) throws -> Bool
-
-    /**
-     * Upload encrypted guardian entries to the relay.
-     *
-     * Creates guardian tokens for each recovery-trusted contact and uploads
-     * them encrypted (sealed-box) to the relay. Called after toggling
-     * recovery trust on a contact.
-     */
-    func uploadGuardianEntries() throws
-
-    /**
-     * Verify a recovery proof from a contact.
-     *
-     * This checks if the proof is valid and provides a recommendation
-     * on whether to accept the recovered identity.
-     */
-    func verifyRecoveryProof(proofB64: String) throws -> MobileRecoveryVerification
 
     /**
      * Verify that shredding was successful by checking for residual data.
@@ -5765,119 +4974,6 @@ open class VauchiPlatform:
     }
 
     /**
-     * Adds a decoy contact for duress mode.
-     *
-     * The card_json should be a JSON-serialized ContactCard.
-     * Returns the generated ID.
-     */
-    open func addDecoyContact(name: String, cardJson: String) throws -> String {
-        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_add_decoy_contact(self.uniffiClonePointer(),
-                                                                              FfiConverterString.lower(name),
-                                                                              FfiConverterString.lower(cardJson), $0)
-        })
-    }
-
-    /**
-     * Add a voucher to the current recovery claim.
-     *
-     * Returns the updated progress.
-     */
-    open func addRecoveryVoucher(voucherB64: String) throws -> MobileRecoveryProgress {
-        return try FfiConverterTypeMobileRecoveryProgress.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_add_recovery_voucher(self.uniffiClonePointer(),
-                                                                                 FfiConverterString.lower(voucherB64), $0)
-        })
-    }
-
-    /**
-     * Advance onboarding to the next step.
-     *
-     * Marks the current step as completed and moves forward.
-     * Returns the updated progress.
-     */
-    open func advanceOnboarding() throws -> MobileOnboardingProgress {
-        return try FfiConverterTypeMobileOnboardingProgress.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_advance_onboarding(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Get the count of seen aha moments.
-     */
-    open func ahaMomentsSeenCount() -> UInt32 {
-        return try! FfiConverterUInt32.lift(try! rustCall {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_aha_moments_seen_count(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Get the total count of aha moments.
-     */
-    open func ahaMomentsTotalCount() -> UInt32 {
-        return try! FfiConverterUInt32.lift(try! rustCall {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_aha_moments_total_count(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Loads app preferences (theme + language). Returns the default
-     * (`follow_system_*` both `true`, both ids `None`) if no row has
-     * been written yet. Storage-only — no identity required.
-     */
-    open func appPreferences() throws -> MobileAppPreferences {
-        return try FfiConverterTypeMobileAppPreferences.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_app_preferences(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Authenticates with a password.
-     *
-     * Returns the authentication mode:
-     * - `Normal` if the real password matches
-     * - `Duress` if the duress PIN matches
-     * - Returns an error if neither matches
-     */
-    open func authenticate(password: String) throws -> MobileAuthMode {
-        return try FfiConverterTypeMobileAuthMode.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_authenticate(self.uniffiClonePointer(),
-                                                                         FfiConverterString.lower(password), $0)
-        })
-    }
-
-    /**
-     * Auto-remove demo contact after first real exchange.
-     * Call this after a successful contact exchange.
-     */
-    open func autoRemoveDemoContact() throws -> Bool {
-        return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_auto_remove_demo_contact(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Calculate the backoff time for a given retry attempt.
-     *
-     * Returns seconds until next retry: 2^attempt, max 3600 (1 hour).
-     */
-    open func calculateRetryBackoff(attempt: UInt32) -> UInt64 {
-        return try! FfiConverterUInt64.lift(try! rustCall {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_calculate_retry_backoff(self.uniffiClonePointer(),
-                                                                                    FfiConverterUInt32.lower(attempt), $0)
-        })
-    }
-
-    /**
-     * Cancel a scheduled identity deletion.
-     */
-    open func cancelIdentityDeletion() throws {
-        try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_cancel_identity_deletion(self.uniffiClonePointer(), $0)
-        }
-    }
-
-    /**
      * Cancel a scheduled shred during the grace period.
      */
     open func cancelShred(token: MobileShredToken) throws {
@@ -5885,66 +4981,6 @@ open class VauchiPlatform:
             uniffi_vauchi_platform_fn_method_vauchiplatform_cancel_shred(self.uniffiClonePointer(),
                                                                          FfiConverterTypeMobileShredToken.lower(token), $0)
         }
-    }
-
-    /**
-     * Check whether consent is currently granted for a type.
-     */
-    open func checkConsent(consentType: MobileConsentType) throws -> Bool {
-        return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_check_consent(self.uniffiClonePointer(),
-                                                                          FfiConverterTypeMobileConsentType.lower(consentType), $0)
-        })
-    }
-
-    /**
-     * Clear all pending updates for a contact.
-     *
-     * Returns the number of cleared updates.
-     */
-    open func clearPendingUpdatesForContact(contactId: String) throws -> UInt32 {
-        return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_clear_pending_updates_for_contact(self.uniffiClonePointer(),
-                                                                                              FfiConverterString.lower(contactId), $0)
-        })
-    }
-
-    /**
-     * Configures duress alert settings.
-     *
-     * Sets which contacts receive alerts, the alert message, and
-     * whether to include device location.
-     */
-    open func configureDuressAlerts(contactIds: [String], message: String) throws {
-        try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_configure_duress_alerts(self.uniffiClonePointer(),
-                                                                                    FfiConverterSequenceString.lower(contactIds),
-                                                                                    FfiConverterString.lower(message), $0)
-        }
-    }
-
-    /**
-     * Configures the emergency broadcast system.
-     *
-     * Sets which contacts receive emergency alerts, the alert message,
-     * and whether to include device location.
-     */
-    open func configureEmergencyBroadcast(contactIds: [String], message: String, includeLocation: Bool) throws {
-        try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_configure_emergency_broadcast(self.uniffiClonePointer(),
-                                                                                          FfiConverterSequenceString.lower(contactIds),
-                                                                                          FfiConverterString.lower(message),
-                                                                                          FfiConverterBool.lower(includeLocation), $0)
-        }
-    }
-
-    /**
-     * Count failed deliveries.
-     */
-    open func countFailedDeliveries() throws -> UInt32 {
-        return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_count_failed_deliveries(self.uniffiClonePointer(), $0)
-        })
     }
 
     /**
@@ -6037,62 +5073,6 @@ open class VauchiPlatform:
     }
 
     /**
-     * Create a recovery claim for a lost identity.
-     *
-     * The old_pk_hex is the hex-encoded public key of the lost identity.
-     * This starts the recovery process by creating a claim that contacts
-     * can vouch for.
-     */
-    open func createRecoveryClaim(oldPkHex: String) throws -> MobileRecoveryClaim {
-        return try FfiConverterTypeMobileRecoveryClaim.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_create_recovery_claim(self.uniffiClonePointer(),
-                                                                                  FfiConverterString.lower(oldPkHex), $0)
-        })
-    }
-
-    /**
-     * Create a voucher for someone's recovery claim.
-     *
-     * This vouches that you trust the person claiming to own the old identity
-     * is the same person as the new identity.
-     */
-    open func createRecoveryVoucher(claimB64: String) throws -> MobileRecoveryVoucher {
-        return try FfiConverterTypeMobileRecoveryVoucher.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_create_recovery_voucher(self.uniffiClonePointer(),
-                                                                                    FfiConverterString.lower(claimB64), $0)
-        })
-    }
-
-    /**
-     * Get the current onboarding step.
-     */
-    open func currentOnboardingStep() throws -> MobileOnboardingStep {
-        return try FfiConverterTypeMobileOnboardingStep.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_current_onboarding_step(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Deletes a decoy contact by ID.
-     */
-    open func deleteDecoyContact(id: String) throws {
-        try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_delete_decoy_contact(self.uniffiClonePointer(),
-                                                                                 FfiConverterString.lower(id), $0)
-        }
-    }
-
-    /**
-     * Delete a retry entry (after successful delivery or max attempts).
-     */
-    open func deleteRetry(messageId: String) throws -> Bool {
-        return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_delete_retry(self.uniffiClonePointer(),
-                                                                         FfiConverterString.lower(messageId), $0)
-        })
-    }
-
-    /**
      * Get the device count.
      *
      * Returns the number of devices linked to this identity.
@@ -6100,46 +5080,6 @@ open class VauchiPlatform:
     open func deviceCount() throws -> UInt32 {
         return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_vauchiplatform_device_count(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Disables duress mode and clears duress hash/salt.
-     */
-    open func disableDuress() throws {
-        try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_disable_duress(self.uniffiClonePointer(), $0)
-        }
-    }
-
-    /**
-     * Disables the emergency broadcast by deleting the configuration.
-     */
-    open func disableEmergencyBroadcast() throws {
-        try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_disable_emergency_broadcast(self.uniffiClonePointer(), $0)
-        }
-    }
-
-    /**
-     * Dismiss the demo contact.
-     */
-    open func dismissDemoContact() throws {
-        try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_dismiss_demo_contact(self.uniffiClonePointer(), $0)
-        }
-    }
-
-    /**
-     * Get display name suggestions from a full name.
-     *
-     * Given "Alexandra Johnson", returns suggestions like
-     * "Alexandra", "Alex", "A. Johnson".
-     */
-    open func displayNameSuggestions(fullName: String) -> [String] {
-        return try! FfiConverterSequenceString.lift(try! rustCall {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_display_name_suggestions(self.uniffiClonePointer(),
-                                                                                     FfiConverterString.lower(fullName), $0)
         })
     }
 
@@ -6154,50 +5094,6 @@ open class VauchiPlatform:
         return try! FfiConverterSequenceString.lift(try! rustCall {
             uniffi_vauchi_platform_fn_method_vauchiplatform_encode_multipart_qr(self.uniffiClonePointer(),
                                                                                 FfiConverterData.lower(data), $0)
-        })
-    }
-
-    /**
-     * Execute identity deletion (only after grace period).
-     *
-     * Generates revocation messages for all contacts and shreds CEKs.
-     * Returns the number of revocation messages generated (caller should
-     * arrange relay delivery).
-     */
-    open func executeIdentityDeletion() throws -> UInt32 {
-        return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_execute_identity_deletion(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Export encrypted backup.
-     */
-    open func exportBackup(password: String) throws -> String {
-        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_export_backup(self.uniffiClonePointer(),
-                                                                          FfiConverterString.lower(password), $0)
-        })
-    }
-
-    /**
-     * Export full v3 backup (identity + contacts + own card + labels).
-     *
-     * Returns base64-encoded backup data.
-     */
-    open func exportFullBackup(password: String) throws -> String {
-        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_export_full_backup(self.uniffiClonePointer(),
-                                                                               FfiConverterString.lower(password), $0)
-        })
-    }
-
-    /**
-     * Export all user data for GDPR compliance.
-     */
-    open func exportGdprData() throws -> MobileGdprExport {
-        return try FfiConverterTypeMobileGdprExport.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_export_gdpr_data(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6250,114 +5146,6 @@ open class VauchiPlatform:
     }
 
     /**
-     * Get all delivery records.
-     */
-    open func getAllDeliveryRecords() throws -> [MobileDeliveryRecord] {
-        return try FfiConverterSequenceTypeMobileDeliveryRecord.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_get_all_delivery_records(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Get all consent records.
-     */
-    open func getConsentRecords() throws -> [MobileConsentRecord] {
-        return try FfiConverterSequenceTypeMobileConsentRecord.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_get_consent_records(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Get the aggregated consent status for a specific type.
-     *
-     * Returns granted state, last change timestamp, and policy version
-     * in a single call. Replaces inline consent record filtering in clients.
-     */
-    open func getConsentStatus(consentType: MobileConsentType) throws -> MobileConsentStatus {
-        return try FfiConverterTypeMobileConsentStatus.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_get_consent_status(self.uniffiClonePointer(),
-                                                                               FfiConverterTypeMobileConsentType.lower(consentType), $0)
-        })
-    }
-
-    /**
-     * Get current deletion state.
-     */
-    open func getDeletionState() throws -> MobileDeletionInfo {
-        return try FfiConverterTypeMobileDeletionInfo.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_get_deletion_state(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Get delivery count by status.
-     */
-    open func getDeliveryCountByStatus(status: MobileDeliveryStatus) throws -> UInt32 {
-        return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_get_delivery_count_by_status(self.uniffiClonePointer(),
-                                                                                         FfiConverterTypeMobileDeliveryStatus.lower(status), $0)
-        })
-    }
-
-    /**
-     * Get delivery record for a message.
-     */
-    open func getDeliveryRecord(messageId: String) throws -> MobileDeliveryRecord? {
-        return try FfiConverterOptionTypeMobileDeliveryRecord.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_get_delivery_record(self.uniffiClonePointer(),
-                                                                                FfiConverterString.lower(messageId), $0)
-        })
-    }
-
-    /**
-     * Get all delivery records for a recipient.
-     */
-    open func getDeliveryRecordsForContact(recipientId: String) throws -> [MobileDeliveryRecord] {
-        return try FfiConverterSequenceTypeMobileDeliveryRecord.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_get_delivery_records_for_contact(self.uniffiClonePointer(),
-                                                                                             FfiConverterString.lower(recipientId), $0)
-        })
-    }
-
-    /**
-     * Get delivery summary for a message (X of Y devices delivered).
-     */
-    open func getDeliverySummary(messageId: String) throws -> MobileDeliverySummary {
-        return try FfiConverterTypeMobileDeliverySummary.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_get_delivery_summary(self.uniffiClonePointer(),
-                                                                                 FfiConverterString.lower(messageId), $0)
-        })
-    }
-
-    /**
-     * Get the current demo contact if active.
-     */
-    open func getDemoContact() throws -> MobileDemoContact? {
-        return try FfiConverterOptionTypeMobileDemoContact.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_get_demo_contact(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Get the demo contact state.
-     */
-    open func getDemoContactState() -> MobileDemoContactState {
-        return try! FfiConverterTypeMobileDemoContactState.lift(try! rustCall {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_get_demo_contact_state(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Get all device delivery records for a message.
-     */
-    open func getDeviceDeliveries(messageId: String) throws -> [MobileDeviceDeliveryRecord] {
-        return try FfiConverterSequenceTypeMobileDeviceDeliveryRecord.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_get_device_deliveries(self.uniffiClonePointer(),
-                                                                                  FfiConverterString.lower(messageId), $0)
-        })
-    }
-
-    /**
      * Get list of linked devices.
      *
      * Returns information about all devices linked to this identity.
@@ -6379,69 +5167,6 @@ open class VauchiPlatform:
     }
 
     /**
-     * Get all retry entries that are due for retry.
-     */
-    open func getDueRetries() throws -> [MobileRetryEntry] {
-        return try FfiConverterSequenceTypeMobileRetryEntry.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_get_due_retries(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Gets the current duress alert settings.
-     *
-     * Returns `None` if no settings have been configured.
-     */
-    open func getDuressSettings() throws -> MobileDuressSettings? {
-        return try FfiConverterOptionTypeMobileDuressSettings.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_get_duress_settings(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Gets the current emergency broadcast configuration.
-     *
-     * Returns `None` if no configuration has been set.
-     */
-    open func getEmergencyConfig() throws -> MobileEmergencyConfig? {
-        return try FfiConverterOptionTypeMobileEmergencyConfig.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_get_emergency_config(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Get all failed delivery records.
-     *
-     * Frontends should call this instead of fetching `get_all_delivery_records()`
-     * and filtering by `status == Failed` themselves — see ADR-021/043
-     * (the Humble UI). The partition decision lives in core so iOS, Android,
-     * and any future frontend render the same list without divergence.
-     */
-    open func getFailedDeliveryRecords() throws -> [MobileDeliveryRecord] {
-        return try FfiConverterSequenceTypeMobileDeliveryRecord.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_get_failed_delivery_records(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Get remaining capacity in the offline queue.
-     */
-    open func getOfflineQueueCapacity() throws -> UInt32 {
-        return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_get_offline_queue_capacity(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Get the current onboarding progress.
-     */
-    open func getOnboardingProgress() throws -> MobileOnboardingProgress {
-        return try FfiConverterTypeMobileOnboardingProgress.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_get_onboarding_progress(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
      * Get formatted fingerprint of own identity public key.
      *
      * Returns the fingerprint as 16 groups of 4 uppercase hex characters,
@@ -6450,24 +5175,6 @@ open class VauchiPlatform:
     open func getOwnFingerprint() throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_vauchiplatform_get_own_fingerprint(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Get all pending (non-terminal) deliveries.
-     */
-    open func getPendingDeliveries() throws -> [MobileDeliveryRecord] {
-        return try FfiConverterSequenceTypeMobileDeliveryRecord.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_get_pending_deliveries(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Get all pending device deliveries.
-     */
-    open func getPendingDeviceDeliveries() throws -> [MobileDeviceDeliveryRecord] {
-        return try FfiConverterSequenceTypeMobileDeviceDeliveryRecord.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_get_pending_device_deliveries(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6481,72 +5188,12 @@ open class VauchiPlatform:
     }
 
     /**
-     * Get the completed recovery proof as base64.
-     *
-     * Returns None if recovery is not complete.
-     */
-    open func getRecoveryProof() throws -> String? {
-        return try FfiConverterOptionString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_get_recovery_proof(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Get the current recovery progress.
-     *
-     * Returns None if no recovery is in progress.
-     */
-    open func getRecoveryStatus() throws -> MobileRecoveryProgress? {
-        return try FfiConverterOptionTypeMobileRecoveryProgress.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_get_recovery_status(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Get all retry entries for a contact.
-     */
-    open func getRetriesForContact(contactId: String) throws -> [MobileRetryEntry] {
-        return try FfiConverterSequenceTypeMobileRetryEntry.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_get_retries_for_contact(self.uniffiClonePointer(),
-                                                                                    FfiConverterString.lower(contactId), $0)
-        })
-    }
-
-    /**
-     * Get the total count of retry entries.
-     */
-    open func getRetryCount() throws -> UInt32 {
-        return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_get_retry_count(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
      * Get sync status.
      */
     open func getSyncStatus() -> MobileSyncStatus {
         return try! FfiConverterTypeMobileSyncStatus.lift(try! rustCall {
             uniffi_vauchi_platform_fn_method_vauchiplatform_get_sync_status(self.uniffiClonePointer(), $0)
         })
-    }
-
-    /**
-     * Get total count of all pending updates across all contacts.
-     */
-    open func getTotalPendingCount() throws -> UInt32 {
-        return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_get_total_pending_count(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Grant consent for a specific type.
-     */
-    open func grantConsent(consentType: MobileConsentType) throws {
-        try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_grant_consent(self.uniffiClonePointer(),
-                                                                          FfiConverterTypeMobileConsentType.lower(consentType), $0)
-        }
     }
 
     /**
@@ -6575,27 +5222,6 @@ open class VauchiPlatform:
     }
 
     /**
-     * Check if an aha moment has been seen.
-     */
-    open func hasSeenAhaMoment(momentType: MobileAhaMomentType) -> Bool {
-        return try! FfiConverterBool.lift(try! rustCall {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_has_seen_aha_moment(self.uniffiClonePointer(),
-                                                                                FfiConverterTypeMobileAhaMomentType.lower(momentType), $0)
-        })
-    }
-
-    /**
-     * Import backup.
-     */
-    open func importBackup(backupData: String, password: String) throws {
-        try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_import_backup(self.uniffiClonePointer(),
-                                                                          FfiConverterString.lower(backupData),
-                                                                          FfiConverterString.lower(password), $0)
-        }
-    }
-
-    /**
      * Import contacts from vCard data (supports 2.1 / 3.0 / 4.0).
      *
      * Pass the raw bytes of a `.vcf` file. Each parsed vCard becomes an
@@ -6610,90 +5236,11 @@ open class VauchiPlatform:
     }
 
     /**
-     * Import full v3 backup (identity + contacts + own card + labels).
-     *
-     * Accepts base64-encoded backup data from `export_full_backup`.
-     */
-    open func importFullBackup(backupData: String, password: String) throws {
-        try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_import_full_backup(self.uniffiClonePointer(),
-                                                                               FfiConverterString.lower(backupData),
-                                                                               FfiConverterString.lower(password), $0)
-        }
-    }
-
-    /**
-     * Initialize the demo contact if user has no real contacts.
-     * Call this after onboarding completes.
-     */
-    open func initDemoContactIfNeeded() throws -> MobileDemoContact? {
-        return try FfiConverterOptionTypeMobileDemoContact.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_init_demo_contact_if_needed(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
      * Check if certificate pinning is enabled.
      */
     open func isCertificatePinningEnabled() -> Bool {
         return try! FfiConverterBool.lift(try! rustCall {
             uniffi_vauchi_platform_fn_method_vauchiplatform_is_certificate_pinning_enabled(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Returns whether delivery receipts (ReceivedByRecipient ACKs) are enabled.
-     */
-    open func isDeliveryReceiptsEnabled() -> Bool {
-        return try! FfiConverterBool.lift(try! rustCall {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_is_delivery_receipts_enabled(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Check if a demo update is available.
-     */
-    open func isDemoUpdateAvailable() -> Bool {
-        return try! FfiConverterBool.lift(try! rustCall {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_is_demo_update_available(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Returns whether duress mode is enabled.
-     */
-    open func isDuressEnabled() throws -> Bool {
-        return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_is_duress_enabled(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Check if the offline queue is full.
-     *
-     * Default max size is 1000 updates.
-     */
-    open func isOfflineQueueFull() throws -> Bool {
-        return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_is_offline_queue_full(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Check if onboarding has been completed.
-     */
-    open func isOnboardingComplete() throws -> Bool {
-        return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_is_onboarding_complete(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Returns whether an app password has been configured.
-     */
-    open func isPasswordEnabled() throws -> Bool {
-        return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_is_password_enabled(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6707,24 +5254,6 @@ open class VauchiPlatform:
     }
 
     /**
-     * Returns whether presence suppression is enabled.
-     */
-    open func isSuppressPresenceEnabled() -> Bool {
-        return try! FfiConverterBool.lift(try! rustCall {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_is_suppress_presence_enabled(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Lists all decoy contacts.
-     */
-    open func listDecoyContacts() throws -> [MobileDecoyContact] {
-        return try FfiConverterSequenceTypeMobileDecoyContact.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_list_decoy_contacts(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
      * Listen for incoming device link request via relay (existing device / initiator).
      *
      * Creates an exchange offer with our identity, then polls until the new
@@ -6734,18 +5263,6 @@ open class VauchiPlatform:
         return try FfiConverterTypeMobileDeviceLinkRequest.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_vauchiplatform_listen_for_device_link_request(self.uniffiClonePointer(),
                                                                                            FfiConverterUInt64.lower(timeoutSecs), $0)
-        })
-    }
-
-    /**
-     * Manually retry a failed delivery.
-     *
-     * Returns true if the retry entry was found and rescheduled.
-     */
-    open func manualRetry(messageId: String) throws -> Bool {
-        return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_manual_retry(self.uniffiClonePointer(),
-                                                                         FfiConverterString.lower(messageId), $0)
         })
     }
 
@@ -6774,90 +5291,6 @@ open class VauchiPlatform:
         return try FfiConverterTypeMobileDeviceLinkInfo.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_vauchiplatform_parse_device_link_qr(self.uniffiClonePointer(),
                                                                                  FfiConverterString.lower(qrData), $0)
-        })
-    }
-
-    /**
-     * Parse a recovery claim from base64.
-     *
-     * Used to inspect a claim before vouching for it.
-     */
-    open func parseRecoveryClaim(claimB64: String) throws -> MobileRecoveryClaim {
-        return try FfiConverterTypeMobileRecoveryClaim.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_parse_recovery_claim(self.uniffiClonePointer(),
-                                                                                 FfiConverterString.lower(claimB64), $0)
-        })
-    }
-
-    /**
-     * Get pending update count.
-     */
-    open func pendingUpdateCount() throws -> UInt32 {
-        return try FfiConverterUInt32.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_pending_update_count(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Reset all aha moments (for testing/debugging).
-     */
-    open func resetAhaMoments() throws {
-        try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_reset_aha_moments(self.uniffiClonePointer(), $0)
-        }
-    }
-
-    /**
-     * Reset onboarding to the beginning.
-     *
-     * Useful for "replay onboarding" from settings.
-     */
-    open func resetOnboarding() throws {
-        try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_reset_onboarding(self.uniffiClonePointer(), $0)
-        }
-    }
-
-    /**
-     * Restore the demo contact from Settings.
-     */
-    open func restoreDemoContact() throws -> MobileDemoContact? {
-        return try FfiConverterOptionTypeMobileDemoContact.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_restore_demo_contact(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Revoke consent for a specific type.
-     */
-    open func revokeConsent(consentType: MobileConsentType) throws {
-        try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_revoke_consent(self.uniffiClonePointer(),
-                                                                           FfiConverterTypeMobileConsentType.lower(consentType), $0)
-        }
-    }
-
-    /**
-     * Save a recovery response (accept, reject, or remind_me_later).
-     *
-     * Used by the RecoveryClaimReviewEngine to persist the user's decision.
-     */
-    open func saveRecoveryResponse(claimId: String, contactId: String, response: String, remindAt: UInt64?) throws {
-        try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_save_recovery_response(self.uniffiClonePointer(),
-                                                                                   FfiConverterString.lower(claimId),
-                                                                                   FfiConverterString.lower(contactId),
-                                                                                   FfiConverterString.lower(response),
-                                                                                   FfiConverterOptionUInt64.lower(remindAt), $0)
-        }
-    }
-
-    /**
-     * Schedule identity deletion with 7-day grace period.
-     */
-    open func scheduleIdentityDeletion() throws -> MobileDeletionInfo {
-        return try FfiConverterTypeMobileDeletionInfo.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_schedule_identity_deletion(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -6892,39 +5325,6 @@ open class VauchiPlatform:
     }
 
     /**
-     * Sends an emergency broadcast to all trusted contacts.
-     *
-     * Returns the number of alerts sent and total configured.
-     */
-    open func sendEmergencyBroadcast() throws -> MobileBroadcastResult {
-        return try FfiConverterTypeMobileBroadcastResult.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_send_emergency_broadcast(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Saves app preferences (theme + language) to the singleton row.
-     * Storage-only — no identity required (the Settings screen is
-     * reachable from More before onboarding).
-     */
-    open func setAppPreferences(prefs: MobileAppPreferences) throws {
-        try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_set_app_preferences(self.uniffiClonePointer(),
-                                                                                FfiConverterTypeMobileAppPreferences.lower(prefs), $0)
-        }
-    }
-
-    /**
-     * Sets whether delivery receipts are enabled.
-     */
-    open func setDeliveryReceiptsEnabled(enabled: Bool) {
-        try! rustCall {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_set_delivery_receipts_enabled(self.uniffiClonePointer(),
-                                                                                          FfiConverterBool.lower(enabled), $0)
-        }
-    }
-
-    /**
      * Set the pinned certificate for relay TLS connections.
      *
      * The certificate should be in PEM format. Once set, only connections
@@ -6949,63 +5349,6 @@ open class VauchiPlatform:
             uniffi_vauchi_platform_fn_method_vauchiplatform_set_platform_keychain(self.uniffiClonePointer(),
                                                                                   FfiConverterCallbackInterfaceMobilePlatformKeychain.lower(keychain), $0)
         }
-    }
-
-    /**
-     * Sets whether presence suppression is enabled.
-     */
-    open func setSuppressPresenceEnabled(enabled: Bool) {
-        try! rustCall {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_set_suppress_presence_enabled(self.uniffiClonePointer(),
-                                                                                          FfiConverterBool.lower(enabled), $0)
-        }
-    }
-
-    /**
-     * Sets up an app password (PIN).
-     *
-     * Requires an identity to be created first.
-     */
-    open func setupAppPassword(password: String) throws {
-        try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_setup_app_password(self.uniffiClonePointer(),
-                                                                               FfiConverterString.lower(password), $0)
-        }
-    }
-
-    /**
-     * Sets up a duress PIN.
-     *
-     * Requires an app password to be configured first.
-     */
-    open func setupDuressPassword(duressPassword: String) throws {
-        try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_setup_duress_password(self.uniffiClonePointer(),
-                                                                                  FfiConverterString.lower(duressPassword), $0)
-        }
-    }
-
-    /**
-     * Get current shred status.
-     *
-     * Returns whether no shred is in progress, one is scheduled (with remaining
-     * time), or has been executed.
-     */
-    open func shredStatus() throws -> MobileShredStatus {
-        return try FfiConverterTypeMobileShredStatus.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_shred_status(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Skip the current onboarding step without marking it completed.
-     *
-     * Returns the updated progress.
-     */
-    open func skipOnboardingStep() throws -> MobileOnboardingProgress {
-        return try FfiConverterTypeMobileOnboardingProgress.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_skip_onboarding_step(self.uniffiClonePointer(), $0)
-        })
     }
 
     /**
@@ -7083,36 +5426,6 @@ open class VauchiPlatform:
     }
 
     /**
-     * Trigger a demo update and get the new content.
-     */
-    open func triggerDemoUpdate() throws -> MobileDemoContact? {
-        return try FfiConverterOptionTypeMobileDemoContact.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_trigger_demo_update(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Try to trigger an aha moment. Returns the moment if not yet seen, None otherwise.
-     */
-    open func tryTriggerAhaMoment(momentType: MobileAhaMomentType) throws -> MobileAhaMoment? {
-        return try FfiConverterOptionTypeMobileAhaMoment.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_try_trigger_aha_moment(self.uniffiClonePointer(),
-                                                                                   FfiConverterTypeMobileAhaMomentType.lower(momentType), $0)
-        })
-    }
-
-    /**
-     * Try to trigger an aha moment with context (e.g., contact name).
-     */
-    open func tryTriggerAhaMomentWithContext(momentType: MobileAhaMomentType, context: String) throws -> MobileAhaMoment? {
-        return try FfiConverterOptionTypeMobileAhaMoment.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_try_trigger_aha_moment_with_context(self.uniffiClonePointer(),
-                                                                                                FfiConverterTypeMobileAhaMomentType.lower(momentType),
-                                                                                                FfiConverterString.lower(context), $0)
-        })
-    }
-
-    /**
      * Unlink a device from this identity.
      *
      * This marks the device as revoked. It will no longer receive updates
@@ -7126,32 +5439,6 @@ open class VauchiPlatform:
         return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_vauchiplatform_unlink_device(self.uniffiClonePointer(),
                                                                           FfiConverterUInt32.lower(deviceIndex), $0)
-        })
-    }
-
-    /**
-     * Upload encrypted guardian entries to the relay.
-     *
-     * Creates guardian tokens for each recovery-trusted contact and uploads
-     * them encrypted (sealed-box) to the relay. Called after toggling
-     * recovery trust on a contact.
-     */
-    open func uploadGuardianEntries() throws {
-        try rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_upload_guardian_entries(self.uniffiClonePointer(), $0)
-        }
-    }
-
-    /**
-     * Verify a recovery proof from a contact.
-     *
-     * This checks if the proof is valid and provides a recommendation
-     * on whether to accept the recovered identity.
-     */
-    open func verifyRecoveryProof(proofB64: String) throws -> MobileRecoveryVerification {
-        return try FfiConverterTypeMobileRecoveryVerification.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_verify_recovery_proof(self.uniffiClonePointer(),
-                                                                                  FfiConverterString.lower(proofB64), $0)
         })
     }
 
@@ -15655,6 +13942,23 @@ public enum DomainCommand {
      * Read whether certificate pinning is currently enabled.
      */
     case isCertificatePinningEnabled
+    /**
+     * Load the singleton `app_preferences` row (theme + language).
+     * Storage-only — no identity required. Returns
+     * [`DomainCommandResult::AppPreferences`]. Frontends drive
+     * Compose theme / locale resolution from the same row that
+     * `AppEngine::persist_settings_toggle` writes through.
+     * Retires `VauchiPlatform::app_preferences`.
+     */
+    case getAppPreferences
+    /**
+     * Save the singleton `app_preferences` row. Storage-only —
+     * no identity required (the Settings screen is reachable
+     * before onboarding). Returns
+     * [`DomainCommandResult::Unit`]. Retires
+     * `VauchiPlatform::set_app_preferences`.
+     */
+    case setAppPreferences(prefs: MobileAppPreferences)
 }
 
 #if swift(>=5.8)
@@ -15967,6 +14271,10 @@ public struct FfiConverterTypeDomainCommand: FfiConverterRustBuffer {
         case 150: return try .setPinnedCertificate(certPem: FfiConverterString.read(from: &buf))
 
         case 151: return .isCertificatePinningEnabled
+
+        case 152: return .getAppPreferences
+
+        case 153: return try .setAppPreferences(prefs: FfiConverterTypeMobileAppPreferences.read(from: &buf))
 
         default: throw UniffiInternalError.unexpectedEnumCase
         }
@@ -16550,6 +14858,13 @@ public struct FfiConverterTypeDomainCommand: FfiConverterRustBuffer {
 
         case .isCertificatePinningEnabled:
             writeInt(&buf, Int32(151))
+
+        case .getAppPreferences:
+            writeInt(&buf, Int32(152))
+
+        case let .setAppPreferences(prefs):
+            writeInt(&buf, Int32(153))
+            FfiConverterTypeMobileAppPreferences.write(prefs, into: &buf)
         }
     }
 }
@@ -16772,6 +15087,11 @@ public enum DomainCommandResult {
      * `ContactDetailViewState`).
      */
     case contactDetailView(state: MobileContactDetailViewState)
+    /**
+     * Singleton app-preferences snapshot (theme + language).
+     * Returned by `GetAppPreferences`.
+     */
+    case appPreferences(prefs: MobileAppPreferences)
 }
 
 #if swift(>=5.8)
@@ -16866,6 +15186,8 @@ public struct FfiConverterTypeDomainCommandResult: FfiConverterRustBuffer {
         case 41: return try .contactDisplayOptions(options: FfiConverterTypeMobileContactDisplayOptions.read(from: &buf))
 
         case 42: return try .contactDetailView(state: FfiConverterTypeMobileContactDetailViewState.read(from: &buf))
+
+        case 43: return try .appPreferences(prefs: FfiConverterTypeMobileAppPreferences.read(from: &buf))
 
         default: throw UniffiInternalError.unexpectedEnumCase
         }
@@ -17039,6 +15361,10 @@ public struct FfiConverterTypeDomainCommandResult: FfiConverterRustBuffer {
         case let .contactDetailView(state):
             writeInt(&buf, Int32(42))
             FfiConverterTypeMobileContactDetailViewState.write(state, into: &buf)
+
+        case let .appPreferences(prefs):
+            writeInt(&buf, Int32(43))
+            FfiConverterTypeMobileAppPreferences.write(prefs, into: &buf)
         }
     }
 }
@@ -25229,15 +23555,6 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_mobilenfchandshake_state() != 1423 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_mobileonboardingworkflow_current_screen_json() != 28238 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_mobileonboardingworkflow_handle_action_json() != 17683 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_mobileonboardingworkflow_onboarding_data_json() != 59270 {
-        return InitializationResult.apiChecksumMismatch
-    }
     if uniffi_vauchi_platform_checksum_method_platformappengine_add_recovery_voucher() != 52821 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -25385,52 +23702,7 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_platformappengine_unlink_device() != 18395 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_add_decoy_contact() != 30419 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_add_recovery_voucher() != 60133 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_advance_onboarding() != 1088 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_aha_moments_seen_count() != 21811 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_aha_moments_total_count() != 28566 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_app_preferences() != 64751 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_authenticate() != 14031 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_auto_remove_demo_contact() != 10914 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_calculate_retry_backoff() != 41556 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_cancel_identity_deletion() != 42404 {
-        return InitializationResult.apiChecksumMismatch
-    }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_cancel_shred() != 2095 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_check_consent() != 1463 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_clear_pending_updates_for_contact() != 29099 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_configure_duress_alerts() != 39534 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_configure_emergency_broadcast() != 9572 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_count_failed_deliveries() != 46981 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_create_device_link_session_initiator() != 24358 {
@@ -25454,49 +23726,10 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_create_qr_exchange_manual() != 616 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_create_recovery_claim() != 64305 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_create_recovery_voucher() != 50413 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_current_onboarding_step() != 60702 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_delete_decoy_contact() != 38092 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_delete_retry() != 21919 {
-        return InitializationResult.apiChecksumMismatch
-    }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_device_count() != 2687 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_disable_duress() != 4828 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_disable_emergency_broadcast() != 18687 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_dismiss_demo_contact() != 13148 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_display_name_suggestions() != 41563 {
-        return InitializationResult.apiChecksumMismatch
-    }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_encode_multipart_qr() != 5986 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_execute_identity_deletion() != 63279 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_export_backup() != 28538 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_export_full_backup() != 21038 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_export_gdpr_data() != 57382 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_export_storage_key() != 12509 {
@@ -25508,94 +23741,19 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_generate_device_link_qr() != 28443 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_all_delivery_records() != 31518 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_consent_records() != 28540 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_consent_status() != 13344 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_deletion_state() != 29747 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_delivery_count_by_status() != 23239 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_delivery_record() != 63761 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_delivery_records_for_contact() != 55301 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_delivery_summary() != 58408 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_demo_contact() != 30323 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_demo_contact_state() != 12400 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_device_deliveries() != 523 {
-        return InitializationResult.apiChecksumMismatch
-    }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_devices() != 38437 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_display_name() != 5026 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_due_retries() != 54748 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_duress_settings() != 19801 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_emergency_config() != 19962 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_failed_delivery_records() != 26398 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_offline_queue_capacity() != 11142 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_onboarding_progress() != 14145 {
-        return InitializationResult.apiChecksumMismatch
-    }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_own_fingerprint() != 43093 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_pending_deliveries() != 30790 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_pending_device_deliveries() != 50750 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_public_id() != 50324 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_recovery_proof() != 43158 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_recovery_status() != 2072 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_retries_for_contact() != 27246 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_retry_count() != 5525 {
-        return InitializationResult.apiChecksumMismatch
-    }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_sync_status() != 56380 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_get_total_pending_count() != 53786 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_grant_consent() != 12497 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_hard_shred() != 59456 {
@@ -25604,55 +23762,16 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_has_identity() != 20535 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_has_seen_aha_moment() != 48941 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_import_backup() != 6890 {
-        return InitializationResult.apiChecksumMismatch
-    }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_import_contacts_from_vcf() != 44226 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_import_full_backup() != 62517 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_init_demo_contact_if_needed() != 25750 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_is_certificate_pinning_enabled() != 42102 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_is_delivery_receipts_enabled() != 34173 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_is_demo_update_available() != 18867 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_is_duress_enabled() != 44839 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_is_offline_queue_full() != 30607 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_is_onboarding_complete() != 17845 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_is_password_enabled() != 59132 {
-        return InitializationResult.apiChecksumMismatch
-    }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_is_primary_device() != 8317 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_is_suppress_presence_enabled() != 46979 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_list_decoy_contacts() != 28419 {
-        return InitializationResult.apiChecksumMismatch
-    }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_listen_for_device_link_request() != 53597 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_manual_retry() != 41082 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_panic_shred() != 56390 {
@@ -25661,64 +23780,16 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_parse_device_link_qr() != 61289 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_parse_recovery_claim() != 53837 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_pending_update_count() != 50586 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_reset_aha_moments() != 21889 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_reset_onboarding() != 48593 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_restore_demo_contact() != 31759 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_revoke_consent() != 60709 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_save_recovery_response() != 1127 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_schedule_identity_deletion() != 54882 {
-        return InitializationResult.apiChecksumMismatch
-    }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_send_device_link_request() != 28891 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_send_device_link_response() != 37545 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_send_emergency_broadcast() != 15809 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_set_app_preferences() != 16166 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_set_delivery_receipts_enabled() != 60376 {
-        return InitializationResult.apiChecksumMismatch
-    }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_set_pinned_certificate() != 8876 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_set_platform_keychain() != 57911 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_set_suppress_presence_enabled() != 65209 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_setup_app_password() != 53684 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_setup_duress_password() != 4608 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_shred_status() != 22132 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_skip_onboarding_step() != 29792 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_soft_shred() != 61517 {
@@ -25736,22 +23807,7 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_sync_async() != 5141 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_trigger_demo_update() != 2004 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_try_trigger_aha_moment() != 54173 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_try_trigger_aha_moment_with_context() != 41501 {
-        return InitializationResult.apiChecksumMismatch
-    }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_unlink_device() != 1031 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_upload_guardian_entries() != 11363 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_verify_recovery_proof() != 53795 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_verify_shred() != 14113 {
@@ -25773,9 +23829,6 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_constructor_mobilemultipartdecoder_new() != 57012 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_constructor_mobileonboardingworkflow_new() != 56781 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_constructor_platformappengine_new() != 53960 {

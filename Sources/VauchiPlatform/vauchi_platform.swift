@@ -16205,6 +16205,7 @@ public enum MobileCommand {
     case bleDisconnect
     case nfcActivate(payload: Data)
     case nfcDeactivate
+    case nfcSendApdu(data: Data)
     case audioEmitChallenge(samples: [Float], sampleRate: UInt32)
     case audioListenForResponse(timeoutMs: UInt64, sampleRate: UInt32)
     case audioStop
@@ -16248,25 +16249,27 @@ public struct FfiConverterTypeMobileCommand: FfiConverterRustBuffer {
 
         case 11: return .nfcDeactivate
 
-        case 12: return try .audioEmitChallenge(samples: FfiConverterSequenceFloat.read(from: &buf), sampleRate: FfiConverterUInt32.read(from: &buf))
+        case 12: return try .nfcSendApdu(data: FfiConverterData.read(from: &buf))
 
-        case 13: return try .audioListenForResponse(timeoutMs: FfiConverterUInt64.read(from: &buf), sampleRate: FfiConverterUInt32.read(from: &buf))
+        case 13: return try .audioEmitChallenge(samples: FfiConverterSequenceFloat.read(from: &buf), sampleRate: FfiConverterUInt32.read(from: &buf))
 
-        case 14: return .audioStop
+        case 14: return try .audioListenForResponse(timeoutMs: FfiConverterUInt64.read(from: &buf), sampleRate: FfiConverterUInt32.read(from: &buf))
 
-        case 15: return .accelerometerStart
+        case 15: return .audioStop
 
-        case 16: return .accelerometerStop
+        case 16: return .accelerometerStart
 
-        case 17: return try .relayEscrowDeposit(gateHash: FfiConverterData.read(from: &buf), slotHash: FfiConverterData.read(from: &buf), encryptedCard: FfiConverterData.read(from: &buf), ttlSeconds: FfiConverterUInt32.read(from: &buf))
+        case 17: return .accelerometerStop
 
-        case 18: return try .relayEscrowCheck(gateHash: FfiConverterData.read(from: &buf), suggestedIntervalMs: FfiConverterUInt32.read(from: &buf))
+        case 18: return try .relayEscrowDeposit(gateHash: FfiConverterData.read(from: &buf), slotHash: FfiConverterData.read(from: &buf), encryptedCard: FfiConverterData.read(from: &buf), ttlSeconds: FfiConverterUInt32.read(from: &buf))
 
-        case 19: return try .relayEscrowRetrieve(gateHash: FfiConverterData.read(from: &buf), slotHash: FfiConverterData.read(from: &buf))
+        case 19: return try .relayEscrowCheck(gateHash: FfiConverterData.read(from: &buf), suggestedIntervalMs: FfiConverterUInt32.read(from: &buf))
 
-        case 20: return try .showShareSheet(url: FfiConverterString.read(from: &buf))
+        case 20: return try .relayEscrowRetrieve(gateHash: FfiConverterData.read(from: &buf), slotHash: FfiConverterData.read(from: &buf))
 
-        case 21: return try .directSend(payload: FfiConverterData.read(from: &buf), isInitiator: FfiConverterBool.read(from: &buf))
+        case 21: return try .showShareSheet(url: FfiConverterString.read(from: &buf))
+
+        case 22: return try .directSend(payload: FfiConverterData.read(from: &buf), isInitiator: FfiConverterBool.read(from: &buf))
 
         default: throw UniffiInternalError.unexpectedEnumCase
         }
@@ -16316,48 +16319,52 @@ public struct FfiConverterTypeMobileCommand: FfiConverterRustBuffer {
         case .nfcDeactivate:
             writeInt(&buf, Int32(11))
 
-        case let .audioEmitChallenge(samples, sampleRate):
+        case let .nfcSendApdu(data):
             writeInt(&buf, Int32(12))
+            FfiConverterData.write(data, into: &buf)
+
+        case let .audioEmitChallenge(samples, sampleRate):
+            writeInt(&buf, Int32(13))
             FfiConverterSequenceFloat.write(samples, into: &buf)
             FfiConverterUInt32.write(sampleRate, into: &buf)
 
         case let .audioListenForResponse(timeoutMs, sampleRate):
-            writeInt(&buf, Int32(13))
+            writeInt(&buf, Int32(14))
             FfiConverterUInt64.write(timeoutMs, into: &buf)
             FfiConverterUInt32.write(sampleRate, into: &buf)
 
         case .audioStop:
-            writeInt(&buf, Int32(14))
-
-        case .accelerometerStart:
             writeInt(&buf, Int32(15))
 
-        case .accelerometerStop:
+        case .accelerometerStart:
             writeInt(&buf, Int32(16))
 
-        case let .relayEscrowDeposit(gateHash, slotHash, encryptedCard, ttlSeconds):
+        case .accelerometerStop:
             writeInt(&buf, Int32(17))
+
+        case let .relayEscrowDeposit(gateHash, slotHash, encryptedCard, ttlSeconds):
+            writeInt(&buf, Int32(18))
             FfiConverterData.write(gateHash, into: &buf)
             FfiConverterData.write(slotHash, into: &buf)
             FfiConverterData.write(encryptedCard, into: &buf)
             FfiConverterUInt32.write(ttlSeconds, into: &buf)
 
         case let .relayEscrowCheck(gateHash, suggestedIntervalMs):
-            writeInt(&buf, Int32(18))
+            writeInt(&buf, Int32(19))
             FfiConverterData.write(gateHash, into: &buf)
             FfiConverterUInt32.write(suggestedIntervalMs, into: &buf)
 
         case let .relayEscrowRetrieve(gateHash, slotHash):
-            writeInt(&buf, Int32(19))
+            writeInt(&buf, Int32(20))
             FfiConverterData.write(gateHash, into: &buf)
             FfiConverterData.write(slotHash, into: &buf)
 
         case let .showShareSheet(url):
-            writeInt(&buf, Int32(20))
+            writeInt(&buf, Int32(21))
             FfiConverterString.write(url, into: &buf)
 
         case let .directSend(payload, isInitiator):
-            writeInt(&buf, Int32(21))
+            writeInt(&buf, Int32(22))
             FfiConverterData.write(payload, into: &buf)
             FfiConverterBool.write(isInitiator, into: &buf)
         }

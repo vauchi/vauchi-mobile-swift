@@ -1202,398 +1202,6 @@ public func FfiConverterTypeMobileBleExchangeSession_lower(_ value: MobileBleExc
 }
 
 /**
- * UniFFI-exposed wrapper around DeviceLinkInitiator.
- *
- * Uses Mutex for interior mutability (required by UniFFI's Arc<T>).
- * Holds both the initiator and a pending request between prepare_confirmation
- * and confirm_link calls.
- */
-public protocol MobileDeviceLinkInitiatorProtocol: AnyObject {
-    /**
-     * After user confirms codes match, creates the encrypted response.
-     *
-     * For manual confirmation: pass the raw confirmation code string
-     * (displayed during linking). Rust computes the HMAC internally
-     * so the link key never crosses the FFI boundary.
-     *
-     * Must call prepare_confirmation() first. The `confirmation_code` is the
-     * human-readable code (e.g. "123-456") displayed during linking, and
-     * `confirmed_at` is the Unix timestamp (seconds) when the user confirmed.
-     */
-    func confirmLinkManual(confirmationCode: String, confirmedAt: UInt64) throws -> MobileDeviceLinkResult
-
-    /**
-     * After user confirms, creates the encrypted response with ultrasonic proof.
-     *
-     * Must call prepare_confirmation() first. The `challenge_response` is the
-     * 16-byte proximity challenge echoed back, and `verified_at` is the Unix
-     * timestamp (seconds) when verification completed.
-     */
-    func confirmLinkUltrasonic(challengeResponse: Data, verifiedAt: UInt64) throws -> MobileDeviceLinkResult
-
-    /**
-     * Returns the Unix timestamp (seconds) when the QR code expires.
-     */
-    func expiresAt() -> UInt64
-
-    /**
-     * Decrypts an incoming link request and returns confirmation details.
-     *
-     * The caller displays the confirmation code and device name to the user.
-     */
-    func prepareConfirmation(encryptedRequest: Data) throws -> MobileDeviceLinkConfirmation
-
-    /**
-     * Returns the 16-byte proximity challenge.
-     */
-    func proximityChallenge() -> Data
-
-    /**
-     * Returns the QR data string for display.
-     */
-    func qrData() -> String
-}
-
-/**
- * UniFFI-exposed wrapper around DeviceLinkInitiator.
- *
- * Uses Mutex for interior mutability (required by UniFFI's Arc<T>).
- * Holds both the initiator and a pending request between prepare_confirmation
- * and confirm_link calls.
- */
-open class MobileDeviceLinkInitiator:
-    MobileDeviceLinkInitiatorProtocol
-{
-    fileprivate let pointer: UnsafeMutableRawPointer!
-
-    // Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
-    #if swift(>=5.8)
-        @_documentation(visibility: private)
-    #endif
-    public struct NoPointer {
-        public init() {}
-    }
-
-    // TODO: We'd like this to be `private` but for Swifty reasons,
-    // we can't implement `FfiConverter` without making this `required` and we can't
-    // make it `required` without making it `public`.
-    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
-        self.pointer = pointer
-    }
-
-    // This constructor can be used to instantiate a fake object.
-    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
-    //
-    // - Warning:
-    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
-    #if swift(>=5.8)
-        @_documentation(visibility: private)
-    #endif
-    public init(noPointer _: NoPointer) {
-        pointer = nil
-    }
-
-    #if swift(>=5.8)
-        @_documentation(visibility: private)
-    #endif
-    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
-        return try! rustCall { uniffi_vauchi_platform_fn_clone_mobiledevicelinkinitiator(self.pointer, $0) }
-    }
-
-    // No primary constructor declared for this class.
-
-    deinit {
-        guard let pointer = pointer else {
-            return
-        }
-
-        try! rustCall { uniffi_vauchi_platform_fn_free_mobiledevicelinkinitiator(pointer, $0) }
-    }
-
-    /**
-     * After user confirms codes match, creates the encrypted response.
-     *
-     * For manual confirmation: pass the raw confirmation code string
-     * (displayed during linking). Rust computes the HMAC internally
-     * so the link key never crosses the FFI boundary.
-     *
-     * Must call prepare_confirmation() first. The `confirmation_code` is the
-     * human-readable code (e.g. "123-456") displayed during linking, and
-     * `confirmed_at` is the Unix timestamp (seconds) when the user confirmed.
-     */
-    open func confirmLinkManual(confirmationCode: String, confirmedAt: UInt64) throws -> MobileDeviceLinkResult {
-        return try FfiConverterTypeMobileDeviceLinkResult.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_mobiledevicelinkinitiator_confirm_link_manual(self.uniffiClonePointer(),
-                                                                                           FfiConverterString.lower(confirmationCode),
-                                                                                           FfiConverterUInt64.lower(confirmedAt), $0)
-        })
-    }
-
-    /**
-     * After user confirms, creates the encrypted response with ultrasonic proof.
-     *
-     * Must call prepare_confirmation() first. The `challenge_response` is the
-     * 16-byte proximity challenge echoed back, and `verified_at` is the Unix
-     * timestamp (seconds) when verification completed.
-     */
-    open func confirmLinkUltrasonic(challengeResponse: Data, verifiedAt: UInt64) throws -> MobileDeviceLinkResult {
-        return try FfiConverterTypeMobileDeviceLinkResult.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_mobiledevicelinkinitiator_confirm_link_ultrasonic(self.uniffiClonePointer(),
-                                                                                               FfiConverterData.lower(challengeResponse),
-                                                                                               FfiConverterUInt64.lower(verifiedAt), $0)
-        })
-    }
-
-    /**
-     * Returns the Unix timestamp (seconds) when the QR code expires.
-     */
-    open func expiresAt() -> UInt64 {
-        return try! FfiConverterUInt64.lift(try! rustCall {
-            uniffi_vauchi_platform_fn_method_mobiledevicelinkinitiator_expires_at(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Decrypts an incoming link request and returns confirmation details.
-     *
-     * The caller displays the confirmation code and device name to the user.
-     */
-    open func prepareConfirmation(encryptedRequest: Data) throws -> MobileDeviceLinkConfirmation {
-        return try FfiConverterTypeMobileDeviceLinkConfirmation.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_mobiledevicelinkinitiator_prepare_confirmation(self.uniffiClonePointer(),
-                                                                                            FfiConverterData.lower(encryptedRequest), $0)
-        })
-    }
-
-    /**
-     * Returns the 16-byte proximity challenge.
-     */
-    open func proximityChallenge() -> Data {
-        return try! FfiConverterData.lift(try! rustCall {
-            uniffi_vauchi_platform_fn_method_mobiledevicelinkinitiator_proximity_challenge(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Returns the QR data string for display.
-     */
-    open func qrData() -> String {
-        return try! FfiConverterString.lift(try! rustCall {
-            uniffi_vauchi_platform_fn_method_mobiledevicelinkinitiator_qr_data(self.uniffiClonePointer(), $0)
-        })
-    }
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public struct FfiConverterTypeMobileDeviceLinkInitiator: FfiConverter {
-    typealias FfiType = UnsafeMutableRawPointer
-    typealias SwiftType = MobileDeviceLinkInitiator
-
-    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileDeviceLinkInitiator {
-        return MobileDeviceLinkInitiator(unsafeFromRawPointer: pointer)
-    }
-
-    public static func lower(_ value: MobileDeviceLinkInitiator) -> UnsafeMutableRawPointer {
-        return value.uniffiClonePointer()
-    }
-
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileDeviceLinkInitiator {
-        let v: UInt64 = try readInt(&buf)
-        // The Rust code won't compile if a pointer won't fit in a UInt64.
-        // We have to go via `UInt` because that's the thing that's the size of a pointer.
-        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
-        if ptr == nil {
-            throw UniffiInternalError.unexpectedNullPointer
-        }
-        return try lift(ptr!)
-    }
-
-    public static func write(_ value: MobileDeviceLinkInitiator, into buf: inout [UInt8]) {
-        // This fiddling is because `Int` is the thing that's the same size as a pointer.
-        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
-        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
-    }
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMobileDeviceLinkInitiator_lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileDeviceLinkInitiator {
-    return try FfiConverterTypeMobileDeviceLinkInitiator.lift(pointer)
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMobileDeviceLinkInitiator_lower(_ value: MobileDeviceLinkInitiator) -> UnsafeMutableRawPointer {
-    return FfiConverterTypeMobileDeviceLinkInitiator.lower(value)
-}
-
-/**
- * UniFFI-exposed wrapper around DeviceLinkResponder.
- */
-public protocol MobileDeviceLinkResponderProtocol: AnyObject {
-    /**
-     * Computes the confirmation code (must call create_request first).
-     */
-    func computeConfirmationCode() throws -> String
-
-    /**
-     * Creates an encrypted request to send to the existing device.
-     */
-    func createRequest() throws -> Data
-
-    /**
-     * Processes the encrypted response from the existing device.
-     */
-    func finishJoin(encryptedResponse: Data) throws -> MobileDeviceJoinResult
-
-    /**
-     * Returns the identity fingerprint from the QR.
-     */
-    func identityFingerprint() -> String
-}
-
-/**
- * UniFFI-exposed wrapper around DeviceLinkResponder.
- */
-open class MobileDeviceLinkResponder:
-    MobileDeviceLinkResponderProtocol
-{
-    fileprivate let pointer: UnsafeMutableRawPointer!
-
-    // Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
-    #if swift(>=5.8)
-        @_documentation(visibility: private)
-    #endif
-    public struct NoPointer {
-        public init() {}
-    }
-
-    // TODO: We'd like this to be `private` but for Swifty reasons,
-    // we can't implement `FfiConverter` without making this `required` and we can't
-    // make it `required` without making it `public`.
-    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
-        self.pointer = pointer
-    }
-
-    // This constructor can be used to instantiate a fake object.
-    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
-    //
-    // - Warning:
-    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
-    #if swift(>=5.8)
-        @_documentation(visibility: private)
-    #endif
-    public init(noPointer _: NoPointer) {
-        pointer = nil
-    }
-
-    #if swift(>=5.8)
-        @_documentation(visibility: private)
-    #endif
-    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
-        return try! rustCall { uniffi_vauchi_platform_fn_clone_mobiledevicelinkresponder(self.pointer, $0) }
-    }
-
-    // No primary constructor declared for this class.
-
-    deinit {
-        guard let pointer = pointer else {
-            return
-        }
-
-        try! rustCall { uniffi_vauchi_platform_fn_free_mobiledevicelinkresponder(pointer, $0) }
-    }
-
-    /**
-     * Computes the confirmation code (must call create_request first).
-     */
-    open func computeConfirmationCode() throws -> String {
-        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_mobiledevicelinkresponder_compute_confirmation_code(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Creates an encrypted request to send to the existing device.
-     */
-    open func createRequest() throws -> Data {
-        return try FfiConverterData.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_mobiledevicelinkresponder_create_request(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Processes the encrypted response from the existing device.
-     */
-    open func finishJoin(encryptedResponse: Data) throws -> MobileDeviceJoinResult {
-        return try FfiConverterTypeMobileDeviceJoinResult.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_mobiledevicelinkresponder_finish_join(self.uniffiClonePointer(),
-                                                                                   FfiConverterData.lower(encryptedResponse), $0)
-        })
-    }
-
-    /**
-     * Returns the identity fingerprint from the QR.
-     */
-    open func identityFingerprint() -> String {
-        return try! FfiConverterString.lift(try! rustCall {
-            uniffi_vauchi_platform_fn_method_mobiledevicelinkresponder_identity_fingerprint(self.uniffiClonePointer(), $0)
-        })
-    }
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public struct FfiConverterTypeMobileDeviceLinkResponder: FfiConverter {
-    typealias FfiType = UnsafeMutableRawPointer
-    typealias SwiftType = MobileDeviceLinkResponder
-
-    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileDeviceLinkResponder {
-        return MobileDeviceLinkResponder(unsafeFromRawPointer: pointer)
-    }
-
-    public static func lower(_ value: MobileDeviceLinkResponder) -> UnsafeMutableRawPointer {
-        return value.uniffiClonePointer()
-    }
-
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileDeviceLinkResponder {
-        let v: UInt64 = try readInt(&buf)
-        // The Rust code won't compile if a pointer won't fit in a UInt64.
-        // We have to go via `UInt` because that's the thing that's the size of a pointer.
-        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
-        if ptr == nil {
-            throw UniffiInternalError.unexpectedNullPointer
-        }
-        return try lift(ptr!)
-    }
-
-    public static func write(_ value: MobileDeviceLinkResponder, into buf: inout [UInt8]) {
-        // This fiddling is because `Int` is the thing that's the same size as a pointer.
-        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
-        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
-    }
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMobileDeviceLinkResponder_lift(_ pointer: UnsafeMutableRawPointer) throws -> MobileDeviceLinkResponder {
-    return try FfiConverterTypeMobileDeviceLinkResponder.lift(pointer)
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMobileDeviceLinkResponder_lower(_ value: MobileDeviceLinkResponder) -> UnsafeMutableRawPointer {
-    return FfiConverterTypeMobileDeviceLinkResponder.lower(value)
-}
-
-/**
  * UniFFI-bound device-link session handle.
  *
  * Wraps `vauchi_app::orchestrator::device_link_session::DeviceLinkSession`.
@@ -4835,22 +4443,6 @@ public protocol VauchiPlatformProtocol: AnyObject {
     func softShred() throws -> MobileShredToken
 
     /**
-     * Start a device join as the new device (responder).
-     *
-     * Parses the QR data scanned from the existing device and returns a
-     * `MobileDeviceLinkResponder` that can create requests and process responses.
-     */
-    func startDeviceJoin(qrData: String, deviceName: String) throws -> MobileDeviceLinkResponder
-
-    /**
-     * Start a device link as the existing device (initiator).
-     *
-     * Returns a `MobileDeviceLinkInitiator` that holds the QR data and can
-     * process incoming link requests from new devices.
-     */
-    func startDeviceLink() throws -> MobileDeviceLinkInitiator
-
-    /**
      * Sync with relay server via OHTTP-encrypted HTTP.
      *
      * Creates a temporary `Vauchi` instance, connects, syncs, and maps the
@@ -5366,32 +4958,6 @@ open class VauchiPlatform:
     }
 
     /**
-     * Start a device join as the new device (responder).
-     *
-     * Parses the QR data scanned from the existing device and returns a
-     * `MobileDeviceLinkResponder` that can create requests and process responses.
-     */
-    open func startDeviceJoin(qrData: String, deviceName: String) throws -> MobileDeviceLinkResponder {
-        return try FfiConverterTypeMobileDeviceLinkResponder.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_start_device_join(self.uniffiClonePointer(),
-                                                                              FfiConverterString.lower(qrData),
-                                                                              FfiConverterString.lower(deviceName), $0)
-        })
-    }
-
-    /**
-     * Start a device link as the existing device (initiator).
-     *
-     * Returns a `MobileDeviceLinkInitiator` that holds the QR data and can
-     * process incoming link requests from new devices.
-     */
-    open func startDeviceLink() throws -> MobileDeviceLinkInitiator {
-        return try FfiConverterTypeMobileDeviceLinkInitiator.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_vauchiplatform_start_device_link(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
      * Sync with relay server via OHTTP-encrypted HTTP.
      *
      * Creates a temporary `Vauchi` instance, connects, syncs, and maps the
@@ -5676,125 +5242,6 @@ public func FfiConverterTypeMobileAnimatedQrConfig_lift(_ buf: RustBuffer) throw
 #endif
 public func FfiConverterTypeMobileAnimatedQrConfig_lower(_ value: MobileAnimatedQrConfig) -> RustBuffer {
     return FfiConverterTypeMobileAnimatedQrConfig.lower(value)
-}
-
-/**
- * User preferences for theme + language (mirror of
- * [`vauchi_core::types::AppPreferences`]).
- *
- * Singleton, device-local — preferences do not sync. Wired into the
- * Settings screen Theme + Language `Component::Dropdown`s by the
- * `SettingsEngine`; the `AppEngine::persist_settings_toggle` intercept
- * writes through `Vauchi::set_app_preferences`. Frontends use these
- * methods to drive Compose theme / locale resolution from the same
- * singleton row, so the inline dropdown is the single source of truth.
- *
- * Phase 2a/A3a of `2026-05-01-android-humble-ui-deep-retirement`.
- */
-public struct MobileAppPreferences {
-    /**
-     * Explicit theme id from the design tokens catalogue, or `None`
-     * if never set. Ignored when `follow_system_theme` is `true`.
-     */
-    public var themeId: String?
-    /**
-     * IETF language tag (e.g. `en`, `de`), or `None` if never set.
-     * Ignored when `follow_system_language` is `true`.
-     */
-    public var languageCode: String?
-    /**
-     * Whether to follow the OS theme appearance (light/dark).
-     */
-    public var followSystemTheme: Bool
-    /**
-     * Whether to follow the OS preferred language.
-     */
-    public var followSystemLanguage: Bool
-
-    /// Default memberwise initializers are never public by default, so we
-    /// declare one manually.
-    public init(
-        /*
-         * Explicit theme id from the design tokens catalogue, or `None`
-         * if never set. Ignored when `follow_system_theme` is `true`.
-         */ themeId: String?,
-        /*
-            * IETF language tag (e.g. `en`, `de`), or `None` if never set.
-            * Ignored when `follow_system_language` is `true`.
-            */ languageCode: String?,
-        /*
-            * Whether to follow the OS theme appearance (light/dark).
-            */ followSystemTheme: Bool,
-        /*
-            * Whether to follow the OS preferred language.
-            */ followSystemLanguage: Bool
-    ) {
-        self.themeId = themeId
-        self.languageCode = languageCode
-        self.followSystemTheme = followSystemTheme
-        self.followSystemLanguage = followSystemLanguage
-    }
-}
-
-extension MobileAppPreferences: Equatable, Hashable {
-    public static func == (lhs: MobileAppPreferences, rhs: MobileAppPreferences) -> Bool {
-        if lhs.themeId != rhs.themeId {
-            return false
-        }
-        if lhs.languageCode != rhs.languageCode {
-            return false
-        }
-        if lhs.followSystemTheme != rhs.followSystemTheme {
-            return false
-        }
-        if lhs.followSystemLanguage != rhs.followSystemLanguage {
-            return false
-        }
-        return true
-    }
-
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(themeId)
-        hasher.combine(languageCode)
-        hasher.combine(followSystemTheme)
-        hasher.combine(followSystemLanguage)
-    }
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public struct FfiConverterTypeMobileAppPreferences: FfiConverterRustBuffer {
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileAppPreferences {
-        return
-            try MobileAppPreferences(
-                themeId: FfiConverterOptionString.read(from: &buf),
-                languageCode: FfiConverterOptionString.read(from: &buf),
-                followSystemTheme: FfiConverterBool.read(from: &buf),
-                followSystemLanguage: FfiConverterBool.read(from: &buf)
-            )
-    }
-
-    public static func write(_ value: MobileAppPreferences, into buf: inout [UInt8]) {
-        FfiConverterOptionString.write(value.themeId, into: &buf)
-        FfiConverterOptionString.write(value.languageCode, into: &buf)
-        FfiConverterBool.write(value.followSystemTheme, into: &buf)
-        FfiConverterBool.write(value.followSystemLanguage, into: &buf)
-    }
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMobileAppPreferences_lift(_ buf: RustBuffer) throws -> MobileAppPreferences {
-    return try FfiConverterTypeMobileAppPreferences.lift(buf)
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMobileAppPreferences_lower(_ value: MobileAppPreferences) -> RustBuffer {
-    return FfiConverterTypeMobileAppPreferences.lower(value)
 }
 
 /**
@@ -13942,23 +13389,6 @@ public enum DomainCommand {
      * Read whether certificate pinning is currently enabled.
      */
     case isCertificatePinningEnabled
-    /**
-     * Load the singleton `app_preferences` row (theme + language).
-     * Storage-only — no identity required. Returns
-     * [`DomainCommandResult::AppPreferences`]. Frontends drive
-     * Compose theme / locale resolution from the same row that
-     * `AppEngine::persist_settings_toggle` writes through.
-     * Retires `VauchiPlatform::app_preferences`.
-     */
-    case getAppPreferences
-    /**
-     * Save the singleton `app_preferences` row. Storage-only —
-     * no identity required (the Settings screen is reachable
-     * before onboarding). Returns
-     * [`DomainCommandResult::Unit`]. Retires
-     * `VauchiPlatform::set_app_preferences`.
-     */
-    case setAppPreferences(prefs: MobileAppPreferences)
 }
 
 #if swift(>=5.8)
@@ -14271,10 +13701,6 @@ public struct FfiConverterTypeDomainCommand: FfiConverterRustBuffer {
         case 150: return try .setPinnedCertificate(certPem: FfiConverterString.read(from: &buf))
 
         case 151: return .isCertificatePinningEnabled
-
-        case 152: return .getAppPreferences
-
-        case 153: return try .setAppPreferences(prefs: FfiConverterTypeMobileAppPreferences.read(from: &buf))
 
         default: throw UniffiInternalError.unexpectedEnumCase
         }
@@ -14858,13 +14284,6 @@ public struct FfiConverterTypeDomainCommand: FfiConverterRustBuffer {
 
         case .isCertificatePinningEnabled:
             writeInt(&buf, Int32(151))
-
-        case .getAppPreferences:
-            writeInt(&buf, Int32(152))
-
-        case let .setAppPreferences(prefs):
-            writeInt(&buf, Int32(153))
-            FfiConverterTypeMobileAppPreferences.write(prefs, into: &buf)
         }
     }
 }
@@ -15087,11 +14506,6 @@ public enum DomainCommandResult {
      * `ContactDetailViewState`).
      */
     case contactDetailView(state: MobileContactDetailViewState)
-    /**
-     * Singleton app-preferences snapshot (theme + language).
-     * Returned by `GetAppPreferences`.
-     */
-    case appPreferences(prefs: MobileAppPreferences)
 }
 
 #if swift(>=5.8)
@@ -15186,8 +14600,6 @@ public struct FfiConverterTypeDomainCommandResult: FfiConverterRustBuffer {
         case 41: return try .contactDisplayOptions(options: FfiConverterTypeMobileContactDisplayOptions.read(from: &buf))
 
         case 42: return try .contactDetailView(state: FfiConverterTypeMobileContactDetailViewState.read(from: &buf))
-
-        case 43: return try .appPreferences(prefs: FfiConverterTypeMobileAppPreferences.read(from: &buf))
 
         default: throw UniffiInternalError.unexpectedEnumCase
         }
@@ -15361,10 +14773,6 @@ public struct FfiConverterTypeDomainCommandResult: FfiConverterRustBuffer {
         case let .contactDetailView(state):
             writeInt(&buf, Int32(42))
             FfiConverterTypeMobileContactDetailViewState.write(state, into: &buf)
-
-        case let .appPreferences(prefs):
-            writeInt(&buf, Int32(43))
-            FfiConverterTypeMobileAppPreferences.write(prefs, into: &buf)
         }
     }
 }
@@ -23394,36 +22802,6 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_mobilebleexchangesession_set_responder() != 52834 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_mobiledevicelinkinitiator_confirm_link_manual() != 8725 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_mobiledevicelinkinitiator_confirm_link_ultrasonic() != 8563 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_mobiledevicelinkinitiator_expires_at() != 10836 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_mobiledevicelinkinitiator_prepare_confirmation() != 7092 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_mobiledevicelinkinitiator_proximity_challenge() != 1904 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_mobiledevicelinkinitiator_qr_data() != 52483 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_mobiledevicelinkresponder_compute_confirmation_code() != 31452 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_mobiledevicelinkresponder_create_request() != 59153 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_mobiledevicelinkresponder_finish_join() != 3507 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_mobiledevicelinkresponder_identity_fingerprint() != 39007 {
-        return InitializationResult.apiChecksumMismatch
-    }
     if uniffi_vauchi_platform_checksum_method_mobiledevicelinksession_cancel() != 34916 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -23800,12 +23178,6 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_soft_shred() != 61517 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_start_device_join() != 60214 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_vauchiplatform_start_device_link() != 37441 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_vauchiplatform_sync() != 58241 {

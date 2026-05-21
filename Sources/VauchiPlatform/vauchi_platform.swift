@@ -2801,31 +2801,6 @@ public protocol PlatformAppEngineProtocol: AnyObject {
     func availableScreensJson() throws -> String
 
     /**
-     * Decide what to do after a successful platform biometric
-     * authentication, in constant wall-clock time.
-     *
-     * Frontends call this immediately after the OS biometric prompt
-     * (iOS `LAContext`, Android `BiometricPrompt`) resolves with
-     * success. The call returns either:
-     *
-     * - [`MobileBiometricUnlockOutcome::Unlocked`] — biometric
-     * proves the real user; the frontend can transition to the
-     * post-auth screen. `auth_mode` is set to `Normal` in core.
-     * - [`MobileBiometricUnlockOutcome::PromptForDuressPin`] —
-     * duress is configured; the frontend must show the PIN entry
-     * screen. The subsequent `authenticate(pin)` call decides
-     * `Normal` vs `Duress`.
-     *
-     * The call always takes at least
-     * [`vauchi_core::api::vauchi::BIOMETRIC_UNLOCK_MIN_DURATION`]
-     * (300 ms). Padding lives in core so iOS / Android cannot
-     * diverge on the constant-time floor that hides whether duress
-     * is configured (audit item P2-B,
-     * `2026-04-28-lifecycle-session-residue-umbrella`).
-     */
-    func biometricUnlockCheck() throws -> MobileBiometricUnlockOutcome
-
-    /**
      * Returns the cold-start `ScreenModel` JSON for whatever the
      * app's current persistent state is.
      *
@@ -2966,13 +2941,6 @@ public protocol PlatformAppEngineProtocol: AnyObject {
      * `PlatformEventListener`.
      */
     func drainPendingNotifications() throws -> [MobilePendingNotification]
-
-    /**
-     * Returns whether the current form has unsaved user data.
-     *
-     * Used by frontends to show a "discard changes?" prompt on back navigation.
-     */
-    func formHasData() throws -> Bool
 
     /**
      * Generate the QR shown to a peer for device linking. Read-only
@@ -3137,23 +3105,6 @@ public protocol PlatformAppEngineProtocol: AnyObject {
      * touch the recovery proof file.
      */
     func parseRecoveryClaim(claimB64: String) throws -> MobileRecoveryClaim
-
-    /**
-     * Recommended interval (seconds) between periodic sync ticks.
-     *
-     * Frontends call this once at scheduler-registration time to
-     * configure their `BGTaskScheduler` / `WorkManager` interval.
-     * Single source of truth lives in core
-     * ([`vauchi_core::PERIODIC_SYNC_INTERVAL_SECONDS`]).
-     */
-    func periodicSyncIntervalSeconds() -> UInt64
-
-    /**
-     * Maximum retries the platform scheduler should configure for
-     * a failed periodic sync. Single source of truth lives in core
-     * ([`vauchi_core::PERIODIC_SYNC_MAX_RETRIES`]).
-     */
-    func periodicSyncMaxRetries() -> UInt32
 
     /**
      * Run one periodic sync tick.
@@ -3423,35 +3374,6 @@ open class PlatformAppEngine:
     }
 
     /**
-     * Decide what to do after a successful platform biometric
-     * authentication, in constant wall-clock time.
-     *
-     * Frontends call this immediately after the OS biometric prompt
-     * (iOS `LAContext`, Android `BiometricPrompt`) resolves with
-     * success. The call returns either:
-     *
-     * - [`MobileBiometricUnlockOutcome::Unlocked`] — biometric
-     * proves the real user; the frontend can transition to the
-     * post-auth screen. `auth_mode` is set to `Normal` in core.
-     * - [`MobileBiometricUnlockOutcome::PromptForDuressPin`] —
-     * duress is configured; the frontend must show the PIN entry
-     * screen. The subsequent `authenticate(pin)` call decides
-     * `Normal` vs `Duress`.
-     *
-     * The call always takes at least
-     * [`vauchi_core::api::vauchi::BIOMETRIC_UNLOCK_MIN_DURATION`]
-     * (300 ms). Padding lives in core so iOS / Android cannot
-     * diverge on the constant-time floor that hides whether duress
-     * is configured (audit item P2-B,
-     * `2026-04-28-lifecycle-session-residue-umbrella`).
-     */
-    open func biometricUnlockCheck() throws -> MobileBiometricUnlockOutcome {
-        return try FfiConverterTypeMobileBiometricUnlockOutcome.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_platformappengine_biometric_unlock_check(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
      * Returns the cold-start `ScreenModel` JSON for whatever the
      * app's current persistent state is.
      *
@@ -3653,17 +3575,6 @@ open class PlatformAppEngine:
     open func drainPendingNotifications() throws -> [MobilePendingNotification] {
         return try FfiConverterSequenceTypeMobilePendingNotification.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_platformappengine_drain_pending_notifications(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Returns whether the current form has unsaved user data.
-     *
-     * Used by frontends to show a "discard changes?" prompt on back navigation.
-     */
-    open func formHasData() throws -> Bool {
-        return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
-            uniffi_vauchi_platform_fn_method_platformappengine_form_has_data(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -3907,31 +3818,6 @@ open class PlatformAppEngine:
         return try FfiConverterTypeMobileRecoveryClaim.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_platformappengine_parse_recovery_claim(self.uniffiClonePointer(),
                                                                                     FfiConverterString.lower(claimB64), $0)
-        })
-    }
-
-    /**
-     * Recommended interval (seconds) between periodic sync ticks.
-     *
-     * Frontends call this once at scheduler-registration time to
-     * configure their `BGTaskScheduler` / `WorkManager` interval.
-     * Single source of truth lives in core
-     * ([`vauchi_core::PERIODIC_SYNC_INTERVAL_SECONDS`]).
-     */
-    open func periodicSyncIntervalSeconds() -> UInt64 {
-        return try! FfiConverterUInt64.lift(try! rustCall {
-            uniffi_vauchi_platform_fn_method_platformappengine_periodic_sync_interval_seconds(self.uniffiClonePointer(), $0)
-        })
-    }
-
-    /**
-     * Maximum retries the platform scheduler should configure for
-     * a failed periodic sync. Single source of truth lives in core
-     * ([`vauchi_core::PERIODIC_SYNC_MAX_RETRIES`]).
-     */
-    open func periodicSyncMaxRetries() -> UInt32 {
-        return try! FfiConverterUInt32.lift(try! rustCall {
-            uniffi_vauchi_platform_fn_method_platformappengine_periodic_sync_max_retries(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -15286,76 +15172,6 @@ public func FfiConverterTypeMobileAuthMode_lower(_ value: MobileAuthMode) -> Rus
 
 extension MobileAuthMode: Equatable, Hashable {}
 
-// Note that we don't yet support `indirect` for enums.
-// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/*
- * Outcome of `PlatformAppEngine.biometric_unlock_check()`.
- *
- * Mirror of [`vauchi_core::BiometricUnlockOutcome`] crossing the
- * UniFFI boundary. The call wraps the duress-aware decision in a
- * constant-time floor so the unlock animation timing cannot leak
- * whether duress is configured (audit item P2-B in
- * `2026-04-28-lifecycle-session-residue-umbrella`).
- */
-
-public enum MobileBiometricUnlockOutcome {
-    /**
-     * Biometric authentication succeeded and no duress PIN is
-     * configured — frontends transition to the post-auth screen.
-     */
-    case unlocked
-    /**
-     * Biometric authentication succeeded but duress is configured —
-     * frontends must show the PIN entry screen so the user types
-     * either the real PIN (`Normal`) or the duress PIN (`Duress`).
-     */
-    case promptForDuressPin
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public struct FfiConverterTypeMobileBiometricUnlockOutcome: FfiConverterRustBuffer {
-    typealias SwiftType = MobileBiometricUnlockOutcome
-
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileBiometricUnlockOutcome {
-        let variant: Int32 = try readInt(&buf)
-        switch variant {
-        case 1: return .unlocked
-
-        case 2: return .promptForDuressPin
-
-        default: throw UniffiInternalError.unexpectedEnumCase
-        }
-    }
-
-    public static func write(_ value: MobileBiometricUnlockOutcome, into buf: inout [UInt8]) {
-        switch value {
-        case .unlocked:
-            writeInt(&buf, Int32(1))
-
-        case .promptForDuressPin:
-            writeInt(&buf, Int32(2))
-        }
-    }
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMobileBiometricUnlockOutcome_lift(_ buf: RustBuffer) throws -> MobileBiometricUnlockOutcome {
-    return try FfiConverterTypeMobileBiometricUnlockOutcome.lift(buf)
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMobileBiometricUnlockOutcome_lower(_ value: MobileBiometricUnlockOutcome) -> RustBuffer {
-    return FfiConverterTypeMobileBiometricUnlockOutcome.lower(value)
-}
-
-extension MobileBiometricUnlockOutcome: Equatable, Hashable {}
-
 /**
  * Error type for BLE exchange operations.
  */
@@ -22949,9 +22765,6 @@ private var initializationResult: InitializationResult = {
     if uniffi_vauchi_platform_checksum_method_platformappengine_available_screens_json() != 8671 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_vauchi_platform_checksum_method_platformappengine_biometric_unlock_check() != 6464 {
-        return InitializationResult.apiChecksumMismatch
-    }
     if uniffi_vauchi_platform_checksum_method_platformappengine_boot() != 14829 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -22992,9 +22805,6 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_platformappengine_drain_pending_notifications() != 45375 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_platformappengine_form_has_data() != 43012 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_platformappengine_generate_device_link_qr() != 50561 {
@@ -23049,12 +22859,6 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_platformappengine_parse_recovery_claim() != 45630 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_platformappengine_periodic_sync_interval_seconds() != 52853 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_vauchi_platform_checksum_method_platformappengine_periodic_sync_max_retries() != 62868 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_platformappengine_periodic_sync_tick() != 46293 {

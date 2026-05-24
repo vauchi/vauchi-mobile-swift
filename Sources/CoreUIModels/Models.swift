@@ -1334,6 +1334,7 @@ public enum ActionResult: Decodable {
     case commands(commands: [CommandDTO])
     case showFormDialog(dialogType: String, contextId: String?)
     case previewAs(contactId: String)
+    case biometricUnlockOutcome(outcome: String)
     case unknown
 
     public init(from decoder: Decoder) throws {
@@ -1391,6 +1392,9 @@ public enum ActionResult: Decodable {
         } else if container.contains(.previewAs) {
             let data = try container.decode(PreviewAsData.self, forKey: .previewAs)
             self = .previewAs(contactId: data.contactId)
+        } else if container.contains(.biometricUnlockOutcome) {
+            let data = try container.decode(BiometricUnlockOutcomeData.self, forKey: .biometricUnlockOutcome)
+            self = .biometricUnlockOutcome(outcome: data.outcome)
         } else {
             self = .unknown
         }
@@ -1410,6 +1414,7 @@ public enum ActionResult: Decodable {
         case commands = "Commands"
         case showFormDialog = "ShowFormDialog"
         case previewAs = "PreviewAs"
+        case biometricUnlockOutcome = "BiometricUnlockOutcome"
     }
 
     private struct CompleteWithData: Decodable {
@@ -1458,6 +1463,10 @@ public enum ActionResult: Decodable {
 
     private struct PreviewAsData: Decodable {
         let contactId: String
+    }
+
+    private struct BiometricUnlockOutcomeData: Decodable {
+        let outcome: String
     }
 }
 

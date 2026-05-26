@@ -6542,6 +6542,90 @@ public func FfiConverterTypeMobileExchangeResult_lower(_ value: MobileExchangeRe
 }
 
 /**
+ * Presentational view-state for a BLE exchange status indicator.
+ *
+ * Core owns the `MobileExchangeState` → label/progress mapping so
+ * frontends render `label_key` (via their i18n table) and
+ * `show_progress` directly, instead of duplicating a
+ * `when (MobileExchangeState)` switch per platform.
+ */
+public struct MobileExchangeViewState {
+    /**
+     * i18n key for the status label (e.g. `"exchange.waiting_peer"`).
+     */
+    public var labelKey: String
+    /**
+     * Whether to render an in-progress affordance (spinner) alongside
+     * the label. `false` for terminal states (Complete / Failed).
+     */
+    public var showProgress: Bool
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(
+        /*
+         * i18n key for the status label (e.g. `"exchange.waiting_peer"`).
+         */ labelKey: String,
+        /*
+            * Whether to render an in-progress affordance (spinner) alongside
+            * the label. `false` for terminal states (Complete / Failed).
+            */ showProgress: Bool
+    ) {
+        self.labelKey = labelKey
+        self.showProgress = showProgress
+    }
+}
+
+extension MobileExchangeViewState: Equatable, Hashable {
+    public static func == (lhs: MobileExchangeViewState, rhs: MobileExchangeViewState) -> Bool {
+        if lhs.labelKey != rhs.labelKey {
+            return false
+        }
+        if lhs.showProgress != rhs.showProgress {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(labelKey)
+        hasher.combine(showProgress)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileExchangeViewState: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileExchangeViewState {
+        return
+            try MobileExchangeViewState(
+                labelKey: FfiConverterString.read(from: &buf),
+                showProgress: FfiConverterBool.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileExchangeViewState, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.labelKey, into: &buf)
+        FfiConverterBool.write(value.showProgress, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileExchangeViewState_lift(_ buf: RustBuffer) throws -> MobileExchangeViewState {
+    return try FfiConverterTypeMobileExchangeViewState.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileExchangeViewState_lower(_ value: MobileExchangeViewState) -> RustBuffer {
+    return FfiConverterTypeMobileExchangeViewState.lower(value)
+}
+
+/**
  * A per-field private note entry (field_id + note text).
  *
  * Used as a Vec-based alternative to HashMap for UniFFI compatibility.
@@ -8997,6 +9081,92 @@ public func FfiConverterTypeMobileSyncResult_lift(_ buf: RustBuffer) throws -> M
 #endif
 public func FfiConverterTypeMobileSyncResult_lower(_ value: MobileSyncResult) -> RustBuffer {
     return FfiConverterTypeMobileSyncResult.lower(value)
+}
+
+/**
+ * Presentational view-state for the sync-status indicator.
+ *
+ * Core owns the indicator-state → label/kind mapping so frontends
+ * render `label_key` (via their i18n table) and map `kind` to a theme
+ * color, instead of a per-platform `when (SyncState)` switch that
+ * hardcodes both (ADR-021/043 Humble UI).
+ */
+public struct MobileSyncStatusView {
+    /**
+     * i18n key for the status label (e.g. `"sync.synced_at"`, which may
+     * contain a `{time}` placeholder the frontend fills from the local
+     * clock).
+     */
+    public var labelKey: String
+    /**
+     * Semantic color role for the label.
+     */
+    public var kind: MobileSyncStatusKind
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(
+        /*
+         * i18n key for the status label (e.g. `"sync.synced_at"`, which may
+         * contain a `{time}` placeholder the frontend fills from the local
+         * clock).
+         */ labelKey: String,
+        /*
+            * Semantic color role for the label.
+            */ kind: MobileSyncStatusKind
+    ) {
+        self.labelKey = labelKey
+        self.kind = kind
+    }
+}
+
+extension MobileSyncStatusView: Equatable, Hashable {
+    public static func == (lhs: MobileSyncStatusView, rhs: MobileSyncStatusView) -> Bool {
+        if lhs.labelKey != rhs.labelKey {
+            return false
+        }
+        if lhs.kind != rhs.kind {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(labelKey)
+        hasher.combine(kind)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileSyncStatusView: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileSyncStatusView {
+        return
+            try MobileSyncStatusView(
+                labelKey: FfiConverterString.read(from: &buf),
+                kind: FfiConverterTypeMobileSyncStatusKind.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: MobileSyncStatusView, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.labelKey, into: &buf)
+        FfiConverterTypeMobileSyncStatusKind.write(value.kind, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileSyncStatusView_lift(_ buf: RustBuffer) throws -> MobileSyncStatusView {
+    return try FfiConverterTypeMobileSyncStatusView.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileSyncStatusView_lower(_ value: MobileSyncStatusView) -> RustBuffer {
+    return FfiConverterTypeMobileSyncStatusView.lower(value)
 }
 
 /**
@@ -15262,6 +15432,80 @@ extension MobileShredStatus: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /*
+ * Logical state of the sync-status *indicator*, as the frontend
+ * observes it.
+ *
+ * Distinct from [`MobileSyncStatus`] (the engine-level status):
+ * the indicator also distinguishes "has synced before" (`Synced`)
+ * from "never synced" (`NeverSynced`) to pick its label, while the
+ * timestamp itself stays a UI-local concern (the frontend formats
+ * the local clock into the `sync.synced_at` placeholder).
+ */
+
+public enum MobileSyncIndicatorState {
+    case syncing
+    case error
+    case synced
+    case neverSynced
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileSyncIndicatorState: FfiConverterRustBuffer {
+    typealias SwiftType = MobileSyncIndicatorState
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileSyncIndicatorState {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return .syncing
+
+        case 2: return .error
+
+        case 3: return .synced
+
+        case 4: return .neverSynced
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileSyncIndicatorState, into buf: inout [UInt8]) {
+        switch value {
+        case .syncing:
+            writeInt(&buf, Int32(1))
+
+        case .error:
+            writeInt(&buf, Int32(2))
+
+        case .synced:
+            writeInt(&buf, Int32(3))
+
+        case .neverSynced:
+            writeInt(&buf, Int32(4))
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileSyncIndicatorState_lift(_ buf: RustBuffer) throws -> MobileSyncIndicatorState {
+    return try FfiConverterTypeMobileSyncIndicatorState.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileSyncIndicatorState_lower(_ value: MobileSyncIndicatorState) -> RustBuffer {
+    return FfiConverterTypeMobileSyncIndicatorState.lower(value)
+}
+
+extension MobileSyncIndicatorState: Equatable, Hashable {}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/*
  * Sync status.
  */
 
@@ -15319,6 +15563,80 @@ public func FfiConverterTypeMobileSyncStatus_lower(_ value: MobileSyncStatus) ->
 }
 
 extension MobileSyncStatus: Equatable, Hashable {}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/*
+ * Semantic color role for the sync-status label.
+ *
+ * Frontends map this to their theme (e.g. Material
+ * `colorScheme.primary` / `error` / `outline`) instead of hardcoding
+ * a color per state (ADR-038/043 Humble UI).
+ */
+
+public enum MobileSyncStatusKind {
+    /**
+     * In-progress or freshly-synced — emphasis color.
+     */
+    case active
+    /**
+     * Sync failed — error color.
+     */
+    case error
+    /**
+     * Idle / never synced — muted color.
+     */
+    case neutral
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileSyncStatusKind: FfiConverterRustBuffer {
+    typealias SwiftType = MobileSyncStatusKind
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileSyncStatusKind {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return .active
+
+        case 2: return .error
+
+        case 3: return .neutral
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileSyncStatusKind, into buf: inout [UInt8]) {
+        switch value {
+        case .active:
+            writeInt(&buf, Int32(1))
+
+        case .error:
+            writeInt(&buf, Int32(2))
+
+        case .neutral:
+            writeInt(&buf, Int32(3))
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileSyncStatusKind_lift(_ buf: RustBuffer) throws -> MobileSyncStatusKind {
+    return try FfiConverterTypeMobileSyncStatusKind.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileSyncStatusKind_lower(_ value: MobileSyncStatusKind) -> RustBuffer {
+    return FfiConverterTypeMobileSyncStatusKind.lower(value)
+}
+
+extension MobileSyncStatusKind: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
@@ -17860,6 +18178,20 @@ public func coreVersion() -> String {
 }
 
 /**
+ * Compute the presentational view-state for a BLE exchange status.
+ *
+ * Pure mapping — the single source of truth for which i18n label and
+ * progress affordance each exchange state shows.
+ */
+public func exchangeViewState(state: MobileExchangeState) -> MobileExchangeViewState {
+    return try! FfiConverterTypeMobileExchangeViewState.lift(try! rustCall {
+        uniffi_vauchi_platform_fn_func_exchange_view_state(
+            FfiConverterTypeMobileExchangeState.lower(state), $0
+        )
+    })
+}
+
+/**
  * Generate a ready-to-display QR code bitmap with quiet zone and scaling.
  *
  * Renders the QR modules into a grayscale pixel buffer at the requested
@@ -18271,6 +18603,20 @@ public func scanQr(backend: MobileScannerBackend, lumaData: Data, width: UInt32,
 }
 
 /**
+ * Compute the presentational view-state for the sync-status indicator.
+ *
+ * Pure mapping — the single source of truth for which i18n label and
+ * color role each indicator state shows.
+ */
+public func syncStatusView(state: MobileSyncIndicatorState) -> MobileSyncStatusView {
+    return try! FfiConverterTypeMobileSyncStatusView.lift(try! rustCall {
+        uniffi_vauchi_platform_fn_func_sync_status_view(
+            FfiConverterTypeMobileSyncIndicatorState.lower(state), $0
+        )
+    })
+}
+
+/**
  * Panic shred callable from a widget without full app initialization.
  *
  * This is the key API for iOS/Android home screen widgets that need to
@@ -18316,6 +18662,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_func_core_version() != 30520 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_func_exchange_view_state() != 46304 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_func_generate_qr_bitmap() != 23600 {
@@ -18403,6 +18752,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_func_scan_qr() != 28606 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_func_sync_status_view() != 49834 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_func_widget_panic_shred() != 24828 {

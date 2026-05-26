@@ -1170,6 +1170,10 @@ public enum UserAction: Encodable {
     case settingsToggled(componentId: String, itemId: String)
     case undoPressed(actionId: String)
     case sliderChanged(componentId: String, valueMilli: Int32)
+    /// Top-level tab tap (ADR-043 Am4). `actionId` is the opaque
+    /// canonical id from `tabInfo()`; core resolves it to the canonical
+    /// screen. Maps to `UserAction::NavigateToTab { action_id }`.
+    case navigateToTab(actionId: String)
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: VariantKey.self)
@@ -1228,6 +1232,10 @@ public enum UserAction: Encodable {
             var nested = container.nestedContainer(keyedBy: SliderChangedKeys.self, forKey: .sliderChanged)
             try nested.encode(componentId, forKey: .componentId)
             try nested.encode(valueMilli, forKey: .valueMilli)
+
+        case let .navigateToTab(actionId):
+            var nested = container.nestedContainer(keyedBy: NavigateToTabKeys.self, forKey: .navigateToTab)
+            try nested.encode(actionId, forKey: .actionId)
         }
     }
 
@@ -1243,6 +1251,7 @@ public enum UserAction: Encodable {
         case settingsToggled = "SettingsToggled"
         case undoPressed = "UndoPressed"
         case sliderChanged = "SliderChanged"
+        case navigateToTab = "NavigateToTab"
     }
 
     private enum TextChangedKeys: String, CodingKey {
@@ -1256,6 +1265,10 @@ public enum UserAction: Encodable {
     }
 
     private enum ActionPressedKeys: String, CodingKey {
+        case actionId = "action_id"
+    }
+
+    private enum NavigateToTabKeys: String, CodingKey {
         case actionId = "action_id"
     }
 

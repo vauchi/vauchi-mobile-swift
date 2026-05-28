@@ -307,12 +307,21 @@ public enum Component: Decodable {
     case avatarPreview(AvatarPreviewComponent)
     case slider(SliderComponent)
     case divider
+    /// Generic ongoing-status indicator emitted for chrome (sync state,
+    /// connectivity, backup-overdue, update-available). Distinct semantic
+    /// role from `.statusIndicator` (used for screen-body in-progress
+    /// status). See: shell-purity investigation 2026-05-28.
+    case indicator(IndicatorComponent)
+    /// Structured menu — multiple labeled sections of tappable items.
+    /// Distinct from `.actionList` (flat menu); the section grouping is
+    /// structural, not optional. See: shell-purity investigation 2026-05-28.
+    case sectionedActionList(SectionedActionListComponent)
     /// Unknown component from a newer core version — render as empty space.
     /// Prevents crash when core adds new component types that this shell
     /// version doesn't know about. See: design-as-code-plan Phase 2b.
     case unknown
 
-    // swiftlint:disable:next cyclomatic_complexity
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
     public init(from decoder: Decoder) throws {
         // Try unit variant first ("Divider" or any unknown string)
         if let container = try? decoder.singleValueContainer(),
@@ -372,6 +381,12 @@ public enum Component: Decodable {
             self = try .avatarPreview(container.decode(AvatarPreviewComponent.self, forKey: .avatarPreview))
         } else if container.contains(.slider) {
             self = try .slider(container.decode(SliderComponent.self, forKey: .slider))
+        } else if container.contains(.indicator) {
+            self = try .indicator(container.decode(IndicatorComponent.self, forKey: .indicator))
+        } else if container.contains(.sectionedActionList) {
+            self = try .sectionedActionList(
+                container.decode(SectionedActionListComponent.self, forKey: .sectionedActionList)
+            )
         } else {
             // Unknown struct variant — core is newer than this shell.
             // Degrade gracefully instead of crashing.
@@ -400,6 +415,8 @@ public enum Component: Decodable {
         case dropdown = "Dropdown"
         case avatarPreview = "AvatarPreview"
         case slider = "Slider"
+        case indicator = "Indicator"
+        case sectionedActionList = "SectionedActionList"
     }
 }
 
@@ -923,6 +940,81 @@ public enum Status: String, Decodable {
     case success = "Success"
     case failed = "Failed"
     case warning = "Warning"
+}
+
+// MARK: - Indicator Component
+
+/// Chrome-positioned status indicator — sync state, connectivity, backup
+/// overdue, update available. Renders as a native chip / pill the
+/// frontend places in toolbar / header / status area per its idiom.
+/// Distinct from `StatusIndicatorComponent` (body-positioned, in-progress
+/// operations).
+public struct IndicatorComponent: Decodable {
+    public let id: String
+    public let label: String
+    public let kind: IndicatorKind
+    /// Optional tap action. `nil` = display-only (informational); non-nil =
+    /// tap fires `UserAction.actionPressed(actionId: ...)`.
+    public let actionId: String?
+    public var a11y: A11y?
+
+    public init(id: String, label: String, kind: IndicatorKind, actionId: String? = nil, a11y: A11y? = nil) {
+        self.id = id
+        self.label = label
+        self.kind = kind
+        self.actionId = actionId
+        self.a11y = a11y
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case label
+        case kind
+        case actionId = "action_id"
+        case a11y
+    }
+}
+
+/// Semantic color category for `IndicatorComponent`.
+public enum IndicatorKind: String, Decodable {
+    /// In-progress or freshly-confirmed — emphasis color.
+    case active = "Active"
+    /// Failed / attention-required — error color.
+    case error = "Error"
+    /// Idle / informational — muted color.
+    case neutral = "Neutral"
+    /// Transient busy state — animated indicator.
+    case busy = "Busy"
+}
+
+// MARK: - SectionedActionList Component
+
+/// Structured menu — multiple labeled sections of tappable items. Used
+/// by `MoreEngine` for grouped settings entries (primary / secondary /
+/// data / legal). Distinct from `ActionListComponent` (flat menu).
+public struct SectionedActionListComponent: Decodable {
+    public let id: String
+    public let sections: [Section]
+
+    public init(id: String, sections: [Section]) {
+        self.id = id
+        self.sections = sections
+    }
+}
+
+/// A named section within a `SectionedActionListComponent`. Reuses
+/// `ActionListItem` for its rows so frontends get a single typed-item
+/// renderer regardless of grouping.
+public struct Section: Decodable, Identifiable {
+    public let id: String
+    public let label: String
+    public let items: [ActionListItem]
+
+    public init(id: String, label: String, items: [ActionListItem]) {
+        self.id = id
+        self.label = label
+        self.items = items
+    }
 }
 
 // MARK: - PinInput Component

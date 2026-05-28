@@ -1636,6 +1636,16 @@ public protocol PlatformAppEngineProtocol: AnyObject {
     func boot() throws -> String
 
     /**
+     * Whether a back step exists in core's nav-history stack.
+     *
+     * Frontends drive their back affordance / `BackHandler` from this
+     * instead of inferring "is this a core-driven screen?" from a
+     * frontend-side screen-id map (ADR-043: no constructed nav targets).
+     * Tier-0 of the CoreScreenIdMap rework.
+     */
+    func canGoBack() throws -> Bool
+
+    /**
      * Returns the current screen's screen_id (lightweight query).
      *
      * Useful for tab bar highlighting without deserializing the full ScreenModel.
@@ -2039,6 +2049,20 @@ open class PlatformAppEngine:
     open func boot() throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
             uniffi_vauchi_platform_fn_method_platformappengine_boot(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    /**
+     * Whether a back step exists in core's nav-history stack.
+     *
+     * Frontends drive their back affordance / `BackHandler` from this
+     * instead of inferring "is this a core-driven screen?" from a
+     * frontend-side screen-id map (ADR-043: no constructed nav targets).
+     * Tier-0 of the CoreScreenIdMap rework.
+     */
+    open func canGoBack() throws -> Bool {
+        return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeMobileError.lift) {
+            uniffi_vauchi_platform_fn_method_platformappengine_can_go_back(self.uniffiClonePointer(), $0)
         })
     }
 
@@ -18857,6 +18881,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_platformappengine_boot() != 14829 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_vauchi_platform_checksum_method_platformappengine_can_go_back() != 33315 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_vauchi_platform_checksum_method_platformappengine_current_screen_id() != 29912 {

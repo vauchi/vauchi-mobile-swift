@@ -39,20 +39,27 @@ validate:package:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == "main"
 
-# Unit-test the pure-Swift CoreUIModels decode surface (the hand-written
-# CommandDTO / ActionResult / Component JSON mirrors). VAUCHI_COREUIMODELS_TEST_ONLY
-# makes Package.swift emit only CoreUIModels + its test target, so `swift test`
-# runs on this Linux image without the Apple-only VauchiPlatformFFI xcframework
-# (no download → sidesteps the 2026-04-26 resolve-hang; no macOS runner → no SPM
-# mirror race). Apple consumers never set the var, so they resolve the full package.
+# Unit-test the CoreUIModels decode surface (the hand-written CommandDTO /
+# ActionResult / Component JSON mirrors). Runs on a macOS runner because
+# CoreUIModels imports SwiftUI (the DesignTokens `EnvironmentValues`
+# extension), which does not exist on Linux. VAUCHI_COREUIMODELS_TEST_ONLY
+# makes Package.swift emit only CoreUIModels + its test target, so `swift
+# test` skips the Apple-only VauchiPlatformFFI xcframework entirely — no
+# binary download (sidesteps the 2026-04-26 resolve-hang) and no remote
+# package resolution (so no SPM mirror race; no resource_group needed).
+# --scratch-path/--cache-path keep all SPM state project-local on the shared
+# runner. Apple consumers never set the var, so they resolve the full package.
 test:coreuimodels:
   stage: validate
-  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/swift:5.9.2
-  tags: [docker]
+  tags:
+    - macos
+    - self-hosted
   variables:
     VAUCHI_COREUIMODELS_TEST_ONLY: "1"
+  before_script:
+    - swift --version | head -1
   script:
-    - swift test
+    - swift test --scratch-path "$CI_PROJECT_DIR/.build" --cache-path "$CI_PROJECT_DIR/.spm-cache"
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == "main"

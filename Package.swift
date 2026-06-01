@@ -35,42 +35,59 @@ let binaryTarget: PackageDescription.Target = useLocalXCFramework
         checksum: checksum
     )
 
+/// `CoreUIModels` is pure Swift; the rest of the package (VauchiPlatform +
+/// the `VauchiPlatformFFI` xcframework) is Apple-only, so `swift test` can't
+/// build it on a Linux CI runner. When VAUCHI_COREUIMODELS_TEST_ONLY is set
+/// (the `test:coreuimodels` CI job only), the manifest emits just
+/// `CoreUIModels` + its test target, letting the decode contract run on the
+/// existing Linux `swift` image with no xcframework download (sidesteps the
+/// resolve-hang of 2026-04-26 and the macOS SPM mirror race). Consumers never
+/// set this var, so iOS/macOS resolve the full, unchanged package.
+let coreUIModelsTestOnly = ProcessInfo.processInfo.environment[
+    "VAUCHI_COREUIMODELS_TEST_ONLY"
+] != nil
+
+/// Pure-Swift data types for core-driven screens (ScreenModel, Component,
+/// UserAction, ActionResult, DesignTokens, component payloads). Depended on
+/// by iOS and macOS so the two frontends share one canonical deserialization
+/// surface instead of maintaining parallel `Vauchi/CoreUI/Models.swift`
+/// copies. Problem: 2026-04-22-shared-coreui-models-package.
+let coreUIModelsProduct: PackageDescription.Product = .library(
+    name: "CoreUIModels",
+    targets: ["CoreUIModels"]
+)
+let coreUIModelsTarget: PackageDescription.Target = .target(
+    name: "CoreUIModels",
+    path: "Sources/CoreUIModels"
+)
+let coreUIModelsTestTarget: PackageDescription.Target = .testTarget(
+    name: "CoreUIModelsTests",
+    dependencies: ["CoreUIModels"],
+    path: "Tests/CoreUIModelsTests"
+)
+
+/// Swift bindings that wrap the FFI layer (Apple-only — depends on the
+/// xcframework binary target).
+let vauchiPlatformProduct: PackageDescription.Product = .library(
+    name: "VauchiPlatform",
+    targets: ["VauchiPlatform", "VauchiPlatformFFI"]
+)
+let vauchiPlatformTarget: PackageDescription.Target = .target(
+    name: "VauchiPlatform",
+    dependencies: ["VauchiPlatformFFI"],
+    path: "Sources/VauchiPlatform"
+)
+
 let package = Package(
     name: "VauchiPlatform",
     platforms: [
         .iOS(.v15),
         .macOS(.v12),
     ],
-    products: [
-        .library(
-            name: "VauchiPlatform",
-            targets: ["VauchiPlatform", "VauchiPlatformFFI"]
-        ),
-        // Pure-Swift data types for core-driven screens (ScreenModel,
-        // Component, UserAction, ActionResult, DesignTokens, component
-        // payloads). Depended on by iOS and macOS so the two frontends
-        // share one canonical deserialization surface instead of
-        // maintaining parallel `Vauchi/CoreUI/Models.swift` copies.
-        // Problem: 2026-04-22-shared-coreui-models-package.
-        .library(
-            name: "CoreUIModels",
-            targets: ["CoreUIModels"]
-        ),
-    ],
-    targets: [
-        // Swift bindings that wrap the FFI layer
-        .target(
-            name: "VauchiPlatform",
-            dependencies: ["VauchiPlatformFFI"],
-            path: "Sources/VauchiPlatform"
-        ),
-        // Shared core-UI data types (POD + Decodable). No dependency on
-        // VauchiPlatformFFI — pure Swift, built from source on every
-        // consumer build. Safe to reference from any Swift module.
-        .target(
-            name: "CoreUIModels",
-            path: "Sources/CoreUIModels"
-        ),
-        binaryTarget,
-    ]
+    products: coreUIModelsTestOnly
+        ? [coreUIModelsProduct]
+        : [vauchiPlatformProduct, coreUIModelsProduct],
+    targets: coreUIModelsTestOnly
+        ? [coreUIModelsTarget, coreUIModelsTestTarget]
+        : [vauchiPlatformTarget, coreUIModelsTarget, coreUIModelsTestTarget, binaryTarget]
 )

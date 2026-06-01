@@ -39,6 +39,24 @@ validate:package:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == "main"
 
+# Unit-test the pure-Swift CoreUIModels decode surface (the hand-written
+# CommandDTO / ActionResult / Component JSON mirrors). VAUCHI_COREUIMODELS_TEST_ONLY
+# makes Package.swift emit only CoreUIModels + its test target, so `swift test`
+# runs on this Linux image without the Apple-only VauchiPlatformFFI xcframework
+# (no download → sidesteps the 2026-04-26 resolve-hang; no macOS runner → no SPM
+# mirror race). Apple consumers never set the var, so they resolve the full package.
+test:coreuimodels:
+  stage: validate
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/swift:5.9.2
+  tags: [docker]
+  variables:
+    VAUCHI_COREUIMODELS_TEST_ONLY: "1"
+  script:
+    - swift test
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
 # Tag invariant guard. Tags v0.21.8..v0.21.12 (2026-04-22) were pushed
 # directly to this repo without going through core's update:swift-bindings
 # release pipeline, leaving Package.swift's `let version` literal stale at

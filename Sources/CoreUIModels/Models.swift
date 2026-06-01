@@ -1589,6 +1589,7 @@ public enum CommandDTO: Decodable {
     case bleDisconnect
     case nfcActivate(payload: [UInt8])
     case nfcDeactivate
+    case nfcSendApdu(data: [UInt8])
     case audioEmitChallenge(data: [UInt8])
     case audioListenForResponse(timeoutMs: UInt64)
     case audioStop
@@ -1665,6 +1666,9 @@ public enum CommandDTO: Decodable {
         } else if container.contains(.nfcActivate) {
             let data = try container.decode(NfcActivateData.self, forKey: .nfcActivate)
             return .nfcActivate(payload: data.payload)
+        } else if container.contains(.nfcSendApdu) {
+            let data = try container.decode(NfcSendApduData.self, forKey: .nfcSendApdu)
+            return .nfcSendApdu(data: data.data)
         } else if container.contains(.audioEmitChallenge) {
             let data = try container.decode(AudioChallengeData.self, forKey: .audioEmitChallenge)
             return .audioEmitChallenge(data: data.data)
@@ -1719,6 +1723,7 @@ public enum CommandDTO: Decodable {
         case bleWriteCharacteristic = "BleWriteCharacteristic"
         case bleReadCharacteristic = "BleReadCharacteristic"
         case nfcActivate = "NfcActivate"
+        case nfcSendApdu = "NfcSendApdu"
         case audioEmitChallenge = "AudioEmitChallenge"
         case audioListenForResponse = "AudioListenForResponse"
         case directSend = "DirectSend"
@@ -1737,6 +1742,7 @@ public enum CommandDTO: Decodable {
     private struct BleCharacteristicData: Decodable { let uuid: String; let data: [UInt8] }
     private struct BleReadData: Decodable { let uuid: String }
     private struct NfcActivateData: Decodable { let payload: [UInt8] }
+    private struct NfcSendApduData: Decodable { let data: [UInt8] }
     private struct AudioChallengeData: Decodable { let data: [UInt8] }
     private struct AudioListenData: Decodable { let timeoutMs: UInt64 }
     private struct DirectSendData: Decodable { let payload: [UInt8]; let isInitiator: Bool }

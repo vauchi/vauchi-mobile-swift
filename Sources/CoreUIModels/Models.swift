@@ -542,6 +542,11 @@ public struct FieldListComponent: Decodable {
 }
 
 public enum VisibilityMode: String, Decodable {
+    // No visibility column — display fields read-only. Mirrors core's
+    // `VisibilityMode::ReadOnly` (vauchi-app/src/ui/component/mod.rs).
+    // Missing here would throw a Decodable error on any screen emitting
+    // ReadOnly, dropping the render (same drift fixed on Android).
+    case readOnly = "ReadOnly"
     case showHide = "ShowHide"
     case perGroup = "PerGroup"
 }

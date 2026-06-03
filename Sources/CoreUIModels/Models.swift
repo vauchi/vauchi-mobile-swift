@@ -198,6 +198,10 @@ public struct ScreenModel: Decodable {
     public let actions: [ScreenAction]
     public let progress: Progress?
     public let tokens: DesignTokens
+    /// Whether the renderer scrolls the screen content or renders a
+    /// fixed, non-scrolling layout sized to the viewport. Absent on the
+    /// wire when `.scroll` (the default), so this defaults to `.scroll`.
+    public let layout: ScreenLayout
 
     public init(
         screenId: String,
@@ -206,7 +210,8 @@ public struct ScreenModel: Decodable {
         components: [Component],
         actions: [ScreenAction],
         progress: Progress? = nil,
-        tokens: DesignTokens = .defaults
+        tokens: DesignTokens = .defaults,
+        layout: ScreenLayout = .scroll
     ) {
         self.screenId = screenId
         self.title = title
@@ -215,10 +220,11 @@ public struct ScreenModel: Decodable {
         self.actions = actions
         self.progress = progress
         self.tokens = tokens
+        self.layout = layout
     }
 
     private enum CodingKeys: String, CodingKey {
-        case screenId, title, subtitle, components, actions, progress, tokens
+        case screenId, title, subtitle, components, actions, progress, tokens, layout
     }
 
     public init(from decoder: Decoder) throws {
@@ -230,7 +236,17 @@ public struct ScreenModel: Decodable {
         actions = try container.decode([ScreenAction].self, forKey: .actions)
         progress = try container.decodeIfPresent(Progress.self, forKey: .progress)
         tokens = try container.decodeIfPresent(DesignTokens.self, forKey: .tokens) ?? .defaults
+        layout = try container.decodeIfPresent(ScreenLayout.self, forKey: .layout) ?? .scroll
     }
+}
+
+/// Whether the renderer scrolls the screen content or renders a fixed,
+/// non-scrolling layout sized to the viewport. Absent on the wire when
+/// `Scroll` (the default), so the field defaults to `.scroll`.
+/// Maps to: `vauchi-core::ui::screen::ScreenLayout`
+public enum ScreenLayout: String, Decodable {
+    case scroll = "Scroll"
+    case fixed = "Fixed"
 }
 
 /// Step progress indicator.
@@ -316,6 +332,12 @@ public enum Component: Decodable {
     /// Distinct from `.actionList` (flat menu); the section grouping is
     /// structural, not optional. See: shell-purity investigation 2026-05-28.
     case sectionedActionList(SectionedActionListComponent)
+    /// Horizontal container — renders its child components left-to-right.
+    /// The first child (e.g. a camera/QR preview) flexes; later children
+    /// (e.g. an action list) take their share. Each child is width-bounded
+    /// so a child that fills its width internally does not overflow.
+    /// Distinct from the (vertical) screen component stack.
+    case row(RowComponent)
     /// Unknown component from a newer core version — render as empty space.
     /// Prevents crash when core adds new component types that this shell
     /// version doesn't know about. See: design-as-code-plan Phase 2b.
@@ -387,6 +409,8 @@ public enum Component: Decodable {
             self = try .sectionedActionList(
                 container.decode(SectionedActionListComponent.self, forKey: .sectionedActionList)
             )
+        } else if container.contains(.row) {
+            self = try .row(container.decode(RowComponent.self, forKey: .row))
         } else {
             // Unknown struct variant — core is newer than this shell.
             // Degrade gracefully instead of crashing.
@@ -417,6 +441,7 @@ public enum Component: Decodable {
         case slider = "Slider"
         case indicator = "Indicator"
         case sectionedActionList = "SectionedActionList"
+        case row = "Row"
     }
 }
 
@@ -898,6 +923,23 @@ public struct ActionListComponent: Decodable {
     public let items: [ActionListItem]
 
     public init(id: String, items: [ActionListItem]) {
+        self.id = id
+        self.items = items
+    }
+}
+
+// MARK: - Row Component
+
+/// Horizontal container whose `items` are nested `Component`s rendered
+/// left-to-right. Each child is width-bounded by the renderer so a child
+/// that fills its width internally (e.g. an `ActionListComponent`) does
+/// not overflow or overlap a flexing sibling (e.g. a camera preview).
+/// Maps to: `vauchi-core::ui::component::Component::Row`
+public struct RowComponent: Decodable {
+    public let id: String
+    public let items: [Component]
+
+    public init(id: String, items: [Component]) {
         self.id = id
         self.items = items
     }

@@ -12,6 +12,7 @@ include:
     ref: main
     file:
       - '/ci-templates/reuse.yml'
+      - '/ci-templates/parser-parity.yml'
       - '/ci-templates/badges.yml'
       - '/ci-templates/github-mirror.yml'
 
@@ -113,3 +114,13 @@ github-mirror:
   extends: .github-mirror
   variables:
     GITHUB_MIRROR_REPO: "vauchi-mobile-swift"
+
+# Parser-parity gate: the hand-written CoreUIModels `Component` enum
+# (shared by iOS + macOS) must cover every variant in core's canonical
+# `Component` enum. Catches silent drift when core adds a variant.
+check:parser-parity:
+  extends: .parser-parity-job
+  stage: lint
+  variables:
+    FRONTEND_NAME: "swift"
+    PARSER_FILE: "Sources/CoreUIModels/Models.swift"

@@ -828,21 +828,6 @@ public protocol PlatformAppEngineProtocol: AnyObject, Sendable {
     func navigateBackJson() throws  -> String
 
     /**
-     * Navigate to a screen (as JSON) and return the new screen model as JSON.
-     *
-     * The screen JSON must match the `AppScreen` enum format, e.g.:
-     * - `"Exchange"` (simple variant)
-     * - `{"ContactDetail": {"contact_id": "abc"}}` (parameterized variant)
-     *
-     * **Deprecated (Tier-0 d, ADR-043 Amendment 4):** a forward-navigate
-     * surface that makes the caller construct a domain-shaped target.
-     * Forward navigation is moving to `UserAction::NavigateToTab { action_id }`
-     * (tab taps) and `handle_deep_link_uri` (deep links), both returning
-     * `NavigateTo`. Do not add new callers; retires once frontends migrate.
-     */
-    func navigateToJson(screenJson: String) throws  -> String
-
-    /**
      * Run one periodic sync tick.
      *
      * Frontends call this from their platform-scheduler handler
@@ -1340,28 +1325,6 @@ open func navigateBackJson()throws  -> String  {
     return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
     uniffi_vauchi_platform_fn_method_platformappengine_navigate_back_json(
             self.uniffiCloneHandle(),$0
-    )
-})
-}
-
-    /**
-     * Navigate to a screen (as JSON) and return the new screen model as JSON.
-     *
-     * The screen JSON must match the `AppScreen` enum format, e.g.:
-     * - `"Exchange"` (simple variant)
-     * - `{"ContactDetail": {"contact_id": "abc"}}` (parameterized variant)
-     *
-     * **Deprecated (Tier-0 d, ADR-043 Amendment 4):** a forward-navigate
-     * surface that makes the caller construct a domain-shaped target.
-     * Forward navigation is moving to `UserAction::NavigateToTab { action_id }`
-     * (tab taps) and `handle_deep_link_uri` (deep links), both returning
-     * `NavigateTo`. Do not add new callers; retires once frontends migrate.
-     */
-open func navigateToJson(screenJson: String)throws  -> String  {
-    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
-    uniffi_vauchi_platform_fn_method_platformappengine_navigate_to_json(
-            self.uniffiCloneHandle(),
-        FfiConverterString.lower(screenJson),$0
     )
 })
 }
@@ -16413,9 +16376,6 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vauchi_platform_checksum_method_platformappengine_navigate_back_json() != 22054) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_vauchi_platform_checksum_method_platformappengine_navigate_to_json() != 55435) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vauchi_platform_checksum_method_platformappengine_periodic_sync_tick() != 42221) {

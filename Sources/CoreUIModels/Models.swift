@@ -1640,6 +1640,8 @@ public enum CommandDTO: Decodable {
     case audioEmitChallenge(data: [UInt8])
     case audioListenForResponse(timeoutMs: UInt64)
     case audioStop
+    case accelerometerStart
+    case accelerometerStop
     case directSend(payload: [UInt8], isInitiator: Bool)
     case imagePickFromLibrary
     case imageCaptureFromCamera
@@ -1676,6 +1678,8 @@ public enum CommandDTO: Decodable {
         case "BleDisconnect": return .bleDisconnect
         case "NfcDeactivate": return .nfcDeactivate
         case "AudioStop": return .audioStop
+        case "AccelerometerStart": return .accelerometerStart
+        case "AccelerometerStop": return .accelerometerStop
         case "ImagePickFromLibrary": return .imagePickFromLibrary
         case "ImageCaptureFromCamera": return .imageCaptureFromCamera
         case "ImagePickFromFile": return .imagePickFromFile

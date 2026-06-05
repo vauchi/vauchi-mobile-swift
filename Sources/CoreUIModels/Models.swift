@@ -1643,6 +1643,7 @@ public enum CommandDTO: Decodable {
     case accelerometerStart
     case accelerometerStop
     case directSend(payload: [UInt8], isInitiator: Bool)
+    case directSendCard(ciphertext: [UInt8], isInitiator: Bool)
     case imagePickFromLibrary
     case imageCaptureFromCamera
     case imagePickFromFile
@@ -1729,6 +1730,9 @@ public enum CommandDTO: Decodable {
         } else if container.contains(.directSend) {
             let data = try container.decode(DirectSendData.self, forKey: .directSend)
             return .directSend(payload: data.payload, isInitiator: data.isInitiator)
+        } else if container.contains(.directSendCard) {
+            let data = try container.decode(DirectSendCardData.self, forKey: .directSendCard)
+            return .directSendCard(ciphertext: data.ciphertext, isInitiator: data.isInitiator)
         } else if container.contains(.filePickFromUser) {
             let data = try container.decode(FilePickFromUserData.self, forKey: .filePickFromUser)
             return .filePickFromUser(
@@ -1778,6 +1782,7 @@ public enum CommandDTO: Decodable {
         case audioEmitChallenge = "AudioEmitChallenge"
         case audioListenForResponse = "AudioListenForResponse"
         case directSend = "DirectSend"
+        case directSendCard = "DirectSendCard"
         case filePickFromUser = "FilePickFromUser"
         case showShareSheet = "ShowShareSheet"
         case switchCamera = "SwitchCamera"
@@ -1797,6 +1802,7 @@ public enum CommandDTO: Decodable {
     private struct AudioChallengeData: Decodable { let data: [UInt8] }
     private struct AudioListenData: Decodable { let timeoutMs: UInt64 }
     private struct DirectSendData: Decodable { let payload: [UInt8]; let isInitiator: Bool }
+    private struct DirectSendCardData: Decodable { let ciphertext: [UInt8]; let isInitiator: Bool }
     private struct ShowShareSheetData: Decodable { let url: String }
     private struct SwitchCameraData: Decodable { let useFront: Bool }
     private struct SetScreenBrightnessData: Decodable { let level: Float? }

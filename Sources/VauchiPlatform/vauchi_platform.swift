@@ -11110,6 +11110,8 @@ public enum MobileCommand: Equatable, Hashable {
     )
     case directSend(payload: Data, isInitiator: Bool
     )
+    case directSendCard(ciphertext: Data, isInitiator: Bool
+    )
 
 
 
@@ -11188,6 +11190,9 @@ public struct FfiConverterTypeMobileCommand: FfiConverterRustBuffer {
         )
 
         case 22: return .directSend(payload: try FfiConverterData.read(from: &buf), isInitiator: try FfiConverterBool.read(from: &buf)
+        )
+
+        case 23: return .directSendCard(ciphertext: try FfiConverterData.read(from: &buf), isInitiator: try FfiConverterBool.read(from: &buf)
         )
 
         default: throw UniffiInternalError.unexpectedEnumCase
@@ -11308,6 +11313,12 @@ public struct FfiConverterTypeMobileCommand: FfiConverterRustBuffer {
         case let .directSend(payload,isInitiator):
             writeInt(&buf, Int32(22))
             FfiConverterData.write(payload, into: &buf)
+            FfiConverterBool.write(isInitiator, into: &buf)
+
+
+        case let .directSendCard(ciphertext,isInitiator):
+            writeInt(&buf, Int32(23))
+            FfiConverterData.write(ciphertext, into: &buf)
             FfiConverterBool.write(isInitiator, into: &buf)
 
         }
@@ -12461,6 +12472,8 @@ public enum MobileEvent: Equatable, Hashable {
     )
     case directPayloadReceived(data: Data
     )
+    case directCardReceived(ciphertext: Data
+    )
     case imageReceived(data: Data
     )
     case imagePickCancelled
@@ -12542,25 +12555,28 @@ public struct FfiConverterTypeMobileEvent: FfiConverterRustBuffer {
         case 16: return .directPayloadReceived(data: try FfiConverterData.read(from: &buf)
         )
 
-        case 17: return .imageReceived(data: try FfiConverterData.read(from: &buf)
+        case 17: return .directCardReceived(ciphertext: try FfiConverterData.read(from: &buf)
         )
 
-        case 18: return .imagePickCancelled
-
-        case 19: return .filePickedFromUser(bytes: try FfiConverterData.read(from: &buf), filename: try FfiConverterString.read(from: &buf)
+        case 18: return .imageReceived(data: try FfiConverterData.read(from: &buf)
         )
 
-        case 20: return .filePickCancelledByUser
+        case 19: return .imagePickCancelled
 
-        case 21: return .biometricUnlockSucceeded
-
-        case 22: return .hardwareError(transport: try FfiConverterString.read(from: &buf), error: try FfiConverterString.read(from: &buf)
+        case 20: return .filePickedFromUser(bytes: try FfiConverterData.read(from: &buf), filename: try FfiConverterString.read(from: &buf)
         )
 
-        case 23: return .hardwareUnavailable(transport: try FfiConverterString.read(from: &buf)
+        case 21: return .filePickCancelledByUser
+
+        case 22: return .biometricUnlockSucceeded
+
+        case 23: return .hardwareError(transport: try FfiConverterString.read(from: &buf), error: try FfiConverterString.read(from: &buf)
         )
 
-        case 24: return .permissionDenied(transport: try FfiConverterString.read(from: &buf)
+        case 24: return .hardwareUnavailable(transport: try FfiConverterString.read(from: &buf)
+        )
+
+        case 25: return .permissionDenied(transport: try FfiConverterString.read(from: &buf)
         )
 
         default: throw UniffiInternalError.unexpectedEnumCase
@@ -12661,42 +12677,47 @@ public struct FfiConverterTypeMobileEvent: FfiConverterRustBuffer {
             FfiConverterData.write(data, into: &buf)
 
 
-        case let .imageReceived(data):
+        case let .directCardReceived(ciphertext):
             writeInt(&buf, Int32(17))
+            FfiConverterData.write(ciphertext, into: &buf)
+
+
+        case let .imageReceived(data):
+            writeInt(&buf, Int32(18))
             FfiConverterData.write(data, into: &buf)
 
 
         case .imagePickCancelled:
-            writeInt(&buf, Int32(18))
+            writeInt(&buf, Int32(19))
 
 
         case let .filePickedFromUser(bytes,filename):
-            writeInt(&buf, Int32(19))
+            writeInt(&buf, Int32(20))
             FfiConverterData.write(bytes, into: &buf)
             FfiConverterString.write(filename, into: &buf)
 
 
         case .filePickCancelledByUser:
-            writeInt(&buf, Int32(20))
-
-
-        case .biometricUnlockSucceeded:
             writeInt(&buf, Int32(21))
 
 
-        case let .hardwareError(transport,error):
+        case .biometricUnlockSucceeded:
             writeInt(&buf, Int32(22))
+
+
+        case let .hardwareError(transport,error):
+            writeInt(&buf, Int32(23))
             FfiConverterString.write(transport, into: &buf)
             FfiConverterString.write(error, into: &buf)
 
 
         case let .hardwareUnavailable(transport):
-            writeInt(&buf, Int32(23))
+            writeInt(&buf, Int32(24))
             FfiConverterString.write(transport, into: &buf)
 
 
         case let .permissionDenied(transport):
-            writeInt(&buf, Int32(24))
+            writeInt(&buf, Int32(25))
             FfiConverterString.write(transport, into: &buf)
 
         }

@@ -793,7 +793,7 @@ public protocol PlatformAppEngineProtocol: AnyObject, Sendable {
      * }
      * ```
      */
-    func handleHardwareEvent(event: MobileEvent) throws  -> String?
+    func handleHardwareEvent(event: MobileEvent) throws  -> String
 
     /**
      * Returns whether the user has created an identity.
@@ -1265,8 +1265,8 @@ open func handleDeepLinkUri(uri: String)throws  -> String  {
      * }
      * ```
      */
-open func handleHardwareEvent(event: MobileEvent)throws  -> String?  {
-    return try  FfiConverterOptionString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+open func handleHardwareEvent(event: MobileEvent)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
     uniffi_vauchi_platform_fn_method_platformappengine_handle_hardware_event(
             self.uniffiCloneHandle(),
         FfiConverterTypeMobileEvent_lower(event),$0
@@ -16384,7 +16384,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_vauchi_platform_checksum_method_platformappengine_handle_deep_link_uri() != 20452) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_platform_checksum_method_platformappengine_handle_hardware_event() != 49909) {
+    if (uniffi_vauchi_platform_checksum_method_platformappengine_handle_hardware_event() != 5571) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vauchi_platform_checksum_method_platformappengine_has_identity() != 4716) {

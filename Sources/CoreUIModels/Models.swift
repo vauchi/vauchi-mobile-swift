@@ -1637,8 +1637,8 @@ public enum CommandDTO: Decodable {
     case nfcActivate(payload: [UInt8])
     case nfcDeactivate
     case nfcSendApdu(data: [UInt8])
-    case audioEmitChallenge(data: [UInt8])
-    case audioListenForResponse(timeoutMs: UInt64)
+    case audioEmitChallenge(samples: [Float], sampleRate: UInt32)
+    case audioListenForResponse(timeoutMs: UInt64, sampleRate: UInt32)
     case audioStop
     case accelerometerStart
     case accelerometerStop
@@ -1723,10 +1723,10 @@ public enum CommandDTO: Decodable {
             return .nfcSendApdu(data: data.data)
         } else if container.contains(.audioEmitChallenge) {
             let data = try container.decode(AudioChallengeData.self, forKey: .audioEmitChallenge)
-            return .audioEmitChallenge(data: data.data)
+            return .audioEmitChallenge(samples: data.samples, sampleRate: data.sampleRate)
         } else if container.contains(.audioListenForResponse) {
             let data = try container.decode(AudioListenData.self, forKey: .audioListenForResponse)
-            return .audioListenForResponse(timeoutMs: data.timeoutMs)
+            return .audioListenForResponse(timeoutMs: data.timeoutMs, sampleRate: data.sampleRate)
         } else if container.contains(.directSend) {
             let data = try container.decode(DirectSendData.self, forKey: .directSend)
             return .directSend(payload: data.payload, isInitiator: data.isInitiator)
@@ -1799,8 +1799,14 @@ public enum CommandDTO: Decodable {
     private struct BleReadData: Decodable { let uuid: String }
     private struct NfcActivateData: Decodable { let payload: [UInt8] }
     private struct NfcSendApduData: Decodable { let data: [UInt8] }
-    private struct AudioChallengeData: Decodable { let data: [UInt8] }
-    private struct AudioListenData: Decodable { let timeoutMs: UInt64 }
+    // Core emits `AudioEmitChallenge { samples: Vec<f32>, sample_rate: u32 }`
+    // and `AudioListenForResponse { timeout_ms: u64, sample_rate: u32 }`
+    // (`core/vauchi-core/src/platform.rs`). `coreJSONDecoder`'s
+    // `.convertFromSnakeCase` maps `sample_rate`/`timeout_ms` to the camelCase
+    // fields. An earlier `data: [UInt8]` shape never matched the wire and
+    // silently decoded to `.unknown` (same bug Android hit — NPE there).
+    private struct AudioChallengeData: Decodable { let samples: [Float]; let sampleRate: UInt32 }
+    private struct AudioListenData: Decodable { let timeoutMs: UInt64; let sampleRate: UInt32 }
     private struct DirectSendData: Decodable { let payload: [UInt8]; let isInitiator: Bool }
     private struct DirectSendCardData: Decodable { let ciphertext: [UInt8]; let isInitiator: Bool }
     private struct ShowShareSheetData: Decodable { let url: String }

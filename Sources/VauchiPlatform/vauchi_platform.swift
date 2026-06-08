@@ -12487,6 +12487,15 @@ public enum MobileEvent: Equatable, Hashable {
     )
     case permissionDenied(transport: String
     )
+    /**
+     * Device location fix in reply to `Command::LocationRequest` (ADR-051
+     * capture-at-exchange). Coordinates are decimal degrees; `accuracy_meters`
+     * is the provider's reported horizontal accuracy, if any. A declined
+     * permission / absent provider is reported via the generic
+     * `PermissionDenied { transport: "location" }` / `HardwareUnavailable`.
+     */
+    case locationResult(latitude: Double, longitude: Double, accuracyMeters: Float?
+    )
 
 
 
@@ -12577,6 +12586,9 @@ public struct FfiConverterTypeMobileEvent: FfiConverterRustBuffer {
         )
 
         case 25: return .permissionDenied(transport: try FfiConverterString.read(from: &buf)
+        )
+
+        case 26: return .locationResult(latitude: try FfiConverterDouble.read(from: &buf), longitude: try FfiConverterDouble.read(from: &buf), accuracyMeters: try FfiConverterOptionFloat.read(from: &buf)
         )
 
         default: throw UniffiInternalError.unexpectedEnumCase
@@ -12719,6 +12731,13 @@ public struct FfiConverterTypeMobileEvent: FfiConverterRustBuffer {
         case let .permissionDenied(transport):
             writeInt(&buf, Int32(25))
             FfiConverterString.write(transport, into: &buf)
+
+
+        case let .locationResult(latitude,longitude,accuracyMeters):
+            writeInt(&buf, Int32(26))
+            FfiConverterDouble.write(latitude, into: &buf)
+            FfiConverterDouble.write(longitude, into: &buf)
+            FfiConverterOptionFloat.write(accuracyMeters, into: &buf)
 
         }
     }
@@ -14671,6 +14690,30 @@ fileprivate struct FfiConverterOptionUInt64: FfiConverterRustBuffer {
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterUInt64.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionFloat: FfiConverterRustBuffer {
+    typealias SwiftType = Float?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterFloat.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterFloat.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
     }

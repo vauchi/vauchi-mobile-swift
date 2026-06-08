@@ -1659,6 +1659,8 @@ public enum CommandDTO: Decodable {
     /// frontend's `CommandHandler` is responsible for applying the
     /// requested lock and clearing it on `nil`.
     case setOrientationLock(orientation: OrientationDTO?)
+    /// Request a one-shot device location fix (ADR-051 capture-at-exchange).
+    case locationRequest(timeoutMs: UInt32)
     case unknown
 
     public init(from decoder: Decoder) throws {
@@ -1763,6 +1765,9 @@ public enum CommandDTO: Decodable {
                 forKey: .setOrientationLock
             )
             return .setOrientationLock(orientation: data.orientation)
+        } else if container.contains(.locationRequest) {
+            let data = try container.decode(LocationRequestData.self, forKey: .locationRequest)
+            return .locationRequest(timeoutMs: data.timeoutMs)
         } else {
             return .unknown
         }
@@ -1789,6 +1794,7 @@ public enum CommandDTO: Decodable {
         case setScreenBrightness = "SetScreenBrightness"
         case setIdleTimerDisabled = "SetIdleTimerDisabled"
         case setOrientationLock = "SetOrientationLock"
+        case locationRequest = "LocationRequest"
     }
 
     private struct QrDisplayData: Decodable { let data: String }
@@ -1813,6 +1819,7 @@ public enum CommandDTO: Decodable {
     private struct SwitchCameraData: Decodable { let useFront: Bool }
     private struct SetScreenBrightnessData: Decodable { let level: Float? }
     private struct SetIdleTimerDisabledData: Decodable { let disabled: Bool }
+    private struct LocationRequestData: Decodable { let timeoutMs: UInt32 }
     private struct SetOrientationLockData: Decodable { let orientation: OrientationDTO? }
 }
 

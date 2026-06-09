@@ -636,6 +636,36 @@ fileprivate struct FfiConverterData: FfiConverterRustBuffer {
 
 
 
+/**
+ * Unified navigation and screen engine for mobile/desktop platforms.
+ *
+ * Wraps `AppEngine` with JSON-based FFI transport.
+ * Manages screen navigation, engine lifecycle, and form dialog persistence.
+ *
+ * # Usage from Swift/Kotlin
+ *
+ * ```swift
+ * let engine = try PlatformAppEngine(
+ * dataDir: dataDir,
+ * relayUrl: "https://relay.vauchi.app",
+ * storageKeyBytes: keyBytes
+ * )
+ *
+ * // Get current screen
+ * let screenJson = try engine.currentScreenJson()
+ *
+ * // Handle user action
+ * let resultJson = try engine.handleActionJson(
+ * actionJson: "{\"ActionPressed\": {\"action_id\": \"get_started\"}}"
+ * )
+ *
+ * // Navigate to a screen
+ * let screenJson = try engine.navigateToJson(screenJson: "\"Exchange\"")
+ *
+ * // After VauchiPlatform mutations, invalidate
+ * try engine.invalidateAll()
+ * ```
+ */
 public protocol PlatformAppEngineProtocol: AnyObject, Sendable {
 
     /**
@@ -656,13 +686,6 @@ public protocol PlatformAppEngineProtocol: AnyObject, Sendable {
      * ```
      */
     func advanceQrFrameJson() throws  -> String?
-
-    /**
-     * Returns the available navigation screens as a JSON array.
-     *
-     * These are the screens that should appear in the navigation bar/tabs.
-     */
-    func availableScreensJson() throws  -> String
 
     /**
      * Returns the cold-start `ScreenModel` JSON for whatever the
@@ -694,13 +717,6 @@ public protocol PlatformAppEngineProtocol: AnyObject, Sendable {
      * Tier-0 of the CoreScreenIdMap rework.
      */
     func canGoBack() throws  -> Bool
-
-    /**
-     * Returns the current screen's screen_id (lightweight query).
-     *
-     * Useful for tab bar highlighting without deserializing the full ScreenModel.
-     */
-    func currentScreenId() throws  -> String
 
     /**
      * Returns the current screen as a JSON string.
@@ -816,6 +832,20 @@ public protocol PlatformAppEngineProtocol: AnyObject, Sendable {
      * The screen JSON must match the `AppScreen` enum format.
      */
     func invalidateScreenJson(screenJson: String) throws
+
+    /**
+     * Returns the navigation chrome for `layout` — the mobile bottom-tab
+     * bar (`Mobile`) or the desktop sidebar (`Desktop`) — with labels
+     * resolved from `locale`.
+     *
+     * Merges the former `tab_info` / `sidebar_items` wrappers: the
+     * frontend passes its layout (the value it already gives
+     * `current_tab_id`) instead of picking a form-factor-named method,
+     * so the form-factor decision stays in core (ADR-023 Amendment 1).
+     * The engine peers `tab_info()` / `sidebar_items()` remain — cabi
+     * serves the C-ABI desktop frontends through them.
+     */
+    func navItems(layout: MobileTabLayout, locale: MobileLocale) throws  -> [MobileTabInfo]
 
     /**
      * Navigate back in the history stack.
@@ -970,6 +1000,36 @@ public protocol PlatformAppEngineProtocol: AnyObject, Sendable {
     func tabInfo(locale: MobileLocale) throws  -> [MobileTabInfo]
 
 }
+/**
+ * Unified navigation and screen engine for mobile/desktop platforms.
+ *
+ * Wraps `AppEngine` with JSON-based FFI transport.
+ * Manages screen navigation, engine lifecycle, and form dialog persistence.
+ *
+ * # Usage from Swift/Kotlin
+ *
+ * ```swift
+ * let engine = try PlatformAppEngine(
+ * dataDir: dataDir,
+ * relayUrl: "https://relay.vauchi.app",
+ * storageKeyBytes: keyBytes
+ * )
+ *
+ * // Get current screen
+ * let screenJson = try engine.currentScreenJson()
+ *
+ * // Handle user action
+ * let resultJson = try engine.handleActionJson(
+ * actionJson: "{\"ActionPressed\": {\"action_id\": \"get_started\"}}"
+ * )
+ *
+ * // Navigate to a screen
+ * let screenJson = try engine.navigateToJson(screenJson: "\"Exchange\"")
+ *
+ * // After VauchiPlatform mutations, invalidate
+ * try engine.invalidateAll()
+ * ```
+ */
 open class PlatformAppEngine: PlatformAppEngineProtocol, @unchecked Sendable {
     fileprivate let handle: UInt64
 
@@ -1066,19 +1126,6 @@ open func advanceQrFrameJson()throws  -> String?  {
 }
 
     /**
-     * Returns the available navigation screens as a JSON array.
-     *
-     * These are the screens that should appear in the navigation bar/tabs.
-     */
-open func availableScreensJson()throws  -> String  {
-    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
-    uniffi_vauchi_platform_fn_method_platformappengine_available_screens_json(
-            self.uniffiCloneHandle(),$0
-    )
-})
-}
-
-    /**
      * Returns the cold-start `ScreenModel` JSON for whatever the
      * app's current persistent state is.
      *
@@ -1116,19 +1163,6 @@ open func boot()throws  -> String  {
 open func canGoBack()throws  -> Bool  {
     return try  FfiConverterBool.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
     uniffi_vauchi_platform_fn_method_platformappengine_can_go_back(
-            self.uniffiCloneHandle(),$0
-    )
-})
-}
-
-    /**
-     * Returns the current screen's screen_id (lightweight query).
-     *
-     * Useful for tab bar highlighting without deserializing the full ScreenModel.
-     */
-open func currentScreenId()throws  -> String  {
-    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
-    uniffi_vauchi_platform_fn_method_platformappengine_current_screen_id(
             self.uniffiCloneHandle(),$0
     )
 })
@@ -1311,6 +1345,28 @@ open func invalidateScreenJson(screenJson: String)throws   {try rustCallWithErro
         FfiConverterString.lower(screenJson),$0
     )
 }
+}
+
+    /**
+     * Returns the navigation chrome for `layout` — the mobile bottom-tab
+     * bar (`Mobile`) or the desktop sidebar (`Desktop`) — with labels
+     * resolved from `locale`.
+     *
+     * Merges the former `tab_info` / `sidebar_items` wrappers: the
+     * frontend passes its layout (the value it already gives
+     * `current_tab_id`) instead of picking a form-factor-named method,
+     * so the form-factor decision stays in core (ADR-023 Amendment 1).
+     * The engine peers `tab_info()` / `sidebar_items()` remain — cabi
+     * serves the C-ABI desktop frontends through them.
+     */
+open func navItems(layout: MobileTabLayout, locale: MobileLocale)throws  -> [MobileTabInfo]  {
+    return try  FfiConverterSequenceTypeMobileTabInfo.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_vauchi_platform_fn_method_platformappengine_nav_items(
+            self.uniffiCloneHandle(),
+        FfiConverterTypeMobileTabLayout_lower(layout),
+        FfiConverterTypeMobileLocale_lower(locale),$0
+    )
+})
 }
 
     /**
@@ -8433,27 +8489,6 @@ public enum DomainCommand: Equatable, Hashable {
     case listContactsPaginated(offset: UInt32, limit: UInt32
     )
     /**
-     * Whether delivery-receipt ACKs (`ReceivedByRecipient`) are
-     * enabled. Persisted to a JSON sidecar file next to the storage
-     * directory.
-     */
-    case isDeliveryReceiptsEnabled
-    /**
-     * Set the delivery-receipts flag. Persisted across restarts.
-     */
-    case setDeliveryReceiptsEnabled(enabled: Bool
-    )
-    /**
-     * Whether presence suppression is enabled (the relay never
-     * learns whether the user is online). Persisted.
-     */
-    case isSuppressPresenceEnabled
-    /**
-     * Set the suppress-presence flag. Persisted across restarts.
-     */
-    case setSuppressPresenceEnabled(enabled: Bool
-    )
-    /**
      * Pre-computed contact-detail view (badges, banners, actions,
      * added-time-display) — frontends iterate the returned arrays
      * rather than branching on raw `MobileContact` flags. Closes
@@ -8939,41 +8974,31 @@ public struct FfiConverterTypeDomainCommand: FfiConverterRustBuffer {
         case 156: return .listContactsPaginated(offset: try FfiConverterUInt32.read(from: &buf), limit: try FfiConverterUInt32.read(from: &buf)
         )
 
-        case 157: return .isDeliveryReceiptsEnabled
-
-        case 158: return .setDeliveryReceiptsEnabled(enabled: try FfiConverterBool.read(from: &buf)
+        case 157: return .contactDetailViewState(contactId: try FfiConverterString.read(from: &buf)
         )
 
-        case 159: return .isSuppressPresenceEnabled
+        case 158: return .listSocialNetworks
 
-        case 160: return .setSuppressPresenceEnabled(enabled: try FfiConverterBool.read(from: &buf)
+        case 159: return .encodeMultipartQr(data: try FfiConverterData.read(from: &buf)
         )
 
-        case 161: return .contactDetailViewState(contactId: try FfiConverterString.read(from: &buf)
+        case 160: return .setPinnedCertificate(certPem: try FfiConverterString.read(from: &buf)
         )
 
-        case 162: return .listSocialNetworks
+        case 161: return .isCertificatePinningEnabled
 
-        case 163: return .encodeMultipartQr(data: try FfiConverterData.read(from: &buf)
+        case 162: return .isPrimaryDevice
+
+        case 163: return .getDeviceCount
+
+        case 164: return .getDevices
+
+        case 165: return .unlinkDevice(deviceIndex: try FfiConverterUInt32.read(from: &buf)
         )
 
-        case 164: return .setPinnedCertificate(certPem: try FfiConverterString.read(from: &buf)
-        )
+        case 166: return .generateDeviceLinkQr
 
-        case 165: return .isCertificatePinningEnabled
-
-        case 166: return .isPrimaryDevice
-
-        case 167: return .getDeviceCount
-
-        case 168: return .getDevices
-
-        case 169: return .unlinkDevice(deviceIndex: try FfiConverterUInt32.read(from: &buf)
-        )
-
-        case 170: return .generateDeviceLinkQr
-
-        case 171: return .parseDeviceLinkQr(qrData: try FfiConverterString.read(from: &buf)
+        case 167: return .parseDeviceLinkQr(qrData: try FfiConverterString.read(from: &buf)
         )
 
         default: throw UniffiInternalError.unexpectedEnumCase
@@ -9736,70 +9761,52 @@ public struct FfiConverterTypeDomainCommand: FfiConverterRustBuffer {
             FfiConverterUInt32.write(limit, into: &buf)
 
 
-        case .isDeliveryReceiptsEnabled:
-            writeInt(&buf, Int32(157))
-
-
-        case let .setDeliveryReceiptsEnabled(enabled):
-            writeInt(&buf, Int32(158))
-            FfiConverterBool.write(enabled, into: &buf)
-
-
-        case .isSuppressPresenceEnabled:
-            writeInt(&buf, Int32(159))
-
-
-        case let .setSuppressPresenceEnabled(enabled):
-            writeInt(&buf, Int32(160))
-            FfiConverterBool.write(enabled, into: &buf)
-
-
         case let .contactDetailViewState(contactId):
-            writeInt(&buf, Int32(161))
+            writeInt(&buf, Int32(157))
             FfiConverterString.write(contactId, into: &buf)
 
 
         case .listSocialNetworks:
-            writeInt(&buf, Int32(162))
+            writeInt(&buf, Int32(158))
 
 
         case let .encodeMultipartQr(data):
-            writeInt(&buf, Int32(163))
+            writeInt(&buf, Int32(159))
             FfiConverterData.write(data, into: &buf)
 
 
         case let .setPinnedCertificate(certPem):
-            writeInt(&buf, Int32(164))
+            writeInt(&buf, Int32(160))
             FfiConverterString.write(certPem, into: &buf)
 
 
         case .isCertificatePinningEnabled:
-            writeInt(&buf, Int32(165))
+            writeInt(&buf, Int32(161))
 
 
         case .isPrimaryDevice:
-            writeInt(&buf, Int32(166))
+            writeInt(&buf, Int32(162))
 
 
         case .getDeviceCount:
-            writeInt(&buf, Int32(167))
+            writeInt(&buf, Int32(163))
 
 
         case .getDevices:
-            writeInt(&buf, Int32(168))
+            writeInt(&buf, Int32(164))
 
 
         case let .unlinkDevice(deviceIndex):
-            writeInt(&buf, Int32(169))
+            writeInt(&buf, Int32(165))
             FfiConverterUInt32.write(deviceIndex, into: &buf)
 
 
         case .generateDeviceLinkQr:
-            writeInt(&buf, Int32(170))
+            writeInt(&buf, Int32(166))
 
 
         case let .parseDeviceLinkQr(qrData):
-            writeInt(&buf, Int32(171))
+            writeInt(&buf, Int32(167))
             FfiConverterString.write(qrData, into: &buf)
 
         }
@@ -16397,16 +16404,10 @@ private let initializationResult: InitializationResult = {
     if (uniffi_vauchi_platform_checksum_method_platformappengine_advance_qr_frame_json() != 62331) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_platform_checksum_method_platformappengine_available_screens_json() != 33045) {
-        return InitializationResult.apiChecksumMismatch
-    }
     if (uniffi_vauchi_platform_checksum_method_platformappengine_boot() != 53683) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vauchi_platform_checksum_method_platformappengine_can_go_back() != 63557) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_vauchi_platform_checksum_method_platformappengine_current_screen_id() != 9402) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vauchi_platform_checksum_method_platformappengine_current_screen_json() != 30621) {
@@ -16437,6 +16438,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vauchi_platform_checksum_method_platformappengine_invalidate_screen_json() != 16129) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vauchi_platform_checksum_method_platformappengine_nav_items() != 1588) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vauchi_platform_checksum_method_platformappengine_navigate_back_json() != 22054) {

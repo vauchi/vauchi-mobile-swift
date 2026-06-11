@@ -243,10 +243,14 @@ public struct ScreenModel: Decodable {
 /// Whether the renderer scrolls the screen content or renders a fixed,
 /// non-scrolling layout sized to the viewport. Absent on the wire when
 /// `Scroll` (the default), so the field defaults to `.scroll`.
+/// `pinned`: chrome stays pinned and the screen's list component owns
+/// scrolling (lazy); unlike `fixed`, overlays may still reflow
+/// (design `2026-06-11-contacts-list-windowing`).
 /// Maps to: `vauchi-core::ui::screen::ScreenLayout`
 public enum ScreenLayout: String, Decodable {
     case scroll = "Scroll"
     case fixed = "Fixed"
+    case pinned = "Pinned"
 }
 
 /// Step progress indicator.

@@ -739,11 +739,48 @@ public struct ListComponent: Decodable {
     public let id: String
     public let items: [Item]
     public let searchable: Bool
+    /// Windowed emission (Track B of
+    /// `2026-06-11-contacts-list-eager-render-anr`): when nonzero,
+    /// `items` is the `[offset, offset + window)` slice of a
+    /// `totalCount`-sized filtered set and the renderer should dispatch
+    /// `UserAction.listWindowRequested` as scrolling approaches the
+    /// window edge. Zero = unwindowed (`items` is the complete set).
+    public let totalCount: Int
+    public let offset: Int
+    public let window: Int
 
-    public init(id: String, items: [Item], searchable: Bool) {
+    public init(
+        id: String,
+        items: [Item],
+        searchable: Bool,
+        totalCount: Int = 0,
+        offset: Int = 0,
+        window: Int = 0
+    ) {
         self.id = id
         self.items = items
         self.searchable = searchable
+        self.totalCount = totalCount
+        self.offset = offset
+        self.window = window
+    }
+
+    /// Keys stay camelCase so `convertFromSnakeCase` can resolve
+    /// `total_count` → `totalCount` before lookup (see the avatar_data
+    /// note on PreviewComponent — snake_case raw values silently fail).
+    private enum CodingKeys: String, CodingKey {
+        case id, items, searchable, totalCount, offset, window
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        items = try container.decode([Item].self, forKey: .items)
+        searchable = try container.decode(Bool.self, forKey: .searchable)
+        // Core skip-serializes zeros — absent keys are the unwindowed wire shape.
+        totalCount = try container.decodeIfPresent(Int.self, forKey: .totalCount) ?? 0
+        offset = try container.decodeIfPresent(Int.self, forKey: .offset) ?? 0
+        window = try container.decodeIfPresent(Int.self, forKey: .window) ?? 0
     }
 }
 
@@ -1310,6 +1347,10 @@ public enum UserAction: Encodable {
     case searchChanged(componentId: String, query: String)
     case listItemSelected(componentId: String, itemId: String)
     case listItemAction(componentId: String, itemId: String, actionId: String)
+    /// The lazy list is approaching the edge of a windowed
+    /// `Component::List` emission — ask core to re-slice from `offset`
+    /// (Track B of `2026-06-11-contacts-list-eager-render-anr`).
+    case listWindowRequested(componentId: String, offset: Int)
     case settingsToggled(componentId: String, itemId: String)
     case undoPressed(actionId: String)
     case sliderChanged(componentId: String, valueMilli: Int32)
@@ -1362,6 +1403,11 @@ public enum UserAction: Encodable {
             try nested.encode(itemId, forKey: .itemId)
             try nested.encode(actionId, forKey: .actionId)
 
+        case let .listWindowRequested(componentId, offset):
+            var nested = container.nestedContainer(keyedBy: ListWindowRequestedKeys.self, forKey: .listWindowRequested)
+            try nested.encode(componentId, forKey: .componentId)
+            try nested.encode(offset, forKey: .offset)
+
         case let .settingsToggled(componentId, itemId):
             var nested = container.nestedContainer(keyedBy: SettingsToggledKeys.self, forKey: .settingsToggled)
             try nested.encode(componentId, forKey: .componentId)
@@ -1391,6 +1437,7 @@ public enum UserAction: Encodable {
         case searchChanged = "SearchChanged"
         case listItemSelected = "ListItemSelected"
         case listItemAction = "ListItemAction"
+        case listWindowRequested = "ListWindowRequested"
         case settingsToggled = "SettingsToggled"
         case undoPressed = "UndoPressed"
         case sliderChanged = "SliderChanged"
@@ -1405,6 +1452,11 @@ public enum UserAction: Encodable {
     private enum ItemToggledKeys: String, CodingKey {
         case componentId = "component_id"
         case itemId = "item_id"
+    }
+
+    private enum ListWindowRequestedKeys: String, CodingKey {
+        case componentId = "component_id"
+        case offset
     }
 
     private enum ActionPressedKeys: String, CodingKey {

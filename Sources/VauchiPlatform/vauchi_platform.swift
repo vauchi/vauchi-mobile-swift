@@ -6861,6 +6861,74 @@ public struct MobileThemeColors: Equatable, Hashable {
      * Border color (hex).
      */
     public var border: String
+    /**
+     * Card / list-item surface (hex).
+     */
+    public var surface: String?
+    /**
+     * Text-input / search-field fill (hex).
+     */
+    public var surfaceInput: String?
+    /**
+     * Divider / disabled surface (hex).
+     */
+    public var surfaceMuted: String?
+    /**
+     * Popover / menu / QR elevated surface (hex).
+     */
+    public var surfaceElevated: String?
+    /**
+     * Tab bar / bottom action bar background (hex).
+     */
+    public var bottombarBg: String?
+    /**
+     * Form-field label text (hex).
+     */
+    public var textLabel: String?
+    /**
+     * Placeholder / timestamp / hint text (hex).
+     */
+    public var textMuted: String?
+    /**
+     * Brighter accent for avatars / inline links (hex).
+     */
+    public var accentBright: String?
+    /**
+     * Accent applied to icons (hex).
+     */
+    public var iconAccent: String?
+    /**
+     * Verified / synced / device-trust status (hex).
+     */
+    public var teal: String?
+    /**
+     * Chip / banner / info-card tint (hex).
+     */
+    public var tintAccent: String?
+    /**
+     * Selected / hover row tint (hex).
+     */
+    public var tintSelected: String?
+    /**
+     * Teal-status tint (hex).
+     */
+    public var tintTeal: String?
+    /**
+     * Warning-status tint (hex).
+     */
+    public var tintOrange: String?
+    /**
+     * Destructive-confirm tint (hex).
+     */
+    public var tintDanger: String?
+    /**
+     * Success-status tint (hex).
+     */
+    public var tintGreen: String?
+    /**
+     * Modal / sheet backdrop (hex, may carry alpha #rrggbbaa).
+     */
+    public var scrim: String?
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
@@ -6897,7 +6965,58 @@ public struct MobileThemeColors: Equatable, Hashable {
          */warning: String,
         /**
          * Border color (hex).
-         */border: String) {
+         */border: String,
+        /**
+         * Card / list-item surface (hex).
+         */surface: String?,
+        /**
+         * Text-input / search-field fill (hex).
+         */surfaceInput: String?,
+        /**
+         * Divider / disabled surface (hex).
+         */surfaceMuted: String?,
+        /**
+         * Popover / menu / QR elevated surface (hex).
+         */surfaceElevated: String?,
+        /**
+         * Tab bar / bottom action bar background (hex).
+         */bottombarBg: String?,
+        /**
+         * Form-field label text (hex).
+         */textLabel: String?,
+        /**
+         * Placeholder / timestamp / hint text (hex).
+         */textMuted: String?,
+        /**
+         * Brighter accent for avatars / inline links (hex).
+         */accentBright: String?,
+        /**
+         * Accent applied to icons (hex).
+         */iconAccent: String?,
+        /**
+         * Verified / synced / device-trust status (hex).
+         */teal: String?,
+        /**
+         * Chip / banner / info-card tint (hex).
+         */tintAccent: String?,
+        /**
+         * Selected / hover row tint (hex).
+         */tintSelected: String?,
+        /**
+         * Teal-status tint (hex).
+         */tintTeal: String?,
+        /**
+         * Warning-status tint (hex).
+         */tintOrange: String?,
+        /**
+         * Destructive-confirm tint (hex).
+         */tintDanger: String?,
+        /**
+         * Success-status tint (hex).
+         */tintGreen: String?,
+        /**
+         * Modal / sheet backdrop (hex, may carry alpha #rrggbbaa).
+         */scrim: String?) {
         self.bgPrimary = bgPrimary
         self.bgSecondary = bgSecondary
         self.bgTertiary = bgTertiary
@@ -6909,6 +7028,23 @@ public struct MobileThemeColors: Equatable, Hashable {
         self.error = error
         self.warning = warning
         self.border = border
+        self.surface = surface
+        self.surfaceInput = surfaceInput
+        self.surfaceMuted = surfaceMuted
+        self.surfaceElevated = surfaceElevated
+        self.bottombarBg = bottombarBg
+        self.textLabel = textLabel
+        self.textMuted = textMuted
+        self.accentBright = accentBright
+        self.iconAccent = iconAccent
+        self.teal = teal
+        self.tintAccent = tintAccent
+        self.tintSelected = tintSelected
+        self.tintTeal = tintTeal
+        self.tintOrange = tintOrange
+        self.tintDanger = tintDanger
+        self.tintGreen = tintGreen
+        self.scrim = scrim
     }
 
 
@@ -6937,7 +7073,24 @@ public struct FfiConverterTypeMobileThemeColors: FfiConverterRustBuffer {
                 success: FfiConverterString.read(from: &buf),
                 error: FfiConverterString.read(from: &buf),
                 warning: FfiConverterString.read(from: &buf),
-                border: FfiConverterString.read(from: &buf)
+                border: FfiConverterString.read(from: &buf),
+                surface: FfiConverterOptionString.read(from: &buf),
+                surfaceInput: FfiConverterOptionString.read(from: &buf),
+                surfaceMuted: FfiConverterOptionString.read(from: &buf),
+                surfaceElevated: FfiConverterOptionString.read(from: &buf),
+                bottombarBg: FfiConverterOptionString.read(from: &buf),
+                textLabel: FfiConverterOptionString.read(from: &buf),
+                textMuted: FfiConverterOptionString.read(from: &buf),
+                accentBright: FfiConverterOptionString.read(from: &buf),
+                iconAccent: FfiConverterOptionString.read(from: &buf),
+                teal: FfiConverterOptionString.read(from: &buf),
+                tintAccent: FfiConverterOptionString.read(from: &buf),
+                tintSelected: FfiConverterOptionString.read(from: &buf),
+                tintTeal: FfiConverterOptionString.read(from: &buf),
+                tintOrange: FfiConverterOptionString.read(from: &buf),
+                tintDanger: FfiConverterOptionString.read(from: &buf),
+                tintGreen: FfiConverterOptionString.read(from: &buf),
+                scrim: FfiConverterOptionString.read(from: &buf)
         )
     }
 
@@ -6953,6 +7106,23 @@ public struct FfiConverterTypeMobileThemeColors: FfiConverterRustBuffer {
         FfiConverterString.write(value.error, into: &buf)
         FfiConverterString.write(value.warning, into: &buf)
         FfiConverterString.write(value.border, into: &buf)
+        FfiConverterOptionString.write(value.surface, into: &buf)
+        FfiConverterOptionString.write(value.surfaceInput, into: &buf)
+        FfiConverterOptionString.write(value.surfaceMuted, into: &buf)
+        FfiConverterOptionString.write(value.surfaceElevated, into: &buf)
+        FfiConverterOptionString.write(value.bottombarBg, into: &buf)
+        FfiConverterOptionString.write(value.textLabel, into: &buf)
+        FfiConverterOptionString.write(value.textMuted, into: &buf)
+        FfiConverterOptionString.write(value.accentBright, into: &buf)
+        FfiConverterOptionString.write(value.iconAccent, into: &buf)
+        FfiConverterOptionString.write(value.teal, into: &buf)
+        FfiConverterOptionString.write(value.tintAccent, into: &buf)
+        FfiConverterOptionString.write(value.tintSelected, into: &buf)
+        FfiConverterOptionString.write(value.tintTeal, into: &buf)
+        FfiConverterOptionString.write(value.tintOrange, into: &buf)
+        FfiConverterOptionString.write(value.tintDanger, into: &buf)
+        FfiConverterOptionString.write(value.tintGreen, into: &buf)
+        FfiConverterOptionString.write(value.scrim, into: &buf)
     }
 }
 
@@ -7033,14 +7203,26 @@ public struct MobileTypographyTokens: Equatable, Hashable {
     public var subtitleSize: UInt16
     public var bodySize: UInt16
     public var captionSize: UInt16
+    /**
+     * ADR-038 Amendment 1: 7-step scale extensions.
+     */
+    public var captionSm: UInt16
+    public var titleLg: UInt16
+    public var display: UInt16
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(titleSize: UInt16, subtitleSize: UInt16, bodySize: UInt16, captionSize: UInt16) {
+    public init(titleSize: UInt16, subtitleSize: UInt16, bodySize: UInt16, captionSize: UInt16,
+        /**
+         * ADR-038 Amendment 1: 7-step scale extensions.
+         */captionSm: UInt16, titleLg: UInt16, display: UInt16) {
         self.titleSize = titleSize
         self.subtitleSize = subtitleSize
         self.bodySize = bodySize
         self.captionSize = captionSize
+        self.captionSm = captionSm
+        self.titleLg = titleLg
+        self.display = display
     }
 
 
@@ -7062,7 +7244,10 @@ public struct FfiConverterTypeMobileTypographyTokens: FfiConverterRustBuffer {
                 titleSize: FfiConverterUInt16.read(from: &buf),
                 subtitleSize: FfiConverterUInt16.read(from: &buf),
                 bodySize: FfiConverterUInt16.read(from: &buf),
-                captionSize: FfiConverterUInt16.read(from: &buf)
+                captionSize: FfiConverterUInt16.read(from: &buf),
+                captionSm: FfiConverterUInt16.read(from: &buf),
+                titleLg: FfiConverterUInt16.read(from: &buf),
+                display: FfiConverterUInt16.read(from: &buf)
         )
     }
 
@@ -7071,6 +7256,9 @@ public struct FfiConverterTypeMobileTypographyTokens: FfiConverterRustBuffer {
         FfiConverterUInt16.write(value.subtitleSize, into: &buf)
         FfiConverterUInt16.write(value.bodySize, into: &buf)
         FfiConverterUInt16.write(value.captionSize, into: &buf)
+        FfiConverterUInt16.write(value.captionSm, into: &buf)
+        FfiConverterUInt16.write(value.titleLg, into: &buf)
+        FfiConverterUInt16.write(value.display, into: &buf)
     }
 }
 

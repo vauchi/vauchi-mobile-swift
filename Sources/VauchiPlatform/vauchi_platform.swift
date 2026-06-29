@@ -6404,6 +6404,21 @@ public struct MobileSyncResult: Equatable, Hashable {
      * Display names of contacts whose cards were updated (for UI notification).
      */
     public var updatedContactNames: [String]
+    /**
+     * Diagnostics: total blobs fetched from the mailbox this sync.
+     * `blobs_fetched=0` = nothing delivered (relay store/forward or token);
+     * `>0` with `cards_updated=0` = arrived but rejected (decrypt).
+     * 2026-06-28-sync-delivery-sent-not-received.
+     */
+    public var blobsFetched: UInt32
+    /**
+     * Diagnostics: token-resolved but undecryptable.
+     */
+    public var rejected: UInt32
+    /**
+     * Diagnostics: token-unresolved (no contact-token match).
+     */
+    public var unresolved: UInt32
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
@@ -6425,13 +6440,28 @@ public struct MobileSyncResult: Equatable, Hashable {
          */hasChanges: Bool,
         /**
          * Display names of contacts whose cards were updated (for UI notification).
-         */updatedContactNames: [String]) {
+         */updatedContactNames: [String],
+        /**
+         * Diagnostics: total blobs fetched from the mailbox this sync.
+         * `blobs_fetched=0` = nothing delivered (relay store/forward or token);
+         * `>0` with `cards_updated=0` = arrived but rejected (decrypt).
+         * 2026-06-28-sync-delivery-sent-not-received.
+         */blobsFetched: UInt32,
+        /**
+         * Diagnostics: token-resolved but undecryptable.
+         */rejected: UInt32,
+        /**
+         * Diagnostics: token-unresolved (no contact-token match).
+         */unresolved: UInt32) {
         self.contactsAdded = contactsAdded
         self.cardsUpdated = cardsUpdated
         self.updatesSent = updatesSent
         self.total = total
         self.hasChanges = hasChanges
         self.updatedContactNames = updatedContactNames
+        self.blobsFetched = blobsFetched
+        self.rejected = rejected
+        self.unresolved = unresolved
     }
 
 
@@ -6455,7 +6485,10 @@ public struct FfiConverterTypeMobileSyncResult: FfiConverterRustBuffer {
                 updatesSent: FfiConverterUInt32.read(from: &buf),
                 total: FfiConverterUInt32.read(from: &buf),
                 hasChanges: FfiConverterBool.read(from: &buf),
-                updatedContactNames: FfiConverterSequenceString.read(from: &buf)
+                updatedContactNames: FfiConverterSequenceString.read(from: &buf),
+                blobsFetched: FfiConverterUInt32.read(from: &buf),
+                rejected: FfiConverterUInt32.read(from: &buf),
+                unresolved: FfiConverterUInt32.read(from: &buf)
         )
     }
 
@@ -6466,6 +6499,9 @@ public struct FfiConverterTypeMobileSyncResult: FfiConverterRustBuffer {
         FfiConverterUInt32.write(value.total, into: &buf)
         FfiConverterBool.write(value.hasChanges, into: &buf)
         FfiConverterSequenceString.write(value.updatedContactNames, into: &buf)
+        FfiConverterUInt32.write(value.blobsFetched, into: &buf)
+        FfiConverterUInt32.write(value.rejected, into: &buf)
+        FfiConverterUInt32.write(value.unresolved, into: &buf)
     }
 }
 
@@ -6929,6 +6965,21 @@ public struct MobileThemeColors: Equatable, Hashable {
      * Modal / sheet backdrop (hex, may carry alpha #rrggbbaa).
      */
     public var scrim: String?
+    /**
+     * ADR-038 Amendment 3: text/icon colour on an accent fill (hex).
+     */
+    public var textOnAccent: String?
+    /**
+     * ADR-038 Amendment 3: focus-visible ring stroke (hex).
+     */
+    public var focusRing: String?
+    /**
+     * ADR-038 Amendment 4: AA-safe status-text foregrounds (hex).
+     */
+    public var statusTextSuccess: String?
+    public var statusTextWarning: String?
+    public var statusTextError: String?
+    public var statusTextInfo: String?
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
@@ -7016,7 +7067,16 @@ public struct MobileThemeColors: Equatable, Hashable {
          */tintGreen: String?,
         /**
          * Modal / sheet backdrop (hex, may carry alpha #rrggbbaa).
-         */scrim: String?) {
+         */scrim: String?,
+        /**
+         * ADR-038 Amendment 3: text/icon colour on an accent fill (hex).
+         */textOnAccent: String?,
+        /**
+         * ADR-038 Amendment 3: focus-visible ring stroke (hex).
+         */focusRing: String?,
+        /**
+         * ADR-038 Amendment 4: AA-safe status-text foregrounds (hex).
+         */statusTextSuccess: String?, statusTextWarning: String?, statusTextError: String?, statusTextInfo: String?) {
         self.bgPrimary = bgPrimary
         self.bgSecondary = bgSecondary
         self.bgTertiary = bgTertiary
@@ -7045,6 +7105,12 @@ public struct MobileThemeColors: Equatable, Hashable {
         self.tintDanger = tintDanger
         self.tintGreen = tintGreen
         self.scrim = scrim
+        self.textOnAccent = textOnAccent
+        self.focusRing = focusRing
+        self.statusTextSuccess = statusTextSuccess
+        self.statusTextWarning = statusTextWarning
+        self.statusTextError = statusTextError
+        self.statusTextInfo = statusTextInfo
     }
 
 
@@ -7090,7 +7156,13 @@ public struct FfiConverterTypeMobileThemeColors: FfiConverterRustBuffer {
                 tintOrange: FfiConverterOptionString.read(from: &buf),
                 tintDanger: FfiConverterOptionString.read(from: &buf),
                 tintGreen: FfiConverterOptionString.read(from: &buf),
-                scrim: FfiConverterOptionString.read(from: &buf)
+                scrim: FfiConverterOptionString.read(from: &buf),
+                textOnAccent: FfiConverterOptionString.read(from: &buf),
+                focusRing: FfiConverterOptionString.read(from: &buf),
+                statusTextSuccess: FfiConverterOptionString.read(from: &buf),
+                statusTextWarning: FfiConverterOptionString.read(from: &buf),
+                statusTextError: FfiConverterOptionString.read(from: &buf),
+                statusTextInfo: FfiConverterOptionString.read(from: &buf)
         )
     }
 
@@ -7123,6 +7195,12 @@ public struct FfiConverterTypeMobileThemeColors: FfiConverterRustBuffer {
         FfiConverterOptionString.write(value.tintDanger, into: &buf)
         FfiConverterOptionString.write(value.tintGreen, into: &buf)
         FfiConverterOptionString.write(value.scrim, into: &buf)
+        FfiConverterOptionString.write(value.textOnAccent, into: &buf)
+        FfiConverterOptionString.write(value.focusRing, into: &buf)
+        FfiConverterOptionString.write(value.statusTextSuccess, into: &buf)
+        FfiConverterOptionString.write(value.statusTextWarning, into: &buf)
+        FfiConverterOptionString.write(value.statusTextError, into: &buf)
+        FfiConverterOptionString.write(value.statusTextInfo, into: &buf)
     }
 }
 
@@ -7209,13 +7287,20 @@ public struct MobileTypographyTokens: Equatable, Hashable {
     public var captionSm: UInt16
     public var titleLg: UInt16
     public var display: UInt16
+    /**
+     * ADR-038 Amendment 3: large-text scale (percent; 100 = 1.0x).
+     */
+    public var textScalePercent: UInt16
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
     public init(titleSize: UInt16, subtitleSize: UInt16, bodySize: UInt16, captionSize: UInt16,
         /**
          * ADR-038 Amendment 1: 7-step scale extensions.
-         */captionSm: UInt16, titleLg: UInt16, display: UInt16) {
+         */captionSm: UInt16, titleLg: UInt16, display: UInt16,
+        /**
+         * ADR-038 Amendment 3: large-text scale (percent; 100 = 1.0x).
+         */textScalePercent: UInt16) {
         self.titleSize = titleSize
         self.subtitleSize = subtitleSize
         self.bodySize = bodySize
@@ -7223,6 +7308,7 @@ public struct MobileTypographyTokens: Equatable, Hashable {
         self.captionSm = captionSm
         self.titleLg = titleLg
         self.display = display
+        self.textScalePercent = textScalePercent
     }
 
 
@@ -7247,7 +7333,8 @@ public struct FfiConverterTypeMobileTypographyTokens: FfiConverterRustBuffer {
                 captionSize: FfiConverterUInt16.read(from: &buf),
                 captionSm: FfiConverterUInt16.read(from: &buf),
                 titleLg: FfiConverterUInt16.read(from: &buf),
-                display: FfiConverterUInt16.read(from: &buf)
+                display: FfiConverterUInt16.read(from: &buf),
+                textScalePercent: FfiConverterUInt16.read(from: &buf)
         )
     }
 
@@ -7259,6 +7346,7 @@ public struct FfiConverterTypeMobileTypographyTokens: FfiConverterRustBuffer {
         FfiConverterUInt16.write(value.captionSm, into: &buf)
         FfiConverterUInt16.write(value.titleLg, into: &buf)
         FfiConverterUInt16.write(value.display, into: &buf)
+        FfiConverterUInt16.write(value.textScalePercent, into: &buf)
     }
 }
 

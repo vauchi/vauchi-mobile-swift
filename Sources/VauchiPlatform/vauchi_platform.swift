@@ -6419,6 +6419,12 @@ public struct MobileSyncResult: Equatable, Hashable {
      * Diagnostics: token-unresolved (no contact-token match).
      */
     public var unresolved: UInt32
+    /**
+     * Diagnostics: PII-free per-category tally of WHY rejected blobs failed
+     * (e.g. `decrypt:2,signature:1`) — names the failing receive step.
+     * 2026-06-28-sync-delivery-sent-not-received.
+     */
+    public var rejectReasons: String
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
@@ -6452,7 +6458,12 @@ public struct MobileSyncResult: Equatable, Hashable {
          */rejected: UInt32,
         /**
          * Diagnostics: token-unresolved (no contact-token match).
-         */unresolved: UInt32) {
+         */unresolved: UInt32,
+        /**
+         * Diagnostics: PII-free per-category tally of WHY rejected blobs failed
+         * (e.g. `decrypt:2,signature:1`) — names the failing receive step.
+         * 2026-06-28-sync-delivery-sent-not-received.
+         */rejectReasons: String) {
         self.contactsAdded = contactsAdded
         self.cardsUpdated = cardsUpdated
         self.updatesSent = updatesSent
@@ -6462,6 +6473,7 @@ public struct MobileSyncResult: Equatable, Hashable {
         self.blobsFetched = blobsFetched
         self.rejected = rejected
         self.unresolved = unresolved
+        self.rejectReasons = rejectReasons
     }
 
 
@@ -6488,7 +6500,8 @@ public struct FfiConverterTypeMobileSyncResult: FfiConverterRustBuffer {
                 updatedContactNames: FfiConverterSequenceString.read(from: &buf),
                 blobsFetched: FfiConverterUInt32.read(from: &buf),
                 rejected: FfiConverterUInt32.read(from: &buf),
-                unresolved: FfiConverterUInt32.read(from: &buf)
+                unresolved: FfiConverterUInt32.read(from: &buf),
+                rejectReasons: FfiConverterString.read(from: &buf)
         )
     }
 
@@ -6502,6 +6515,7 @@ public struct FfiConverterTypeMobileSyncResult: FfiConverterRustBuffer {
         FfiConverterUInt32.write(value.blobsFetched, into: &buf)
         FfiConverterUInt32.write(value.rejected, into: &buf)
         FfiConverterUInt32.write(value.unresolved, into: &buf)
+        FfiConverterString.write(value.rejectReasons, into: &buf)
     }
 }
 

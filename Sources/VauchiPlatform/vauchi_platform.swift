@@ -7756,29 +7756,12 @@ public enum DomainCommand: Equatable, Hashable {
      */
     case getConsentRecords
     /**
-     * Returns `true` when the `content-updates` Cargo feature is
-     * enabled at compile time.
-     */
-    case isContentUpdatesSupported
-    /**
-     * Check the remote update server for available content updates.
-     * Blocking — returns `Disabled` when the feature is off.
-     */
-    case checkContentUpdates
-    /**
-     * Download and cache available updates. Returns the per-type
-     * outcome (applied vs failed). `Disabled` when the feature is off.
-     */
-    case applyContentUpdates
-    /**
-     * Reload the social-networks list from the content cache after
-     * `ApplyContentUpdates` succeeds.
-     */
-    case reloadSocialNetworks
-    /**
      * Whole cycle core-side (check → apply → invalidation), returning
-     * a presentation-only outcome. Supersedes frontend-sequenced
-     * Check→Apply→Reload for schedulers (ADR-021/ADR-043).
+     * a presentation-only outcome. The sole content-update entry point
+     * after all frontends adopted it (2026-07-03); the per-step
+     * `IsContentUpdatesSupported`/`CheckContentUpdates`/
+     * `ApplyContentUpdates`/`ReloadSocialNetworks` variants were retired
+     * with their frontend consumers (ADR-021/ADR-043).
      */
     case runContentUpdateCycle
     /**
@@ -8546,424 +8529,416 @@ public struct FfiConverterTypeDomainCommand: FfiConverterRustBuffer {
 
         case 5: return .getConsentRecords
 
-        case 6: return .isContentUpdatesSupported
+        case 6: return .runContentUpdateCycle
 
-        case 7: return .checkContentUpdates
+        case 7: return .exportGdprData
 
-        case 8: return .applyContentUpdates
+        case 8: return .scheduleIdentityDeletion
 
-        case 9: return .reloadSocialNetworks
+        case 9: return .cancelIdentityDeletion
 
-        case 10: return .runContentUpdateCycle
+        case 10: return .executeIdentityDeletion
 
-        case 11: return .exportGdprData
+        case 11: return .getDeletionState
 
-        case 12: return .scheduleIdentityDeletion
+        case 12: return .shredStatus
 
-        case 13: return .cancelIdentityDeletion
+        case 13: return .softShred
 
-        case 14: return .executeIdentityDeletion
-
-        case 15: return .getDeletionState
-
-        case 16: return .shredStatus
-
-        case 17: return .softShred
-
-        case 18: return .cancelShred(token: try FfiConverterTypeMobileShredToken.read(from: &buf)
+        case 14: return .cancelShred(token: try FfiConverterTypeMobileShredToken.read(from: &buf)
         )
 
-        case 19: return .hardShred(token: try FfiConverterTypeMobileShredToken.read(from: &buf)
+        case 15: return .hardShred(token: try FfiConverterTypeMobileShredToken.read(from: &buf)
         )
 
-        case 20: return .panicShred
+        case 16: return .panicShred
 
-        case 21: return .hasSeenAhaMoment(momentType: try FfiConverterTypeMobileAhaMomentType.read(from: &buf)
+        case 17: return .hasSeenAhaMoment(momentType: try FfiConverterTypeMobileAhaMomentType.read(from: &buf)
         )
 
-        case 22: return .tryTriggerAhaMoment(momentType: try FfiConverterTypeMobileAhaMomentType.read(from: &buf)
+        case 18: return .tryTriggerAhaMoment(momentType: try FfiConverterTypeMobileAhaMomentType.read(from: &buf)
         )
 
-        case 23: return .tryTriggerAhaMomentWithContext(momentType: try FfiConverterTypeMobileAhaMomentType.read(from: &buf), context: try FfiConverterString.read(from: &buf)
+        case 19: return .tryTriggerAhaMomentWithContext(momentType: try FfiConverterTypeMobileAhaMomentType.read(from: &buf), context: try FfiConverterString.read(from: &buf)
         )
 
-        case 24: return .ahaMomentsSeenCount
+        case 20: return .ahaMomentsSeenCount
 
-        case 25: return .ahaMomentsTotalCount
+        case 21: return .ahaMomentsTotalCount
 
-        case 26: return .resetAhaMoments
+        case 22: return .resetAhaMoments
 
-        case 27: return .initDemoContactIfNeeded
+        case 23: return .initDemoContactIfNeeded
 
-        case 28: return .getDemoContact
+        case 24: return .getDemoContact
 
-        case 29: return .getDemoContactState
+        case 25: return .getDemoContactState
 
-        case 30: return .isDemoUpdateAvailable
+        case 26: return .isDemoUpdateAvailable
 
-        case 31: return .triggerDemoUpdate
+        case 27: return .triggerDemoUpdate
 
-        case 32: return .dismissDemoContact
+        case 28: return .dismissDemoContact
 
-        case 33: return .autoRemoveDemoContact
+        case 29: return .autoRemoveDemoContact
 
-        case 34: return .restoreDemoContact
+        case 30: return .restoreDemoContact
 
-        case 35: return .getOwnCard
+        case 31: return .getOwnCard
 
-        case 36: return .addField(fieldType: try FfiConverterTypeMobileFieldType.read(from: &buf), label: try FfiConverterString.read(from: &buf), value: try FfiConverterString.read(from: &buf)
+        case 32: return .addField(fieldType: try FfiConverterTypeMobileFieldType.read(from: &buf), label: try FfiConverterString.read(from: &buf), value: try FfiConverterString.read(from: &buf)
         )
 
-        case 37: return .updateField(label: try FfiConverterString.read(from: &buf), newValue: try FfiConverterString.read(from: &buf)
+        case 33: return .updateField(label: try FfiConverterString.read(from: &buf), newValue: try FfiConverterString.read(from: &buf)
         )
 
-        case 38: return .removeField(label: try FfiConverterString.read(from: &buf)
+        case 34: return .removeField(label: try FfiConverterString.read(from: &buf)
         )
 
-        case 39: return .setDisplayName(name: try FfiConverterString.read(from: &buf)
+        case 35: return .setDisplayName(name: try FfiConverterString.read(from: &buf)
         )
 
-        case 40: return .setOwnAvatar(avatarBytes: try FfiConverterData.read(from: &buf)
+        case 36: return .setOwnAvatar(avatarBytes: try FfiConverterData.read(from: &buf)
         )
 
-        case 41: return .clearOwnAvatar
+        case 37: return .clearOwnAvatar
 
-        case 42: return .listContacts
+        case 38: return .listContacts
 
-        case 43: return .getContact(id: try FfiConverterString.read(from: &buf)
+        case 39: return .getContact(id: try FfiConverterString.read(from: &buf)
         )
 
-        case 44: return .searchContacts(query: try FfiConverterString.read(from: &buf)
+        case 40: return .searchContacts(query: try FfiConverterString.read(from: &buf)
         )
 
-        case 45: return .contactCount
+        case 41: return .contactCount
 
-        case 46: return .removeContact(id: try FfiConverterString.read(from: &buf)
+        case 42: return .removeContact(id: try FfiConverterString.read(from: &buf)
         )
 
-        case 47: return .softDeleteImportedContact(id: try FfiConverterString.read(from: &buf)
+        case 43: return .softDeleteImportedContact(id: try FfiConverterString.read(from: &buf)
         )
 
-        case 48: return .undoDeleteImportedContact(id: try FfiConverterString.read(from: &buf)
+        case 44: return .undoDeleteImportedContact(id: try FfiConverterString.read(from: &buf)
         )
 
-        case 49: return .hardDeleteImportedContact(id: try FfiConverterString.read(from: &buf)
+        case 45: return .hardDeleteImportedContact(id: try FfiConverterString.read(from: &buf)
         )
 
-        case 50: return .archiveContact(id: try FfiConverterString.read(from: &buf)
+        case 46: return .archiveContact(id: try FfiConverterString.read(from: &buf)
         )
 
-        case 51: return .unarchiveContact(id: try FfiConverterString.read(from: &buf)
+        case 47: return .unarchiveContact(id: try FfiConverterString.read(from: &buf)
         )
 
-        case 52: return .listArchivedContacts
+        case 48: return .listArchivedContacts
 
-        case 53: return .hideContact(contactId: try FfiConverterString.read(from: &buf)
+        case 49: return .hideContact(contactId: try FfiConverterString.read(from: &buf)
         )
 
-        case 54: return .unhideContact(contactId: try FfiConverterString.read(from: &buf)
+        case 50: return .unhideContact(contactId: try FfiConverterString.read(from: &buf)
         )
 
-        case 55: return .verifyRecoveryProof(proofB64: try FfiConverterString.read(from: &buf)
+        case 51: return .verifyRecoveryProof(proofB64: try FfiConverterString.read(from: &buf)
         )
 
-        case 56: return .uploadGuardianEntries
+        case 52: return .uploadGuardianEntries
 
-        case 57: return .saveRecoveryResponse(claimId: try FfiConverterString.read(from: &buf), contactId: try FfiConverterString.read(from: &buf), response: try FfiConverterString.read(from: &buf), remindAt: try FfiConverterOptionUInt64.read(from: &buf)
+        case 53: return .saveRecoveryResponse(claimId: try FfiConverterString.read(from: &buf), contactId: try FfiConverterString.read(from: &buf), response: try FfiConverterString.read(from: &buf), remindAt: try FfiConverterOptionUInt64.read(from: &buf)
         )
 
-        case 58: return .trustContactForRecovery(contactId: try FfiConverterString.read(from: &buf)
+        case 54: return .trustContactForRecovery(contactId: try FfiConverterString.read(from: &buf)
         )
 
-        case 59: return .untrustContactForRecovery(contactId: try FfiConverterString.read(from: &buf)
+        case 55: return .untrustContactForRecovery(contactId: try FfiConverterString.read(from: &buf)
         )
 
-        case 60: return .trustedContactCount
+        case 56: return .trustedContactCount
 
-        case 61: return .parseRecoveryClaim(claimB64: try FfiConverterString.read(from: &buf)
+        case 57: return .parseRecoveryClaim(claimB64: try FfiConverterString.read(from: &buf)
         )
 
-        case 62: return .getRecoveryProof
+        case 58: return .getRecoveryProof
 
-        case 63: return .getRecoveryStatus
+        case 59: return .getRecoveryStatus
 
-        case 64: return .createRecoveryVoucher(claimB64: try FfiConverterString.read(from: &buf)
+        case 60: return .createRecoveryVoucher(claimB64: try FfiConverterString.read(from: &buf)
         )
 
-        case 65: return .addRecoveryVoucher(voucherB64: try FfiConverterString.read(from: &buf)
+        case 61: return .addRecoveryVoucher(voucherB64: try FfiConverterString.read(from: &buf)
         )
 
-        case 66: return .createRecoveryClaim(oldPkHex: try FfiConverterString.read(from: &buf)
+        case 62: return .createRecoveryClaim(oldPkHex: try FfiConverterString.read(from: &buf)
         )
 
-        case 67: return .configureEmergencyBroadcast(contactIds: try FfiConverterSequenceString.read(from: &buf), message: try FfiConverterString.read(from: &buf), includeLocation: try FfiConverterBool.read(from: &buf)
+        case 63: return .configureEmergencyBroadcast(contactIds: try FfiConverterSequenceString.read(from: &buf), message: try FfiConverterString.read(from: &buf), includeLocation: try FfiConverterBool.read(from: &buf)
         )
 
-        case 68: return .sendEmergencyBroadcast
+        case 64: return .sendEmergencyBroadcast
 
-        case 69: return .getEmergencyConfig
+        case 65: return .getEmergencyConfig
 
-        case 70: return .disableEmergencyBroadcast
+        case 66: return .disableEmergencyBroadcast
 
-        case 71: return .listLabels
+        case 67: return .listLabels
 
-        case 72: return .createLabel(name: try FfiConverterString.read(from: &buf)
+        case 68: return .createLabel(name: try FfiConverterString.read(from: &buf)
         )
 
-        case 73: return .getLabel(labelId: try FfiConverterString.read(from: &buf)
+        case 69: return .getLabel(labelId: try FfiConverterString.read(from: &buf)
         )
 
-        case 74: return .renameLabel(labelId: try FfiConverterString.read(from: &buf), newName: try FfiConverterString.read(from: &buf)
+        case 70: return .renameLabel(labelId: try FfiConverterString.read(from: &buf), newName: try FfiConverterString.read(from: &buf)
         )
 
-        case 75: return .deleteLabel(labelId: try FfiConverterString.read(from: &buf)
+        case 71: return .deleteLabel(labelId: try FfiConverterString.read(from: &buf)
         )
 
-        case 76: return .addContactToGroup(labelId: try FfiConverterString.read(from: &buf), contactId: try FfiConverterString.read(from: &buf)
+        case 72: return .addContactToGroup(labelId: try FfiConverterString.read(from: &buf), contactId: try FfiConverterString.read(from: &buf)
         )
 
-        case 77: return .removeContactFromGroup(labelId: try FfiConverterString.read(from: &buf), contactId: try FfiConverterString.read(from: &buf)
+        case 73: return .removeContactFromGroup(labelId: try FfiConverterString.read(from: &buf), contactId: try FfiConverterString.read(from: &buf)
         )
 
-        case 78: return .getGroupsForContact(contactId: try FfiConverterString.read(from: &buf)
+        case 74: return .getGroupsForContact(contactId: try FfiConverterString.read(from: &buf)
         )
 
-        case 79: return .setGroupFieldVisibility(labelId: try FfiConverterString.read(from: &buf), fieldLabel: try FfiConverterString.read(from: &buf), isVisible: try FfiConverterBool.read(from: &buf)
+        case 75: return .setGroupFieldVisibility(labelId: try FfiConverterString.read(from: &buf), fieldLabel: try FfiConverterString.read(from: &buf), isVisible: try FfiConverterBool.read(from: &buf)
         )
 
-        case 80: return .setContactFieldOverride(contactId: try FfiConverterString.read(from: &buf), fieldLabel: try FfiConverterString.read(from: &buf), isVisible: try FfiConverterBool.read(from: &buf)
+        case 76: return .setContactFieldOverride(contactId: try FfiConverterString.read(from: &buf), fieldLabel: try FfiConverterString.read(from: &buf), isVisible: try FfiConverterBool.read(from: &buf)
         )
 
-        case 81: return .removeContactFieldOverride(contactId: try FfiConverterString.read(from: &buf), fieldLabel: try FfiConverterString.read(from: &buf)
+        case 77: return .removeContactFieldOverride(contactId: try FfiConverterString.read(from: &buf), fieldLabel: try FfiConverterString.read(from: &buf)
         )
 
-        case 82: return .hideFieldFromContact(contactId: try FfiConverterString.read(from: &buf), fieldLabel: try FfiConverterString.read(from: &buf)
+        case 78: return .hideFieldFromContact(contactId: try FfiConverterString.read(from: &buf), fieldLabel: try FfiConverterString.read(from: &buf)
         )
 
-        case 83: return .showFieldToContact(contactId: try FfiConverterString.read(from: &buf), fieldLabel: try FfiConverterString.read(from: &buf)
+        case 79: return .showFieldToContact(contactId: try FfiConverterString.read(from: &buf), fieldLabel: try FfiConverterString.read(from: &buf)
         )
 
-        case 84: return .isFieldVisibleToContact(contactId: try FfiConverterString.read(from: &buf), fieldLabel: try FfiConverterString.read(from: &buf)
+        case 80: return .isFieldVisibleToContact(contactId: try FfiConverterString.read(from: &buf), fieldLabel: try FfiConverterString.read(from: &buf)
         )
 
-        case 85: return .getSuggestedLabels
+        case 81: return .getSuggestedLabels
 
-        case 86: return .setupAppPassword(password: try FfiConverterString.read(from: &buf)
+        case 82: return .setupAppPassword(password: try FfiConverterString.read(from: &buf)
         )
 
-        case 87: return .setupDuressPassword(duressPassword: try FfiConverterString.read(from: &buf)
+        case 83: return .setupDuressPassword(duressPassword: try FfiConverterString.read(from: &buf)
         )
 
-        case 88: return .authenticate(password: try FfiConverterString.read(from: &buf)
+        case 84: return .authenticate(password: try FfiConverterString.read(from: &buf)
         )
 
-        case 89: return .isPasswordEnabled
+        case 85: return .isPasswordEnabled
 
-        case 90: return .isDuressEnabled
+        case 86: return .isDuressEnabled
 
-        case 91: return .disableDuress
+        case 87: return .disableDuress
 
-        case 92: return .configureDuressAlerts(contactIds: try FfiConverterSequenceString.read(from: &buf), message: try FfiConverterString.read(from: &buf)
+        case 88: return .configureDuressAlerts(contactIds: try FfiConverterSequenceString.read(from: &buf), message: try FfiConverterString.read(from: &buf)
         )
 
-        case 93: return .getDuressSettings
+        case 89: return .getDuressSettings
 
-        case 94: return .addDecoyContact(name: try FfiConverterString.read(from: &buf), cardJson: try FfiConverterString.read(from: &buf)
+        case 90: return .addDecoyContact(name: try FfiConverterString.read(from: &buf), cardJson: try FfiConverterString.read(from: &buf)
         )
 
-        case 95: return .listDecoyContacts
+        case 91: return .listDecoyContacts
 
-        case 96: return .deleteDecoyContact(id: try FfiConverterString.read(from: &buf)
+        case 92: return .deleteDecoyContact(id: try FfiConverterString.read(from: &buf)
         )
 
-        case 97: return .sync
+        case 93: return .sync
 
-        case 98: return .pendingUpdateCount
+        case 94: return .pendingUpdateCount
 
-        case 99: return .getDeliveryRecord(messageId: try FfiConverterString.read(from: &buf)
+        case 95: return .getDeliveryRecord(messageId: try FfiConverterString.read(from: &buf)
         )
 
-        case 100: return .getAllDeliveryRecords
+        case 96: return .getAllDeliveryRecords
 
-        case 101: return .getDeliveryRecordsForContact(recipientId: try FfiConverterString.read(from: &buf)
+        case 97: return .getDeliveryRecordsForContact(recipientId: try FfiConverterString.read(from: &buf)
         )
 
-        case 102: return .countFailedDeliveries
+        case 98: return .countFailedDeliveries
 
-        case 103: return .getFailedDeliveryRecords
+        case 99: return .getFailedDeliveryRecords
 
-        case 104: return .manualRetry(messageId: try FfiConverterString.read(from: &buf)
+        case 100: return .manualRetry(messageId: try FfiConverterString.read(from: &buf)
         )
 
-        case 105: return .getPendingDeliveries
+        case 101: return .getPendingDeliveries
 
-        case 106: return .getDeliveryCountByStatus(status: try FfiConverterTypeMobileDeliveryStatus.read(from: &buf)
+        case 102: return .getDeliveryCountByStatus(status: try FfiConverterTypeMobileDeliveryStatus.read(from: &buf)
         )
 
-        case 107: return .getDueRetries
+        case 103: return .getDueRetries
 
-        case 108: return .getRetriesForContact(contactId: try FfiConverterString.read(from: &buf)
+        case 104: return .getRetriesForContact(contactId: try FfiConverterString.read(from: &buf)
         )
 
-        case 109: return .getRetryCount
+        case 105: return .getRetryCount
 
-        case 110: return .deleteRetry(messageId: try FfiConverterString.read(from: &buf)
+        case 106: return .deleteRetry(messageId: try FfiConverterString.read(from: &buf)
         )
 
-        case 111: return .calculateRetryBackoff(attempt: try FfiConverterUInt32.read(from: &buf)
+        case 107: return .calculateRetryBackoff(attempt: try FfiConverterUInt32.read(from: &buf)
         )
 
-        case 112: return .getTotalPendingCount
+        case 108: return .getTotalPendingCount
 
-        case 113: return .isOfflineQueueFull
+        case 109: return .isOfflineQueueFull
 
-        case 114: return .getOfflineQueueCapacity
+        case 110: return .getOfflineQueueCapacity
 
-        case 115: return .clearPendingUpdatesForContact(contactId: try FfiConverterString.read(from: &buf)
+        case 111: return .clearPendingUpdatesForContact(contactId: try FfiConverterString.read(from: &buf)
         )
 
-        case 116: return .getDeliverySummary(messageId: try FfiConverterString.read(from: &buf)
+        case 112: return .getDeliverySummary(messageId: try FfiConverterString.read(from: &buf)
         )
 
-        case 117: return .getDeviceDeliveries(messageId: try FfiConverterString.read(from: &buf)
+        case 113: return .getDeviceDeliveries(messageId: try FfiConverterString.read(from: &buf)
         )
 
-        case 118: return .getPendingDeviceDeliveries
+        case 114: return .getPendingDeviceDeliveries
 
-        case 119: return .createIdentity(displayName: try FfiConverterString.read(from: &buf)
+        case 115: return .createIdentity(displayName: try FfiConverterString.read(from: &buf)
         )
 
-        case 120: return .getPublicId
+        case 116: return .getPublicId
 
-        case 121: return .getDisplayName
+        case 117: return .getDisplayName
 
-        case 122: return .getOwnFingerprint
+        case 118: return .getOwnFingerprint
 
-        case 123: return .displayNameSuggestions(fullName: try FfiConverterString.read(from: &buf)
+        case 119: return .displayNameSuggestions(fullName: try FfiConverterString.read(from: &buf)
         )
 
-        case 124: return .resetOnboarding
+        case 120: return .resetOnboarding
 
-        case 125: return .verifyContact(id: try FfiConverterString.read(from: &buf)
+        case 121: return .verifyContact(id: try FfiConverterString.read(from: &buf)
         )
 
-        case 126: return .setProposalTrusted(contactId: try FfiConverterString.read(from: &buf), trusted: try FfiConverterBool.read(from: &buf)
+        case 122: return .setProposalTrusted(contactId: try FfiConverterString.read(from: &buf), trusted: try FfiConverterBool.read(from: &buf)
         )
 
-        case 127: return .findDuplicates
+        case 123: return .findDuplicates
 
-        case 128: return .dismissDuplicate(id1: try FfiConverterString.read(from: &buf), id2: try FfiConverterString.read(from: &buf)
+        case 124: return .dismissDuplicate(id1: try FfiConverterString.read(from: &buf), id2: try FfiConverterString.read(from: &buf)
         )
 
-        case 129: return .setContactNote(contactId: try FfiConverterString.read(from: &buf), note: try FfiConverterString.read(from: &buf)
+        case 125: return .setContactNote(contactId: try FfiConverterString.read(from: &buf), note: try FfiConverterString.read(from: &buf)
         )
 
-        case 130: return .getContactNote(contactId: try FfiConverterString.read(from: &buf)
+        case 126: return .getContactNote(contactId: try FfiConverterString.read(from: &buf)
         )
 
-        case 131: return .deleteContactNote(contactId: try FfiConverterString.read(from: &buf)
+        case 127: return .deleteContactNote(contactId: try FfiConverterString.read(from: &buf)
         )
 
-        case 132: return .setContactFieldNote(contactId: try FfiConverterString.read(from: &buf), fieldId: try FfiConverterString.read(from: &buf), note: try FfiConverterString.read(from: &buf)
+        case 128: return .setContactFieldNote(contactId: try FfiConverterString.read(from: &buf), fieldId: try FfiConverterString.read(from: &buf), note: try FfiConverterString.read(from: &buf)
         )
 
-        case 133: return .getContactFieldNotes(contactId: try FfiConverterString.read(from: &buf)
+        case 129: return .getContactFieldNotes(contactId: try FfiConverterString.read(from: &buf)
         )
 
-        case 134: return .deleteContactFieldNote(contactId: try FfiConverterString.read(from: &buf), fieldId: try FfiConverterString.read(from: &buf)
+        case 130: return .deleteContactFieldNote(contactId: try FfiConverterString.read(from: &buf), fieldId: try FfiConverterString.read(from: &buf)
         )
 
-        case 135: return .setContactNickname(contactId: try FfiConverterString.read(from: &buf), name: try FfiConverterString.read(from: &buf)
+        case 131: return .setContactNickname(contactId: try FfiConverterString.read(from: &buf), name: try FfiConverterString.read(from: &buf)
         )
 
-        case 136: return .clearContactNickname(contactId: try FfiConverterString.read(from: &buf)
+        case 132: return .clearContactNickname(contactId: try FfiConverterString.read(from: &buf)
         )
 
-        case 137: return .setContactCustomAvatar(contactId: try FfiConverterString.read(from: &buf), data: try FfiConverterData.read(from: &buf)
+        case 133: return .setContactCustomAvatar(contactId: try FfiConverterString.read(from: &buf), data: try FfiConverterData.read(from: &buf)
         )
 
-        case 138: return .clearContactCustomAvatar(contactId: try FfiConverterString.read(from: &buf)
+        case 134: return .clearContactCustomAvatar(contactId: try FfiConverterString.read(from: &buf)
         )
 
-        case 139: return .getContactCustomAvatar(contactId: try FfiConverterString.read(from: &buf)
+        case 135: return .getContactCustomAvatar(contactId: try FfiConverterString.read(from: &buf)
         )
 
-        case 140: return .searchSocialNetworks(query: try FfiConverterString.read(from: &buf)
+        case 136: return .searchSocialNetworks(query: try FfiConverterString.read(from: &buf)
         )
 
-        case 141: return .getProfileUrl(networkId: try FfiConverterString.read(from: &buf), username: try FfiConverterString.read(from: &buf)
+        case 137: return .getProfileUrl(networkId: try FfiConverterString.read(from: &buf), username: try FfiConverterString.read(from: &buf)
         )
 
-        case 142: return .listHiddenContacts
+        case 138: return .listHiddenContacts
 
-        case 143: return .contactDetailFooterActionId(contactId: try FfiConverterString.read(from: &buf)
+        case 139: return .contactDetailFooterActionId(contactId: try FfiConverterString.read(from: &buf)
         )
 
-        case 144: return .exportBackup(password: try FfiConverterString.read(from: &buf)
+        case 140: return .exportBackup(password: try FfiConverterString.read(from: &buf)
         )
 
-        case 145: return .importBackup(backupData: try FfiConverterString.read(from: &buf), password: try FfiConverterString.read(from: &buf)
+        case 141: return .importBackup(backupData: try FfiConverterString.read(from: &buf), password: try FfiConverterString.read(from: &buf)
         )
 
-        case 146: return .exportFullBackup(password: try FfiConverterString.read(from: &buf)
+        case 142: return .exportFullBackup(password: try FfiConverterString.read(from: &buf)
         )
 
-        case 147: return .importFullBackup(backupData: try FfiConverterString.read(from: &buf), password: try FfiConverterString.read(from: &buf)
+        case 143: return .importFullBackup(backupData: try FfiConverterString.read(from: &buf), password: try FfiConverterString.read(from: &buf)
         )
 
-        case 148: return .importContactsFromVcf(data: try FfiConverterData.read(from: &buf)
+        case 144: return .importContactsFromVcf(data: try FfiConverterData.read(from: &buf)
         )
 
-        case 149: return .setDisplayNamePreference(contactId: try FfiConverterString.read(from: &buf), prefJson: try FfiConverterString.read(from: &buf)
+        case 145: return .setDisplayNamePreference(contactId: try FfiConverterString.read(from: &buf), prefJson: try FfiConverterString.read(from: &buf)
         )
 
-        case 150: return .setAvatarPreference(contactId: try FfiConverterString.read(from: &buf), prefJson: try FfiConverterString.read(from: &buf)
+        case 146: return .setAvatarPreference(contactId: try FfiConverterString.read(from: &buf), prefJson: try FfiConverterString.read(from: &buf)
         )
 
-        case 151: return .mergeContacts(primaryId: try FfiConverterString.read(from: &buf), secondaryId: try FfiConverterString.read(from: &buf)
+        case 147: return .mergeContacts(primaryId: try FfiConverterString.read(from: &buf), secondaryId: try FfiConverterString.read(from: &buf)
         )
 
-        case 152: return .getOnboardingProgress
+        case 148: return .getOnboardingProgress
 
-        case 153: return .currentOnboardingStep
+        case 149: return .currentOnboardingStep
 
-        case 154: return .isOnboardingComplete
+        case 150: return .isOnboardingComplete
 
-        case 155: return .advanceOnboarding
+        case 151: return .advanceOnboarding
 
-        case 156: return .skipOnboardingStep
+        case 152: return .skipOnboardingStep
 
-        case 157: return .getContactDisplayOptions(contactId: try FfiConverterString.read(from: &buf)
+        case 153: return .getContactDisplayOptions(contactId: try FfiConverterString.read(from: &buf)
         )
 
-        case 158: return .listContactsPaginated(offset: try FfiConverterUInt32.read(from: &buf), limit: try FfiConverterUInt32.read(from: &buf)
+        case 154: return .listContactsPaginated(offset: try FfiConverterUInt32.read(from: &buf), limit: try FfiConverterUInt32.read(from: &buf)
         )
 
-        case 159: return .contactDetailViewState(contactId: try FfiConverterString.read(from: &buf)
+        case 155: return .contactDetailViewState(contactId: try FfiConverterString.read(from: &buf)
         )
 
-        case 160: return .listSocialNetworks
+        case 156: return .listSocialNetworks
 
-        case 161: return .encodeMultipartQr(data: try FfiConverterData.read(from: &buf)
+        case 157: return .encodeMultipartQr(data: try FfiConverterData.read(from: &buf)
         )
 
-        case 162: return .setPinnedCertificate(certPem: try FfiConverterString.read(from: &buf)
+        case 158: return .setPinnedCertificate(certPem: try FfiConverterString.read(from: &buf)
         )
 
-        case 163: return .isCertificatePinningEnabled
+        case 159: return .isCertificatePinningEnabled
 
-        case 164: return .isPrimaryDevice
+        case 160: return .isPrimaryDevice
 
-        case 165: return .getDeviceCount
+        case 161: return .getDeviceCount
 
-        case 166: return .getDevices
+        case 162: return .getDevices
 
-        case 167: return .unlinkDevice(deviceIndex: try FfiConverterUInt32.read(from: &buf)
+        case 163: return .unlinkDevice(deviceIndex: try FfiConverterUInt32.read(from: &buf)
         )
 
-        case 168: return .generateDeviceLinkQr
+        case 164: return .generateDeviceLinkQr
 
-        case 169: return .parseDeviceLinkQr(qrData: try FfiConverterString.read(from: &buf)
+        case 165: return .parseDeviceLinkQr(qrData: try FfiConverterString.read(from: &buf)
         )
 
         default: throw UniffiInternalError.unexpectedEnumCase
@@ -8998,237 +8973,221 @@ public struct FfiConverterTypeDomainCommand: FfiConverterRustBuffer {
             writeInt(&buf, Int32(5))
 
 
-        case .isContentUpdatesSupported:
+        case .runContentUpdateCycle:
             writeInt(&buf, Int32(6))
 
 
-        case .checkContentUpdates:
+        case .exportGdprData:
             writeInt(&buf, Int32(7))
 
 
-        case .applyContentUpdates:
+        case .scheduleIdentityDeletion:
             writeInt(&buf, Int32(8))
 
 
-        case .reloadSocialNetworks:
+        case .cancelIdentityDeletion:
             writeInt(&buf, Int32(9))
 
 
-        case .runContentUpdateCycle:
+        case .executeIdentityDeletion:
             writeInt(&buf, Int32(10))
 
 
-        case .exportGdprData:
+        case .getDeletionState:
             writeInt(&buf, Int32(11))
 
 
-        case .scheduleIdentityDeletion:
+        case .shredStatus:
             writeInt(&buf, Int32(12))
 
 
-        case .cancelIdentityDeletion:
+        case .softShred:
             writeInt(&buf, Int32(13))
 
 
-        case .executeIdentityDeletion:
-            writeInt(&buf, Int32(14))
-
-
-        case .getDeletionState:
-            writeInt(&buf, Int32(15))
-
-
-        case .shredStatus:
-            writeInt(&buf, Int32(16))
-
-
-        case .softShred:
-            writeInt(&buf, Int32(17))
-
-
         case let .cancelShred(token):
-            writeInt(&buf, Int32(18))
+            writeInt(&buf, Int32(14))
             FfiConverterTypeMobileShredToken.write(token, into: &buf)
 
 
         case let .hardShred(token):
-            writeInt(&buf, Int32(19))
+            writeInt(&buf, Int32(15))
             FfiConverterTypeMobileShredToken.write(token, into: &buf)
 
 
         case .panicShred:
-            writeInt(&buf, Int32(20))
+            writeInt(&buf, Int32(16))
 
 
         case let .hasSeenAhaMoment(momentType):
-            writeInt(&buf, Int32(21))
+            writeInt(&buf, Int32(17))
             FfiConverterTypeMobileAhaMomentType.write(momentType, into: &buf)
 
 
         case let .tryTriggerAhaMoment(momentType):
-            writeInt(&buf, Int32(22))
+            writeInt(&buf, Int32(18))
             FfiConverterTypeMobileAhaMomentType.write(momentType, into: &buf)
 
 
         case let .tryTriggerAhaMomentWithContext(momentType,context):
-            writeInt(&buf, Int32(23))
+            writeInt(&buf, Int32(19))
             FfiConverterTypeMobileAhaMomentType.write(momentType, into: &buf)
             FfiConverterString.write(context, into: &buf)
 
 
         case .ahaMomentsSeenCount:
-            writeInt(&buf, Int32(24))
+            writeInt(&buf, Int32(20))
 
 
         case .ahaMomentsTotalCount:
-            writeInt(&buf, Int32(25))
+            writeInt(&buf, Int32(21))
 
 
         case .resetAhaMoments:
-            writeInt(&buf, Int32(26))
+            writeInt(&buf, Int32(22))
 
 
         case .initDemoContactIfNeeded:
-            writeInt(&buf, Int32(27))
+            writeInt(&buf, Int32(23))
 
 
         case .getDemoContact:
-            writeInt(&buf, Int32(28))
+            writeInt(&buf, Int32(24))
 
 
         case .getDemoContactState:
-            writeInt(&buf, Int32(29))
+            writeInt(&buf, Int32(25))
 
 
         case .isDemoUpdateAvailable:
-            writeInt(&buf, Int32(30))
+            writeInt(&buf, Int32(26))
 
 
         case .triggerDemoUpdate:
-            writeInt(&buf, Int32(31))
+            writeInt(&buf, Int32(27))
 
 
         case .dismissDemoContact:
-            writeInt(&buf, Int32(32))
+            writeInt(&buf, Int32(28))
 
 
         case .autoRemoveDemoContact:
-            writeInt(&buf, Int32(33))
+            writeInt(&buf, Int32(29))
 
 
         case .restoreDemoContact:
-            writeInt(&buf, Int32(34))
+            writeInt(&buf, Int32(30))
 
 
         case .getOwnCard:
-            writeInt(&buf, Int32(35))
+            writeInt(&buf, Int32(31))
 
 
         case let .addField(fieldType,label,value):
-            writeInt(&buf, Int32(36))
+            writeInt(&buf, Int32(32))
             FfiConverterTypeMobileFieldType.write(fieldType, into: &buf)
             FfiConverterString.write(label, into: &buf)
             FfiConverterString.write(value, into: &buf)
 
 
         case let .updateField(label,newValue):
-            writeInt(&buf, Int32(37))
+            writeInt(&buf, Int32(33))
             FfiConverterString.write(label, into: &buf)
             FfiConverterString.write(newValue, into: &buf)
 
 
         case let .removeField(label):
-            writeInt(&buf, Int32(38))
+            writeInt(&buf, Int32(34))
             FfiConverterString.write(label, into: &buf)
 
 
         case let .setDisplayName(name):
-            writeInt(&buf, Int32(39))
+            writeInt(&buf, Int32(35))
             FfiConverterString.write(name, into: &buf)
 
 
         case let .setOwnAvatar(avatarBytes):
-            writeInt(&buf, Int32(40))
+            writeInt(&buf, Int32(36))
             FfiConverterData.write(avatarBytes, into: &buf)
 
 
         case .clearOwnAvatar:
-            writeInt(&buf, Int32(41))
+            writeInt(&buf, Int32(37))
 
 
         case .listContacts:
-            writeInt(&buf, Int32(42))
+            writeInt(&buf, Int32(38))
 
 
         case let .getContact(id):
-            writeInt(&buf, Int32(43))
+            writeInt(&buf, Int32(39))
             FfiConverterString.write(id, into: &buf)
 
 
         case let .searchContacts(query):
-            writeInt(&buf, Int32(44))
+            writeInt(&buf, Int32(40))
             FfiConverterString.write(query, into: &buf)
 
 
         case .contactCount:
-            writeInt(&buf, Int32(45))
+            writeInt(&buf, Int32(41))
 
 
         case let .removeContact(id):
-            writeInt(&buf, Int32(46))
+            writeInt(&buf, Int32(42))
             FfiConverterString.write(id, into: &buf)
 
 
         case let .softDeleteImportedContact(id):
-            writeInt(&buf, Int32(47))
+            writeInt(&buf, Int32(43))
             FfiConverterString.write(id, into: &buf)
 
 
         case let .undoDeleteImportedContact(id):
-            writeInt(&buf, Int32(48))
+            writeInt(&buf, Int32(44))
             FfiConverterString.write(id, into: &buf)
 
 
         case let .hardDeleteImportedContact(id):
-            writeInt(&buf, Int32(49))
+            writeInt(&buf, Int32(45))
             FfiConverterString.write(id, into: &buf)
 
 
         case let .archiveContact(id):
-            writeInt(&buf, Int32(50))
+            writeInt(&buf, Int32(46))
             FfiConverterString.write(id, into: &buf)
 
 
         case let .unarchiveContact(id):
-            writeInt(&buf, Int32(51))
+            writeInt(&buf, Int32(47))
             FfiConverterString.write(id, into: &buf)
 
 
         case .listArchivedContacts:
-            writeInt(&buf, Int32(52))
+            writeInt(&buf, Int32(48))
 
 
         case let .hideContact(contactId):
-            writeInt(&buf, Int32(53))
+            writeInt(&buf, Int32(49))
             FfiConverterString.write(contactId, into: &buf)
 
 
         case let .unhideContact(contactId):
-            writeInt(&buf, Int32(54))
+            writeInt(&buf, Int32(50))
             FfiConverterString.write(contactId, into: &buf)
 
 
         case let .verifyRecoveryProof(proofB64):
-            writeInt(&buf, Int32(55))
+            writeInt(&buf, Int32(51))
             FfiConverterString.write(proofB64, into: &buf)
 
 
         case .uploadGuardianEntries:
-            writeInt(&buf, Int32(56))
+            writeInt(&buf, Int32(52))
 
 
         case let .saveRecoveryResponse(claimId,contactId,response,remindAt):
-            writeInt(&buf, Int32(57))
+            writeInt(&buf, Int32(53))
             FfiConverterString.write(claimId, into: &buf)
             FfiConverterString.write(contactId, into: &buf)
             FfiConverterString.write(response, into: &buf)
@@ -9236,550 +9195,550 @@ public struct FfiConverterTypeDomainCommand: FfiConverterRustBuffer {
 
 
         case let .trustContactForRecovery(contactId):
-            writeInt(&buf, Int32(58))
+            writeInt(&buf, Int32(54))
             FfiConverterString.write(contactId, into: &buf)
 
 
         case let .untrustContactForRecovery(contactId):
-            writeInt(&buf, Int32(59))
+            writeInt(&buf, Int32(55))
             FfiConverterString.write(contactId, into: &buf)
 
 
         case .trustedContactCount:
-            writeInt(&buf, Int32(60))
+            writeInt(&buf, Int32(56))
 
 
         case let .parseRecoveryClaim(claimB64):
-            writeInt(&buf, Int32(61))
+            writeInt(&buf, Int32(57))
             FfiConverterString.write(claimB64, into: &buf)
 
 
         case .getRecoveryProof:
-            writeInt(&buf, Int32(62))
+            writeInt(&buf, Int32(58))
 
 
         case .getRecoveryStatus:
-            writeInt(&buf, Int32(63))
+            writeInt(&buf, Int32(59))
 
 
         case let .createRecoveryVoucher(claimB64):
-            writeInt(&buf, Int32(64))
+            writeInt(&buf, Int32(60))
             FfiConverterString.write(claimB64, into: &buf)
 
 
         case let .addRecoveryVoucher(voucherB64):
-            writeInt(&buf, Int32(65))
+            writeInt(&buf, Int32(61))
             FfiConverterString.write(voucherB64, into: &buf)
 
 
         case let .createRecoveryClaim(oldPkHex):
-            writeInt(&buf, Int32(66))
+            writeInt(&buf, Int32(62))
             FfiConverterString.write(oldPkHex, into: &buf)
 
 
         case let .configureEmergencyBroadcast(contactIds,message,includeLocation):
-            writeInt(&buf, Int32(67))
+            writeInt(&buf, Int32(63))
             FfiConverterSequenceString.write(contactIds, into: &buf)
             FfiConverterString.write(message, into: &buf)
             FfiConverterBool.write(includeLocation, into: &buf)
 
 
         case .sendEmergencyBroadcast:
-            writeInt(&buf, Int32(68))
+            writeInt(&buf, Int32(64))
 
 
         case .getEmergencyConfig:
-            writeInt(&buf, Int32(69))
+            writeInt(&buf, Int32(65))
 
 
         case .disableEmergencyBroadcast:
-            writeInt(&buf, Int32(70))
+            writeInt(&buf, Int32(66))
 
 
         case .listLabels:
-            writeInt(&buf, Int32(71))
+            writeInt(&buf, Int32(67))
 
 
         case let .createLabel(name):
-            writeInt(&buf, Int32(72))
+            writeInt(&buf, Int32(68))
             FfiConverterString.write(name, into: &buf)
 
 
         case let .getLabel(labelId):
-            writeInt(&buf, Int32(73))
+            writeInt(&buf, Int32(69))
             FfiConverterString.write(labelId, into: &buf)
 
 
         case let .renameLabel(labelId,newName):
-            writeInt(&buf, Int32(74))
+            writeInt(&buf, Int32(70))
             FfiConverterString.write(labelId, into: &buf)
             FfiConverterString.write(newName, into: &buf)
 
 
         case let .deleteLabel(labelId):
-            writeInt(&buf, Int32(75))
+            writeInt(&buf, Int32(71))
             FfiConverterString.write(labelId, into: &buf)
 
 
         case let .addContactToGroup(labelId,contactId):
-            writeInt(&buf, Int32(76))
+            writeInt(&buf, Int32(72))
             FfiConverterString.write(labelId, into: &buf)
             FfiConverterString.write(contactId, into: &buf)
 
 
         case let .removeContactFromGroup(labelId,contactId):
-            writeInt(&buf, Int32(77))
+            writeInt(&buf, Int32(73))
             FfiConverterString.write(labelId, into: &buf)
             FfiConverterString.write(contactId, into: &buf)
 
 
         case let .getGroupsForContact(contactId):
-            writeInt(&buf, Int32(78))
+            writeInt(&buf, Int32(74))
             FfiConverterString.write(contactId, into: &buf)
 
 
         case let .setGroupFieldVisibility(labelId,fieldLabel,isVisible):
-            writeInt(&buf, Int32(79))
+            writeInt(&buf, Int32(75))
             FfiConverterString.write(labelId, into: &buf)
             FfiConverterString.write(fieldLabel, into: &buf)
             FfiConverterBool.write(isVisible, into: &buf)
 
 
         case let .setContactFieldOverride(contactId,fieldLabel,isVisible):
-            writeInt(&buf, Int32(80))
+            writeInt(&buf, Int32(76))
             FfiConverterString.write(contactId, into: &buf)
             FfiConverterString.write(fieldLabel, into: &buf)
             FfiConverterBool.write(isVisible, into: &buf)
 
 
         case let .removeContactFieldOverride(contactId,fieldLabel):
-            writeInt(&buf, Int32(81))
+            writeInt(&buf, Int32(77))
             FfiConverterString.write(contactId, into: &buf)
             FfiConverterString.write(fieldLabel, into: &buf)
 
 
         case let .hideFieldFromContact(contactId,fieldLabel):
-            writeInt(&buf, Int32(82))
+            writeInt(&buf, Int32(78))
             FfiConverterString.write(contactId, into: &buf)
             FfiConverterString.write(fieldLabel, into: &buf)
 
 
         case let .showFieldToContact(contactId,fieldLabel):
-            writeInt(&buf, Int32(83))
+            writeInt(&buf, Int32(79))
             FfiConverterString.write(contactId, into: &buf)
             FfiConverterString.write(fieldLabel, into: &buf)
 
 
         case let .isFieldVisibleToContact(contactId,fieldLabel):
-            writeInt(&buf, Int32(84))
+            writeInt(&buf, Int32(80))
             FfiConverterString.write(contactId, into: &buf)
             FfiConverterString.write(fieldLabel, into: &buf)
 
 
         case .getSuggestedLabels:
-            writeInt(&buf, Int32(85))
+            writeInt(&buf, Int32(81))
 
 
         case let .setupAppPassword(password):
-            writeInt(&buf, Int32(86))
+            writeInt(&buf, Int32(82))
             FfiConverterString.write(password, into: &buf)
 
 
         case let .setupDuressPassword(duressPassword):
-            writeInt(&buf, Int32(87))
+            writeInt(&buf, Int32(83))
             FfiConverterString.write(duressPassword, into: &buf)
 
 
         case let .authenticate(password):
-            writeInt(&buf, Int32(88))
+            writeInt(&buf, Int32(84))
             FfiConverterString.write(password, into: &buf)
 
 
         case .isPasswordEnabled:
-            writeInt(&buf, Int32(89))
+            writeInt(&buf, Int32(85))
 
 
         case .isDuressEnabled:
-            writeInt(&buf, Int32(90))
+            writeInt(&buf, Int32(86))
 
 
         case .disableDuress:
-            writeInt(&buf, Int32(91))
+            writeInt(&buf, Int32(87))
 
 
         case let .configureDuressAlerts(contactIds,message):
-            writeInt(&buf, Int32(92))
+            writeInt(&buf, Int32(88))
             FfiConverterSequenceString.write(contactIds, into: &buf)
             FfiConverterString.write(message, into: &buf)
 
 
         case .getDuressSettings:
-            writeInt(&buf, Int32(93))
+            writeInt(&buf, Int32(89))
 
 
         case let .addDecoyContact(name,cardJson):
-            writeInt(&buf, Int32(94))
+            writeInt(&buf, Int32(90))
             FfiConverterString.write(name, into: &buf)
             FfiConverterString.write(cardJson, into: &buf)
 
 
         case .listDecoyContacts:
-            writeInt(&buf, Int32(95))
+            writeInt(&buf, Int32(91))
 
 
         case let .deleteDecoyContact(id):
-            writeInt(&buf, Int32(96))
+            writeInt(&buf, Int32(92))
             FfiConverterString.write(id, into: &buf)
 
 
         case .sync:
-            writeInt(&buf, Int32(97))
+            writeInt(&buf, Int32(93))
 
 
         case .pendingUpdateCount:
-            writeInt(&buf, Int32(98))
+            writeInt(&buf, Int32(94))
 
 
         case let .getDeliveryRecord(messageId):
-            writeInt(&buf, Int32(99))
+            writeInt(&buf, Int32(95))
             FfiConverterString.write(messageId, into: &buf)
 
 
         case .getAllDeliveryRecords:
-            writeInt(&buf, Int32(100))
+            writeInt(&buf, Int32(96))
 
 
         case let .getDeliveryRecordsForContact(recipientId):
-            writeInt(&buf, Int32(101))
+            writeInt(&buf, Int32(97))
             FfiConverterString.write(recipientId, into: &buf)
 
 
         case .countFailedDeliveries:
-            writeInt(&buf, Int32(102))
+            writeInt(&buf, Int32(98))
 
 
         case .getFailedDeliveryRecords:
-            writeInt(&buf, Int32(103))
+            writeInt(&buf, Int32(99))
 
 
         case let .manualRetry(messageId):
-            writeInt(&buf, Int32(104))
+            writeInt(&buf, Int32(100))
             FfiConverterString.write(messageId, into: &buf)
 
 
         case .getPendingDeliveries:
-            writeInt(&buf, Int32(105))
+            writeInt(&buf, Int32(101))
 
 
         case let .getDeliveryCountByStatus(status):
-            writeInt(&buf, Int32(106))
+            writeInt(&buf, Int32(102))
             FfiConverterTypeMobileDeliveryStatus.write(status, into: &buf)
 
 
         case .getDueRetries:
-            writeInt(&buf, Int32(107))
+            writeInt(&buf, Int32(103))
 
 
         case let .getRetriesForContact(contactId):
-            writeInt(&buf, Int32(108))
+            writeInt(&buf, Int32(104))
             FfiConverterString.write(contactId, into: &buf)
 
 
         case .getRetryCount:
-            writeInt(&buf, Int32(109))
+            writeInt(&buf, Int32(105))
 
 
         case let .deleteRetry(messageId):
-            writeInt(&buf, Int32(110))
+            writeInt(&buf, Int32(106))
             FfiConverterString.write(messageId, into: &buf)
 
 
         case let .calculateRetryBackoff(attempt):
-            writeInt(&buf, Int32(111))
+            writeInt(&buf, Int32(107))
             FfiConverterUInt32.write(attempt, into: &buf)
 
 
         case .getTotalPendingCount:
-            writeInt(&buf, Int32(112))
+            writeInt(&buf, Int32(108))
 
 
         case .isOfflineQueueFull:
-            writeInt(&buf, Int32(113))
+            writeInt(&buf, Int32(109))
 
 
         case .getOfflineQueueCapacity:
-            writeInt(&buf, Int32(114))
+            writeInt(&buf, Int32(110))
 
 
         case let .clearPendingUpdatesForContact(contactId):
-            writeInt(&buf, Int32(115))
+            writeInt(&buf, Int32(111))
             FfiConverterString.write(contactId, into: &buf)
 
 
         case let .getDeliverySummary(messageId):
-            writeInt(&buf, Int32(116))
+            writeInt(&buf, Int32(112))
             FfiConverterString.write(messageId, into: &buf)
 
 
         case let .getDeviceDeliveries(messageId):
-            writeInt(&buf, Int32(117))
+            writeInt(&buf, Int32(113))
             FfiConverterString.write(messageId, into: &buf)
 
 
         case .getPendingDeviceDeliveries:
-            writeInt(&buf, Int32(118))
+            writeInt(&buf, Int32(114))
 
 
         case let .createIdentity(displayName):
-            writeInt(&buf, Int32(119))
+            writeInt(&buf, Int32(115))
             FfiConverterString.write(displayName, into: &buf)
 
 
         case .getPublicId:
-            writeInt(&buf, Int32(120))
+            writeInt(&buf, Int32(116))
 
 
         case .getDisplayName:
-            writeInt(&buf, Int32(121))
+            writeInt(&buf, Int32(117))
 
 
         case .getOwnFingerprint:
-            writeInt(&buf, Int32(122))
+            writeInt(&buf, Int32(118))
 
 
         case let .displayNameSuggestions(fullName):
-            writeInt(&buf, Int32(123))
+            writeInt(&buf, Int32(119))
             FfiConverterString.write(fullName, into: &buf)
 
 
         case .resetOnboarding:
-            writeInt(&buf, Int32(124))
+            writeInt(&buf, Int32(120))
 
 
         case let .verifyContact(id):
-            writeInt(&buf, Int32(125))
+            writeInt(&buf, Int32(121))
             FfiConverterString.write(id, into: &buf)
 
 
         case let .setProposalTrusted(contactId,trusted):
-            writeInt(&buf, Int32(126))
+            writeInt(&buf, Int32(122))
             FfiConverterString.write(contactId, into: &buf)
             FfiConverterBool.write(trusted, into: &buf)
 
 
         case .findDuplicates:
-            writeInt(&buf, Int32(127))
+            writeInt(&buf, Int32(123))
 
 
         case let .dismissDuplicate(id1,id2):
-            writeInt(&buf, Int32(128))
+            writeInt(&buf, Int32(124))
             FfiConverterString.write(id1, into: &buf)
             FfiConverterString.write(id2, into: &buf)
 
 
         case let .setContactNote(contactId,note):
-            writeInt(&buf, Int32(129))
+            writeInt(&buf, Int32(125))
             FfiConverterString.write(contactId, into: &buf)
             FfiConverterString.write(note, into: &buf)
 
 
         case let .getContactNote(contactId):
-            writeInt(&buf, Int32(130))
+            writeInt(&buf, Int32(126))
             FfiConverterString.write(contactId, into: &buf)
 
 
         case let .deleteContactNote(contactId):
-            writeInt(&buf, Int32(131))
+            writeInt(&buf, Int32(127))
             FfiConverterString.write(contactId, into: &buf)
 
 
         case let .setContactFieldNote(contactId,fieldId,note):
-            writeInt(&buf, Int32(132))
+            writeInt(&buf, Int32(128))
             FfiConverterString.write(contactId, into: &buf)
             FfiConverterString.write(fieldId, into: &buf)
             FfiConverterString.write(note, into: &buf)
 
 
         case let .getContactFieldNotes(contactId):
-            writeInt(&buf, Int32(133))
+            writeInt(&buf, Int32(129))
             FfiConverterString.write(contactId, into: &buf)
 
 
         case let .deleteContactFieldNote(contactId,fieldId):
-            writeInt(&buf, Int32(134))
+            writeInt(&buf, Int32(130))
             FfiConverterString.write(contactId, into: &buf)
             FfiConverterString.write(fieldId, into: &buf)
 
 
         case let .setContactNickname(contactId,name):
-            writeInt(&buf, Int32(135))
+            writeInt(&buf, Int32(131))
             FfiConverterString.write(contactId, into: &buf)
             FfiConverterString.write(name, into: &buf)
 
 
         case let .clearContactNickname(contactId):
-            writeInt(&buf, Int32(136))
+            writeInt(&buf, Int32(132))
             FfiConverterString.write(contactId, into: &buf)
 
 
         case let .setContactCustomAvatar(contactId,data):
-            writeInt(&buf, Int32(137))
+            writeInt(&buf, Int32(133))
             FfiConverterString.write(contactId, into: &buf)
             FfiConverterData.write(data, into: &buf)
 
 
         case let .clearContactCustomAvatar(contactId):
-            writeInt(&buf, Int32(138))
+            writeInt(&buf, Int32(134))
             FfiConverterString.write(contactId, into: &buf)
 
 
         case let .getContactCustomAvatar(contactId):
-            writeInt(&buf, Int32(139))
+            writeInt(&buf, Int32(135))
             FfiConverterString.write(contactId, into: &buf)
 
 
         case let .searchSocialNetworks(query):
-            writeInt(&buf, Int32(140))
+            writeInt(&buf, Int32(136))
             FfiConverterString.write(query, into: &buf)
 
 
         case let .getProfileUrl(networkId,username):
-            writeInt(&buf, Int32(141))
+            writeInt(&buf, Int32(137))
             FfiConverterString.write(networkId, into: &buf)
             FfiConverterString.write(username, into: &buf)
 
 
         case .listHiddenContacts:
-            writeInt(&buf, Int32(142))
+            writeInt(&buf, Int32(138))
 
 
         case let .contactDetailFooterActionId(contactId):
-            writeInt(&buf, Int32(143))
+            writeInt(&buf, Int32(139))
             FfiConverterString.write(contactId, into: &buf)
 
 
         case let .exportBackup(password):
-            writeInt(&buf, Int32(144))
+            writeInt(&buf, Int32(140))
             FfiConverterString.write(password, into: &buf)
 
 
         case let .importBackup(backupData,password):
-            writeInt(&buf, Int32(145))
+            writeInt(&buf, Int32(141))
             FfiConverterString.write(backupData, into: &buf)
             FfiConverterString.write(password, into: &buf)
 
 
         case let .exportFullBackup(password):
-            writeInt(&buf, Int32(146))
+            writeInt(&buf, Int32(142))
             FfiConverterString.write(password, into: &buf)
 
 
         case let .importFullBackup(backupData,password):
-            writeInt(&buf, Int32(147))
+            writeInt(&buf, Int32(143))
             FfiConverterString.write(backupData, into: &buf)
             FfiConverterString.write(password, into: &buf)
 
 
         case let .importContactsFromVcf(data):
-            writeInt(&buf, Int32(148))
+            writeInt(&buf, Int32(144))
             FfiConverterData.write(data, into: &buf)
 
 
         case let .setDisplayNamePreference(contactId,prefJson):
-            writeInt(&buf, Int32(149))
+            writeInt(&buf, Int32(145))
             FfiConverterString.write(contactId, into: &buf)
             FfiConverterString.write(prefJson, into: &buf)
 
 
         case let .setAvatarPreference(contactId,prefJson):
-            writeInt(&buf, Int32(150))
+            writeInt(&buf, Int32(146))
             FfiConverterString.write(contactId, into: &buf)
             FfiConverterString.write(prefJson, into: &buf)
 
 
         case let .mergeContacts(primaryId,secondaryId):
-            writeInt(&buf, Int32(151))
+            writeInt(&buf, Int32(147))
             FfiConverterString.write(primaryId, into: &buf)
             FfiConverterString.write(secondaryId, into: &buf)
 
 
         case .getOnboardingProgress:
-            writeInt(&buf, Int32(152))
+            writeInt(&buf, Int32(148))
 
 
         case .currentOnboardingStep:
-            writeInt(&buf, Int32(153))
+            writeInt(&buf, Int32(149))
 
 
         case .isOnboardingComplete:
-            writeInt(&buf, Int32(154))
+            writeInt(&buf, Int32(150))
 
 
         case .advanceOnboarding:
-            writeInt(&buf, Int32(155))
+            writeInt(&buf, Int32(151))
 
 
         case .skipOnboardingStep:
-            writeInt(&buf, Int32(156))
+            writeInt(&buf, Int32(152))
 
 
         case let .getContactDisplayOptions(contactId):
-            writeInt(&buf, Int32(157))
+            writeInt(&buf, Int32(153))
             FfiConverterString.write(contactId, into: &buf)
 
 
         case let .listContactsPaginated(offset,limit):
-            writeInt(&buf, Int32(158))
+            writeInt(&buf, Int32(154))
             FfiConverterUInt32.write(offset, into: &buf)
             FfiConverterUInt32.write(limit, into: &buf)
 
 
         case let .contactDetailViewState(contactId):
-            writeInt(&buf, Int32(159))
+            writeInt(&buf, Int32(155))
             FfiConverterString.write(contactId, into: &buf)
 
 
         case .listSocialNetworks:
-            writeInt(&buf, Int32(160))
+            writeInt(&buf, Int32(156))
 
 
         case let .encodeMultipartQr(data):
-            writeInt(&buf, Int32(161))
+            writeInt(&buf, Int32(157))
             FfiConverterData.write(data, into: &buf)
 
 
         case let .setPinnedCertificate(certPem):
-            writeInt(&buf, Int32(162))
+            writeInt(&buf, Int32(158))
             FfiConverterString.write(certPem, into: &buf)
 
 
         case .isCertificatePinningEnabled:
-            writeInt(&buf, Int32(163))
+            writeInt(&buf, Int32(159))
 
 
         case .isPrimaryDevice:
-            writeInt(&buf, Int32(164))
+            writeInt(&buf, Int32(160))
 
 
         case .getDeviceCount:
-            writeInt(&buf, Int32(165))
+            writeInt(&buf, Int32(161))
 
 
         case .getDevices:
-            writeInt(&buf, Int32(166))
+            writeInt(&buf, Int32(162))
 
 
         case let .unlinkDevice(deviceIndex):
-            writeInt(&buf, Int32(167))
+            writeInt(&buf, Int32(163))
             FfiConverterUInt32.write(deviceIndex, into: &buf)
 
 
         case .generateDeviceLinkQr:
-            writeInt(&buf, Int32(168))
+            writeInt(&buf, Int32(164))
 
 
         case let .parseDeviceLinkQr(qrData):
-            writeInt(&buf, Int32(169))
+            writeInt(&buf, Int32(165))
             FfiConverterString.write(qrData, into: &buf)
 
         }
@@ -9845,17 +9804,7 @@ public enum DomainCommandResult: Equatable, Hashable {
     case consentRecords(records: [MobileConsentRecord]
     )
     /**
-     * Outcome of `CheckContentUpdates` (B7 batch 2).
-     */
-    case updateStatus(status: MobileUpdateStatus
-    )
-    /**
-     * Outcome of `ApplyContentUpdates` (B7 batch 2).
-     */
-    case applyResult(result: MobileApplyResult
-    )
-    /**
-     * List of `MobileSocialNetwork` (B7 batch 2 — `ReloadSocialNetworks`).
+     * List of `MobileSocialNetwork` (`List`/`SearchSocialNetworks`).
      */
     case socialNetworks(networks: [MobileSocialNetwork]
     )
@@ -10133,154 +10082,148 @@ public struct FfiConverterTypeDomainCommandResult: FfiConverterRustBuffer {
         case 5: return .consentRecords(records: try FfiConverterSequenceTypeMobileConsentRecord.read(from: &buf)
         )
 
-        case 6: return .updateStatus(status: try FfiConverterTypeMobileUpdateStatus.read(from: &buf)
+        case 6: return .socialNetworks(networks: try FfiConverterSequenceTypeMobileSocialNetwork.read(from: &buf)
         )
 
-        case 7: return .applyResult(result: try FfiConverterTypeMobileApplyResult.read(from: &buf)
+        case 7: return .contentUpdateCycle(outcome: try FfiConverterTypeMobileContentCycleOutcome.read(from: &buf)
         )
 
-        case 8: return .socialNetworks(networks: try FfiConverterSequenceTypeMobileSocialNetwork.read(from: &buf)
+        case 8: return .count(value: try FfiConverterUInt32.read(from: &buf)
         )
 
-        case 9: return .contentUpdateCycle(outcome: try FfiConverterTypeMobileContentCycleOutcome.read(from: &buf)
+        case 9: return .devices(devices: try FfiConverterSequenceTypeMobileDeviceInfo.read(from: &buf)
         )
 
-        case 10: return .count(value: try FfiConverterUInt32.read(from: &buf)
+        case 10: return .deviceLinkData(data: try FfiConverterTypeMobileDeviceLinkData.read(from: &buf)
         )
 
-        case 11: return .devices(devices: try FfiConverterSequenceTypeMobileDeviceInfo.read(from: &buf)
+        case 11: return .deviceLinkInfo(info: try FfiConverterTypeMobileDeviceLinkInfo.read(from: &buf)
         )
 
-        case 12: return .deviceLinkData(data: try FfiConverterTypeMobileDeviceLinkData.read(from: &buf)
+        case 12: return .gdprExport(export: try FfiConverterTypeMobileGdprExport.read(from: &buf)
         )
 
-        case 13: return .deviceLinkInfo(info: try FfiConverterTypeMobileDeviceLinkInfo.read(from: &buf)
+        case 13: return .deletionInfo(info: try FfiConverterTypeMobileDeletionInfo.read(from: &buf)
         )
 
-        case 14: return .gdprExport(export: try FfiConverterTypeMobileGdprExport.read(from: &buf)
+        case 14: return .shredStatus(status: try FfiConverterTypeMobileShredStatus.read(from: &buf)
         )
 
-        case 15: return .deletionInfo(info: try FfiConverterTypeMobileDeletionInfo.read(from: &buf)
+        case 15: return .shredScheduled(token: try FfiConverterTypeMobileShredToken.read(from: &buf)
         )
 
-        case 16: return .shredStatus(status: try FfiConverterTypeMobileShredStatus.read(from: &buf)
+        case 16: return .shredCompleted(report: try FfiConverterTypeMobileShredReport.read(from: &buf)
         )
 
-        case 17: return .shredScheduled(token: try FfiConverterTypeMobileShredToken.read(from: &buf)
+        case 17: return .ahaMomentOpt(moment: try FfiConverterOptionTypeMobileAhaMoment.read(from: &buf)
         )
 
-        case 18: return .shredCompleted(report: try FfiConverterTypeMobileShredReport.read(from: &buf)
+        case 18: return .demoContactOpt(contact: try FfiConverterOptionTypeMobileDemoContact.read(from: &buf)
         )
 
-        case 19: return .ahaMomentOpt(moment: try FfiConverterOptionTypeMobileAhaMoment.read(from: &buf)
+        case 19: return .demoContactState(state: try FfiConverterTypeMobileDemoContactState.read(from: &buf)
         )
 
-        case 20: return .demoContactOpt(contact: try FfiConverterOptionTypeMobileDemoContact.read(from: &buf)
+        case 20: return .contactCardPayload(card: try FfiConverterTypeMobileContactCard.read(from: &buf)
         )
 
-        case 21: return .demoContactState(state: try FfiConverterTypeMobileDemoContactState.read(from: &buf)
+        case 21: return .contactOpt(contact: try FfiConverterOptionTypeMobileContact.read(from: &buf)
         )
 
-        case 22: return .contactCardPayload(card: try FfiConverterTypeMobileContactCard.read(from: &buf)
+        case 22: return .contacts(contacts: try FfiConverterSequenceTypeMobileContact.read(from: &buf)
         )
 
-        case 23: return .contactOpt(contact: try FfiConverterOptionTypeMobileContact.read(from: &buf)
+        case 23: return .recoveryVerification(verification: try FfiConverterTypeMobileRecoveryVerification.read(from: &buf)
         )
 
-        case 24: return .contacts(contacts: try FfiConverterSequenceTypeMobileContact.read(from: &buf)
+        case 24: return .recoveryClaim(claim: try FfiConverterTypeMobileRecoveryClaim.read(from: &buf)
         )
 
-        case 25: return .recoveryVerification(verification: try FfiConverterTypeMobileRecoveryVerification.read(from: &buf)
+        case 25: return .optionalRecoveryProgress(progress: try FfiConverterOptionTypeMobileRecoveryProgress.read(from: &buf)
         )
 
-        case 26: return .recoveryClaim(claim: try FfiConverterTypeMobileRecoveryClaim.read(from: &buf)
+        case 26: return .recoveryVoucher(voucher: try FfiConverterTypeMobileRecoveryVoucher.read(from: &buf)
         )
 
-        case 27: return .optionalRecoveryProgress(progress: try FfiConverterOptionTypeMobileRecoveryProgress.read(from: &buf)
+        case 27: return .recoveryProgress(progress: try FfiConverterTypeMobileRecoveryProgress.read(from: &buf)
         )
 
-        case 28: return .recoveryVoucher(voucher: try FfiConverterTypeMobileRecoveryVoucher.read(from: &buf)
+        case 28: return .broadcastResult(result: try FfiConverterTypeMobileBroadcastResult.read(from: &buf)
         )
 
-        case 29: return .recoveryProgress(progress: try FfiConverterTypeMobileRecoveryProgress.read(from: &buf)
+        case 29: return .optionalEmergencyConfig(config: try FfiConverterOptionTypeMobileEmergencyConfig.read(from: &buf)
         )
 
-        case 30: return .broadcastResult(result: try FfiConverterTypeMobileBroadcastResult.read(from: &buf)
+        case 30: return .labels(labels: try FfiConverterSequenceTypeMobileVisibilityLabel.read(from: &buf)
         )
 
-        case 31: return .optionalEmergencyConfig(config: try FfiConverterOptionTypeMobileEmergencyConfig.read(from: &buf)
+        case 31: return .label(label: try FfiConverterTypeMobileVisibilityLabel.read(from: &buf)
         )
 
-        case 32: return .labels(labels: try FfiConverterSequenceTypeMobileVisibilityLabel.read(from: &buf)
+        case 32: return .labelDetail(detail: try FfiConverterTypeMobileVisibilityLabelDetail.read(from: &buf)
         )
 
-        case 33: return .label(label: try FfiConverterTypeMobileVisibilityLabel.read(from: &buf)
+        case 33: return .strings(values: try FfiConverterSequenceString.read(from: &buf)
         )
 
-        case 34: return .labelDetail(detail: try FfiConverterTypeMobileVisibilityLabelDetail.read(from: &buf)
+        case 34: return .text(value: try FfiConverterString.read(from: &buf)
         )
 
-        case 35: return .strings(values: try FfiConverterSequenceString.read(from: &buf)
+        case 35: return .authMode(mode: try FfiConverterTypeMobileAuthMode.read(from: &buf)
         )
 
-        case 36: return .text(value: try FfiConverterString.read(from: &buf)
+        case 36: return .duressSettingsOpt(settings: try FfiConverterOptionTypeMobileDuressSettings.read(from: &buf)
         )
 
-        case 37: return .authMode(mode: try FfiConverterTypeMobileAuthMode.read(from: &buf)
+        case 37: return .decoyContacts(contacts: try FfiConverterSequenceTypeMobileDecoyContact.read(from: &buf)
         )
 
-        case 38: return .duressSettingsOpt(settings: try FfiConverterOptionTypeMobileDuressSettings.read(from: &buf)
+        case 38: return .backoffSeconds(seconds: try FfiConverterUInt64.read(from: &buf)
         )
 
-        case 39: return .decoyContacts(contacts: try FfiConverterSequenceTypeMobileDecoyContact.read(from: &buf)
+        case 39: return .deliveryRecordOpt(record: try FfiConverterOptionTypeMobileDeliveryRecord.read(from: &buf)
         )
 
-        case 40: return .backoffSeconds(seconds: try FfiConverterUInt64.read(from: &buf)
+        case 40: return .deliveryRecords(records: try FfiConverterSequenceTypeMobileDeliveryRecord.read(from: &buf)
         )
 
-        case 41: return .deliveryRecordOpt(record: try FfiConverterOptionTypeMobileDeliveryRecord.read(from: &buf)
+        case 41: return .retryEntries(entries: try FfiConverterSequenceTypeMobileRetryEntry.read(from: &buf)
         )
 
-        case 42: return .deliveryRecords(records: try FfiConverterSequenceTypeMobileDeliveryRecord.read(from: &buf)
+        case 42: return .deliverySummary(summary: try FfiConverterTypeMobileDeliverySummary.read(from: &buf)
         )
 
-        case 43: return .retryEntries(entries: try FfiConverterSequenceTypeMobileRetryEntry.read(from: &buf)
+        case 43: return .deviceDeliveries(records: try FfiConverterSequenceTypeMobileDeviceDeliveryRecord.read(from: &buf)
         )
 
-        case 44: return .deliverySummary(summary: try FfiConverterTypeMobileDeliverySummary.read(from: &buf)
+        case 44: return .stringOpt(value: try FfiConverterOptionString.read(from: &buf)
         )
 
-        case 45: return .deviceDeliveries(records: try FfiConverterSequenceTypeMobileDeviceDeliveryRecord.read(from: &buf)
+        case 45: return .avatarOpt(data: try FfiConverterOptionData.read(from: &buf)
         )
 
-        case 46: return .stringOpt(value: try FfiConverterOptionString.read(from: &buf)
+        case 46: return .duplicatePairs(pairs: try FfiConverterSequenceTypeMobileDuplicatePair.read(from: &buf)
         )
 
-        case 47: return .avatarOpt(data: try FfiConverterOptionData.read(from: &buf)
+        case 47: return .fieldNotes(notes: try FfiConverterSequenceTypeMobileFieldNote.read(from: &buf)
         )
 
-        case 48: return .duplicatePairs(pairs: try FfiConverterSequenceTypeMobileDuplicatePair.read(from: &buf)
+        case 48: return .importResult(result: try FfiConverterTypeMobileImportResult.read(from: &buf)
         )
 
-        case 49: return .fieldNotes(notes: try FfiConverterSequenceTypeMobileFieldNote.read(from: &buf)
+        case 49: return .contactSingle(contact: try FfiConverterTypeMobileContact.read(from: &buf)
         )
 
-        case 50: return .importResult(result: try FfiConverterTypeMobileImportResult.read(from: &buf)
+        case 50: return .onboardingProgress(progress: try FfiConverterTypeMobileOnboardingProgress.read(from: &buf)
         )
 
-        case 51: return .contactSingle(contact: try FfiConverterTypeMobileContact.read(from: &buf)
+        case 51: return .onboardingStep(step: try FfiConverterTypeMobileOnboardingStep.read(from: &buf)
         )
 
-        case 52: return .onboardingProgress(progress: try FfiConverterTypeMobileOnboardingProgress.read(from: &buf)
+        case 52: return .contactDisplayOptions(options: try FfiConverterTypeMobileContactDisplayOptions.read(from: &buf)
         )
 
-        case 53: return .onboardingStep(step: try FfiConverterTypeMobileOnboardingStep.read(from: &buf)
-        )
-
-        case 54: return .contactDisplayOptions(options: try FfiConverterTypeMobileContactDisplayOptions.read(from: &buf)
-        )
-
-        case 55: return .contactDetailView(state: try FfiConverterTypeMobileContactDetailViewState.read(from: &buf)
+        case 53: return .contactDetailView(state: try FfiConverterTypeMobileContactDetailViewState.read(from: &buf)
         )
 
         default: throw UniffiInternalError.unexpectedEnumCase
@@ -10315,253 +10258,243 @@ public struct FfiConverterTypeDomainCommandResult: FfiConverterRustBuffer {
             FfiConverterSequenceTypeMobileConsentRecord.write(records, into: &buf)
 
 
-        case let .updateStatus(status):
-            writeInt(&buf, Int32(6))
-            FfiConverterTypeMobileUpdateStatus.write(status, into: &buf)
-
-
-        case let .applyResult(result):
-            writeInt(&buf, Int32(7))
-            FfiConverterTypeMobileApplyResult.write(result, into: &buf)
-
-
         case let .socialNetworks(networks):
-            writeInt(&buf, Int32(8))
+            writeInt(&buf, Int32(6))
             FfiConverterSequenceTypeMobileSocialNetwork.write(networks, into: &buf)
 
 
         case let .contentUpdateCycle(outcome):
-            writeInt(&buf, Int32(9))
+            writeInt(&buf, Int32(7))
             FfiConverterTypeMobileContentCycleOutcome.write(outcome, into: &buf)
 
 
         case let .count(value):
-            writeInt(&buf, Int32(10))
+            writeInt(&buf, Int32(8))
             FfiConverterUInt32.write(value, into: &buf)
 
 
         case let .devices(devices):
-            writeInt(&buf, Int32(11))
+            writeInt(&buf, Int32(9))
             FfiConverterSequenceTypeMobileDeviceInfo.write(devices, into: &buf)
 
 
         case let .deviceLinkData(data):
-            writeInt(&buf, Int32(12))
+            writeInt(&buf, Int32(10))
             FfiConverterTypeMobileDeviceLinkData.write(data, into: &buf)
 
 
         case let .deviceLinkInfo(info):
-            writeInt(&buf, Int32(13))
+            writeInt(&buf, Int32(11))
             FfiConverterTypeMobileDeviceLinkInfo.write(info, into: &buf)
 
 
         case let .gdprExport(export):
-            writeInt(&buf, Int32(14))
+            writeInt(&buf, Int32(12))
             FfiConverterTypeMobileGdprExport.write(export, into: &buf)
 
 
         case let .deletionInfo(info):
-            writeInt(&buf, Int32(15))
+            writeInt(&buf, Int32(13))
             FfiConverterTypeMobileDeletionInfo.write(info, into: &buf)
 
 
         case let .shredStatus(status):
-            writeInt(&buf, Int32(16))
+            writeInt(&buf, Int32(14))
             FfiConverterTypeMobileShredStatus.write(status, into: &buf)
 
 
         case let .shredScheduled(token):
-            writeInt(&buf, Int32(17))
+            writeInt(&buf, Int32(15))
             FfiConverterTypeMobileShredToken.write(token, into: &buf)
 
 
         case let .shredCompleted(report):
-            writeInt(&buf, Int32(18))
+            writeInt(&buf, Int32(16))
             FfiConverterTypeMobileShredReport.write(report, into: &buf)
 
 
         case let .ahaMomentOpt(moment):
-            writeInt(&buf, Int32(19))
+            writeInt(&buf, Int32(17))
             FfiConverterOptionTypeMobileAhaMoment.write(moment, into: &buf)
 
 
         case let .demoContactOpt(contact):
-            writeInt(&buf, Int32(20))
+            writeInt(&buf, Int32(18))
             FfiConverterOptionTypeMobileDemoContact.write(contact, into: &buf)
 
 
         case let .demoContactState(state):
-            writeInt(&buf, Int32(21))
+            writeInt(&buf, Int32(19))
             FfiConverterTypeMobileDemoContactState.write(state, into: &buf)
 
 
         case let .contactCardPayload(card):
-            writeInt(&buf, Int32(22))
+            writeInt(&buf, Int32(20))
             FfiConverterTypeMobileContactCard.write(card, into: &buf)
 
 
         case let .contactOpt(contact):
-            writeInt(&buf, Int32(23))
+            writeInt(&buf, Int32(21))
             FfiConverterOptionTypeMobileContact.write(contact, into: &buf)
 
 
         case let .contacts(contacts):
-            writeInt(&buf, Int32(24))
+            writeInt(&buf, Int32(22))
             FfiConverterSequenceTypeMobileContact.write(contacts, into: &buf)
 
 
         case let .recoveryVerification(verification):
-            writeInt(&buf, Int32(25))
+            writeInt(&buf, Int32(23))
             FfiConverterTypeMobileRecoveryVerification.write(verification, into: &buf)
 
 
         case let .recoveryClaim(claim):
-            writeInt(&buf, Int32(26))
+            writeInt(&buf, Int32(24))
             FfiConverterTypeMobileRecoveryClaim.write(claim, into: &buf)
 
 
         case let .optionalRecoveryProgress(progress):
-            writeInt(&buf, Int32(27))
+            writeInt(&buf, Int32(25))
             FfiConverterOptionTypeMobileRecoveryProgress.write(progress, into: &buf)
 
 
         case let .recoveryVoucher(voucher):
-            writeInt(&buf, Int32(28))
+            writeInt(&buf, Int32(26))
             FfiConverterTypeMobileRecoveryVoucher.write(voucher, into: &buf)
 
 
         case let .recoveryProgress(progress):
-            writeInt(&buf, Int32(29))
+            writeInt(&buf, Int32(27))
             FfiConverterTypeMobileRecoveryProgress.write(progress, into: &buf)
 
 
         case let .broadcastResult(result):
-            writeInt(&buf, Int32(30))
+            writeInt(&buf, Int32(28))
             FfiConverterTypeMobileBroadcastResult.write(result, into: &buf)
 
 
         case let .optionalEmergencyConfig(config):
-            writeInt(&buf, Int32(31))
+            writeInt(&buf, Int32(29))
             FfiConverterOptionTypeMobileEmergencyConfig.write(config, into: &buf)
 
 
         case let .labels(labels):
-            writeInt(&buf, Int32(32))
+            writeInt(&buf, Int32(30))
             FfiConverterSequenceTypeMobileVisibilityLabel.write(labels, into: &buf)
 
 
         case let .label(label):
-            writeInt(&buf, Int32(33))
+            writeInt(&buf, Int32(31))
             FfiConverterTypeMobileVisibilityLabel.write(label, into: &buf)
 
 
         case let .labelDetail(detail):
-            writeInt(&buf, Int32(34))
+            writeInt(&buf, Int32(32))
             FfiConverterTypeMobileVisibilityLabelDetail.write(detail, into: &buf)
 
 
         case let .strings(values):
-            writeInt(&buf, Int32(35))
+            writeInt(&buf, Int32(33))
             FfiConverterSequenceString.write(values, into: &buf)
 
 
         case let .text(value):
-            writeInt(&buf, Int32(36))
+            writeInt(&buf, Int32(34))
             FfiConverterString.write(value, into: &buf)
 
 
         case let .authMode(mode):
-            writeInt(&buf, Int32(37))
+            writeInt(&buf, Int32(35))
             FfiConverterTypeMobileAuthMode.write(mode, into: &buf)
 
 
         case let .duressSettingsOpt(settings):
-            writeInt(&buf, Int32(38))
+            writeInt(&buf, Int32(36))
             FfiConverterOptionTypeMobileDuressSettings.write(settings, into: &buf)
 
 
         case let .decoyContacts(contacts):
-            writeInt(&buf, Int32(39))
+            writeInt(&buf, Int32(37))
             FfiConverterSequenceTypeMobileDecoyContact.write(contacts, into: &buf)
 
 
         case let .backoffSeconds(seconds):
-            writeInt(&buf, Int32(40))
+            writeInt(&buf, Int32(38))
             FfiConverterUInt64.write(seconds, into: &buf)
 
 
         case let .deliveryRecordOpt(record):
-            writeInt(&buf, Int32(41))
+            writeInt(&buf, Int32(39))
             FfiConverterOptionTypeMobileDeliveryRecord.write(record, into: &buf)
 
 
         case let .deliveryRecords(records):
-            writeInt(&buf, Int32(42))
+            writeInt(&buf, Int32(40))
             FfiConverterSequenceTypeMobileDeliveryRecord.write(records, into: &buf)
 
 
         case let .retryEntries(entries):
-            writeInt(&buf, Int32(43))
+            writeInt(&buf, Int32(41))
             FfiConverterSequenceTypeMobileRetryEntry.write(entries, into: &buf)
 
 
         case let .deliverySummary(summary):
-            writeInt(&buf, Int32(44))
+            writeInt(&buf, Int32(42))
             FfiConverterTypeMobileDeliverySummary.write(summary, into: &buf)
 
 
         case let .deviceDeliveries(records):
-            writeInt(&buf, Int32(45))
+            writeInt(&buf, Int32(43))
             FfiConverterSequenceTypeMobileDeviceDeliveryRecord.write(records, into: &buf)
 
 
         case let .stringOpt(value):
-            writeInt(&buf, Int32(46))
+            writeInt(&buf, Int32(44))
             FfiConverterOptionString.write(value, into: &buf)
 
 
         case let .avatarOpt(data):
-            writeInt(&buf, Int32(47))
+            writeInt(&buf, Int32(45))
             FfiConverterOptionData.write(data, into: &buf)
 
 
         case let .duplicatePairs(pairs):
-            writeInt(&buf, Int32(48))
+            writeInt(&buf, Int32(46))
             FfiConverterSequenceTypeMobileDuplicatePair.write(pairs, into: &buf)
 
 
         case let .fieldNotes(notes):
-            writeInt(&buf, Int32(49))
+            writeInt(&buf, Int32(47))
             FfiConverterSequenceTypeMobileFieldNote.write(notes, into: &buf)
 
 
         case let .importResult(result):
-            writeInt(&buf, Int32(50))
+            writeInt(&buf, Int32(48))
             FfiConverterTypeMobileImportResult.write(result, into: &buf)
 
 
         case let .contactSingle(contact):
-            writeInt(&buf, Int32(51))
+            writeInt(&buf, Int32(49))
             FfiConverterTypeMobileContact.write(contact, into: &buf)
 
 
         case let .onboardingProgress(progress):
-            writeInt(&buf, Int32(52))
+            writeInt(&buf, Int32(50))
             FfiConverterTypeMobileOnboardingProgress.write(progress, into: &buf)
 
 
         case let .onboardingStep(step):
-            writeInt(&buf, Int32(53))
+            writeInt(&buf, Int32(51))
             FfiConverterTypeMobileOnboardingStep.write(step, into: &buf)
 
 
         case let .contactDisplayOptions(options):
-            writeInt(&buf, Int32(54))
+            writeInt(&buf, Int32(52))
             FfiConverterTypeMobileContactDisplayOptions.write(options, into: &buf)
 
 
         case let .contactDetailView(state):
-            writeInt(&buf, Int32(55))
+            writeInt(&buf, Int32(53))
             FfiConverterTypeMobileContactDetailViewState.write(state, into: &buf)
 
         }
@@ -13232,7 +13165,16 @@ public func FfiConverterTypeMobileLocale_lower(_ value: MobileLocale) -> RustBuf
 public enum MobileNotificationCategory: Equatable, Hashable {
 
     case emergencyAlert
+    /**
+     * A contact sent a duress alert (they entered their duress PIN). Distinct
+     * from `EmergencyAlert` so the frontend can convey the coercion context.
+     */
+    case duressAlert
     case contactAdded
+    /**
+     * A contact updated their card (M4 S3). Default-on heartbeat.
+     */
+    case cardUpdate
 
 
 
@@ -13256,7 +13198,11 @@ public struct FfiConverterTypeMobileNotificationCategory: FfiConverterRustBuffer
 
         case 1: return .emergencyAlert
 
-        case 2: return .contactAdded
+        case 2: return .duressAlert
+
+        case 3: return .contactAdded
+
+        case 4: return .cardUpdate
 
         default: throw UniffiInternalError.unexpectedEnumCase
         }
@@ -13270,8 +13216,16 @@ public struct FfiConverterTypeMobileNotificationCategory: FfiConverterRustBuffer
             writeInt(&buf, Int32(1))
 
 
-        case .contactAdded:
+        case .duressAlert:
             writeInt(&buf, Int32(2))
+
+
+        case .contactAdded:
+            writeInt(&buf, Int32(3))
+
+
+        case .cardUpdate:
+            writeInt(&buf, Int32(4))
 
         }
     }

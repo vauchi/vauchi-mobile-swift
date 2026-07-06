@@ -1358,6 +1358,10 @@ public enum UserAction: Encodable {
     /// canonical id from `tabInfo()`; core resolves it to the canonical
     /// screen. Maps to `UserAction::NavigateToTab { action_id }`.
     case navigateToTab(actionId: String)
+    /// A `vauchi://` link was opened by the OS. Core parses the URI and
+    /// routes to the consent gate, device-link join screen, or an alert.
+    /// Humble surface: the frontend does not inspect the URI scheme or host.
+    case linkOpened(uri: String)
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: VariantKey.self)
@@ -1425,6 +1429,10 @@ public enum UserAction: Encodable {
         case let .navigateToTab(actionId):
             var nested = container.nestedContainer(keyedBy: NavigateToTabKeys.self, forKey: .navigateToTab)
             try nested.encode(actionId, forKey: .actionId)
+
+        case let .linkOpened(uri):
+            var nested = container.nestedContainer(keyedBy: LinkOpenedKeys.self, forKey: .linkOpened)
+            try nested.encode(uri, forKey: .uri)
         }
     }
 
@@ -1442,6 +1450,7 @@ public enum UserAction: Encodable {
         case undoPressed = "UndoPressed"
         case sliderChanged = "SliderChanged"
         case navigateToTab = "NavigateToTab"
+        case linkOpened = "LinkOpened"
     }
 
     private enum TextChangedKeys: String, CodingKey {
@@ -1465,6 +1474,10 @@ public enum UserAction: Encodable {
 
     private enum NavigateToTabKeys: String, CodingKey {
         case actionId = "action_id"
+    }
+
+    private enum LinkOpenedKeys: String, CodingKey {
+        case uri
     }
 
     private enum FieldVisibilityKeys: String, CodingKey {

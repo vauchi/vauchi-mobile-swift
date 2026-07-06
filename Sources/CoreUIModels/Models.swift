@@ -1717,6 +1717,9 @@ public enum CommandDTO: Decodable {
     case setOrientationLock(orientation: OrientationDTO?)
     /// Request a one-shot device location fix (ADR-051 capture-at-exchange).
     case locationRequest(timeoutMs: UInt32)
+    /// Exchange-success ceremony (M2 S5). Frontends execute the requested
+    /// haptic/sound/animation axis; skipped axes are silently ignored.
+    case celebrate(haptic: String, sound: String, animation: String)
     case unknown
 
     public init(from decoder: Decoder) throws {
@@ -1824,6 +1827,9 @@ public enum CommandDTO: Decodable {
         } else if container.contains(.locationRequest) {
             let data = try container.decode(LocationRequestData.self, forKey: .locationRequest)
             return .locationRequest(timeoutMs: data.timeoutMs)
+        } else if container.contains(.celebrate) {
+            let data = try container.decode(CelebrateData.self, forKey: .celebrate)
+            return .celebrate(haptic: data.haptic, sound: data.sound, animation: data.animation)
         } else {
             return .unknown
         }
@@ -1851,6 +1857,7 @@ public enum CommandDTO: Decodable {
         case setIdleTimerDisabled = "SetIdleTimerDisabled"
         case setOrientationLock = "SetOrientationLock"
         case locationRequest = "LocationRequest"
+        case celebrate = "Celebrate"
     }
 
     private struct QrDisplayData: Decodable { let data: String }
@@ -1877,6 +1884,7 @@ public enum CommandDTO: Decodable {
     private struct SetIdleTimerDisabledData: Decodable { let disabled: Bool }
     private struct LocationRequestData: Decodable { let timeoutMs: UInt32 }
     private struct SetOrientationLockData: Decodable { let orientation: OrientationDTO? }
+    private struct CelebrateData: Decodable { let haptic: String; let sound: String; let animation: String }
 }
 
 /// DTO for orientation lock requests. Mirrors `vauchi-core::Orientation`.

@@ -585,14 +585,27 @@ public struct Field: Decodable, Identifiable {
     public let fieldType: String
     public let label: String
     public let value: String
+    /// Platform-neutral icon name supplied by core (e.g. `phone`, `envelope`).
+    /// Frontends map this to their native icon system rather than switching on
+    /// the domain `fieldType` string.
+    public let icon: String
     public let visibility: UiFieldVisibility
     public var a11y: A11y?
 
-    public init(id: String, fieldType: String, label: String, value: String, visibility: UiFieldVisibility, a11y: A11y? = nil) {
+    public init(
+        id: String,
+        fieldType: String,
+        label: String,
+        value: String,
+        icon: String = "",
+        visibility: UiFieldVisibility,
+        a11y: A11y? = nil
+    ) {
         self.id = id
         self.fieldType = fieldType
         self.label = label
         self.value = value
+        self.icon = icon
         self.visibility = visibility
         self.a11y = a11y
     }

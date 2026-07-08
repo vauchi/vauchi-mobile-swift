@@ -7,7 +7,7 @@
 import Foundation
 import PackageDescription
 
-let version = "0.52.4"
+let version = "0.52.5"
 let checksum = "4efbf1a699b0d0d964ffe987d69d40a97b936149fa493c9912aab1169e457bfc" // Updated by CI on release
 
 // Binary-target source: defaults to the published URL artifact (verified
@@ -78,6 +78,18 @@ let vauchiPlatformTarget: PackageDescription.Target = .target(
     path: "Sources/VauchiPlatform"
 )
 
+/// Shared Apple-platform hardware services (BLE, audio, direct-send, location,
+/// keychain, etc.). Depends on `VauchiPlatform` for generated core event types.
+let vauchiHardwareProduct: PackageDescription.Product = .library(
+    name: "VauchiHardware",
+    targets: ["VauchiHardware"]
+)
+let vauchiHardwareTarget: PackageDescription.Target = .target(
+    name: "VauchiHardware",
+    dependencies: ["VauchiPlatform"],
+    path: "Sources/VauchiHardware"
+)
+
 let package = Package(
     name: "VauchiPlatform",
     platforms: [
@@ -86,8 +98,8 @@ let package = Package(
     ],
     products: coreUIModelsTestOnly
         ? [coreUIModelsProduct]
-        : [vauchiPlatformProduct, coreUIModelsProduct],
+        : [vauchiPlatformProduct, vauchiHardwareProduct, coreUIModelsProduct],
     targets: coreUIModelsTestOnly
         ? [coreUIModelsTarget, coreUIModelsTestTarget]
-        : [vauchiPlatformTarget, coreUIModelsTarget, coreUIModelsTestTarget, binaryTarget]
+        : [vauchiPlatformTarget, vauchiHardwareTarget, coreUIModelsTarget, coreUIModelsTestTarget, binaryTarget]
 )

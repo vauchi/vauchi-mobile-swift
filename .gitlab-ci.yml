@@ -9,12 +9,14 @@
 
 include:
   - project: 'vauchi/scripts'
-    ref: main
+    ref: ci-templates-v2026.07.1
     file:
       - '/ci-templates/reuse.yml'
-      - '/ci-templates/parser-parity.yml'
       - '/ci-templates/badges.yml'
       - '/ci-templates/github-mirror.yml'
+
+variables:
+  VAUCHI_SCRIPTS_REF: "ci-templates-v2026.07.1"
 
 stages:
   - lint
@@ -25,17 +27,84 @@ workflow:
   auto_cancel:
     on_new_commit: interruptible
 
-# Validate Package.swift syntax on every push
-validate:package:
-  stage: validate
+# Combined docker lint/validate checks that all run on MRs and main.
+# Previously defined separately as validate:package and check:parser-parity.
+lint:cross-cutting-blocking:
+  stage: lint
   # Pin to a versioned tag — the GitLab dependency proxy returns 404
   # for the unversioned `swift:5.9` (Docker Hub stopped serving the
   # floating tag, or the proxy can't resolve aliases). 5.9.2 is the
   # final 5.9.x release; bump to 5.10/6.x in a separate MR.
   image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/swift:5.9.2
   tags: [docker]
+  needs: []
+  allow_failure: false
+  variables:
+    FRONTEND_NAME: "swift"
+    PARSER_FILE: "Sources/CoreUIModels/Models.swift"
+    CORE_REF: "main"
+  before_script:
+    # The parser-parity check needs git, python3 and wget; install them in the
+    # Swift image rather than switching images mid-pipeline.
+    - apt-get update && apt-get install -y git python3 wget
   script:
+    # validate:package — validate Package.swift syntax.
     - swift package dump-package
+    # check:parser-parity — verify CoreUIModels covers core's Component enum.
+    - |
+      set -euo pipefail
+
+      if [ -z "$FRONTEND_NAME" ] || [ -z "$PARSER_FILE" ]; then
+        echo "ERROR: FRONTEND_NAME and PARSER_FILE must be set"
+        exit 2
+      fi
+
+      if [ ! -f "$PARSER_FILE" ]; then
+        echo "ERROR: PARSER_FILE not found: $PARSER_FILE"
+        exit 2
+      fi
+
+      # Fetch only the canonical enum file from core via shallow clone +
+      # sparse-checkout — avoids a full clone of the core repo just to
+      # read one source file.
+      #
+      # Wire Humble Tier 0 (2026-05-04, core 0.41.0) split the single
+      # `component.rs` into `component/{mod,list,preview}.rs` to keep the
+      # file under the size warn threshold. Fetch both paths so this
+      # check works against pre-Tier-0 refs (tagged binding versions
+      # still pinned to 0.39.0 etc.) and post-Tier-0 main alike.
+      mkdir -p .core-parity
+      git -C .core-parity init -q
+      git -C .core-parity remote add origin https://gitlab.com/vauchi/core.git
+      git -C .core-parity sparse-checkout init --no-cone
+      git -C .core-parity sparse-checkout set \
+        vauchi-app/src/ui/component.rs \
+        vauchi-app/src/ui/component
+      git -C .core-parity fetch -q --depth 1 origin "$CORE_REF"
+      git -C .core-parity checkout -q FETCH_HEAD
+
+      # Prefer the post-Tier-0 layout; fall back to the pre-Tier-0
+      # single-file layout for older refs.
+      if [ -f .core-parity/vauchi-app/src/ui/component/mod.rs ]; then
+        ENUM_FILE=".core-parity/vauchi-app/src/ui/component/mod.rs"
+      elif [ -f .core-parity/vauchi-app/src/ui/component.rs ]; then
+        ENUM_FILE=".core-parity/vauchi-app/src/ui/component.rs"
+      else
+        echo "ERROR: failed to fetch core's Component enum at ref $CORE_REF"
+        echo "       (looked for component/mod.rs and component.rs under vauchi-app/src/ui/)"
+        exit 2
+      fi
+
+      # Fetch the parity script. CI_PROJECT_PATH-aware: use the same
+      # dependency proxy / mirror the runner already trusts. Falls back
+      # to raw HTTPS for non-GitLab environments.
+      SCRIPT_URL="https://gitlab.com/vauchi/scripts/-/raw/main/scripts/check-component-parser-parity.py"
+      wget -q -O check-parser-parity.py "$SCRIPT_URL"
+
+      python3 check-parser-parity.py \
+        --enum-file "$ENUM_FILE" \
+        --frontend "$FRONTEND_NAME" \
+        --parser-file "$PARSER_FILE"
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == "main"
@@ -114,13 +183,3 @@ github-mirror:
   extends: .github-mirror
   variables:
     GITHUB_MIRROR_REPO: "vauchi-mobile-swift"
-
-# Parser-parity gate: the hand-written CoreUIModels `Component` enum
-# (shared by iOS + macOS) must cover every variant in core's canonical
-# `Component` enum. Catches silent drift when core adds a variant.
-check:parser-parity:
-  extends: .parser-parity-job
-  stage: lint
-  variables:
-    FRONTEND_NAME: "swift"
-    PARSER_FILE: "Sources/CoreUIModels/Models.swift"

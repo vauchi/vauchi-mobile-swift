@@ -5141,15 +5141,57 @@ public struct MobilePendingNotification: Equatable, Hashable {
     public var title: String
     public var body: String
     public var contactId: String
+    /**
+     * Deep-link URI the frontend should open when the user taps the
+     * notification. `None` when the notification has no navigable target.
+     */
+    public var deepLinkUri: String?
+    /**
+     * Opaque OS category identifier (iOS/macOS `UNNotificationCategory`).
+     */
+    public var osCategoryId: String
+    /**
+     * Opaque OS channel identifier (Android `NotificationChannel`).
+     */
+    public var osChannelId: String
+    /**
+     * Presentation urgency; the shell maps this to OS-specific priority.
+     */
+    public var priority: MobileNotificationPriority
+    /**
+     * Opaque tokens that control OS-specific category options.
+     */
+    public var osCategoryOptions: [String]
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(eventKey: String, category: MobileNotificationCategory, title: String, body: String, contactId: String) {
+    public init(eventKey: String, category: MobileNotificationCategory, title: String, body: String, contactId: String,
+        /**
+         * Deep-link URI the frontend should open when the user taps the
+         * notification. `None` when the notification has no navigable target.
+         */deepLinkUri: String?,
+        /**
+         * Opaque OS category identifier (iOS/macOS `UNNotificationCategory`).
+         */osCategoryId: String,
+        /**
+         * Opaque OS channel identifier (Android `NotificationChannel`).
+         */osChannelId: String,
+        /**
+         * Presentation urgency; the shell maps this to OS-specific priority.
+         */priority: MobileNotificationPriority,
+        /**
+         * Opaque tokens that control OS-specific category options.
+         */osCategoryOptions: [String]) {
         self.eventKey = eventKey
         self.category = category
         self.title = title
         self.body = body
         self.contactId = contactId
+        self.deepLinkUri = deepLinkUri
+        self.osCategoryId = osCategoryId
+        self.osChannelId = osChannelId
+        self.priority = priority
+        self.osCategoryOptions = osCategoryOptions
     }
 
 
@@ -5172,7 +5214,12 @@ public struct FfiConverterTypeMobilePendingNotification: FfiConverterRustBuffer 
                 category: FfiConverterTypeMobileNotificationCategory.read(from: &buf),
                 title: FfiConverterString.read(from: &buf),
                 body: FfiConverterString.read(from: &buf),
-                contactId: FfiConverterString.read(from: &buf)
+                contactId: FfiConverterString.read(from: &buf),
+                deepLinkUri: FfiConverterOptionString.read(from: &buf),
+                osCategoryId: FfiConverterString.read(from: &buf),
+                osChannelId: FfiConverterString.read(from: &buf),
+                priority: FfiConverterTypeMobileNotificationPriority.read(from: &buf),
+                osCategoryOptions: FfiConverterSequenceString.read(from: &buf)
         )
     }
 
@@ -5182,6 +5229,11 @@ public struct FfiConverterTypeMobilePendingNotification: FfiConverterRustBuffer 
         FfiConverterString.write(value.title, into: &buf)
         FfiConverterString.write(value.body, into: &buf)
         FfiConverterString.write(value.contactId, into: &buf)
+        FfiConverterOptionString.write(value.deepLinkUri, into: &buf)
+        FfiConverterString.write(value.osCategoryId, into: &buf)
+        FfiConverterString.write(value.osChannelId, into: &buf)
+        FfiConverterTypeMobileNotificationPriority.write(value.priority, into: &buf)
+        FfiConverterSequenceString.write(value.osCategoryOptions, into: &buf)
     }
 }
 
@@ -12838,6 +12890,83 @@ public func FfiConverterTypeMobileNotificationCategory_lift(_ buf: RustBuffer) t
 #endif
 public func FfiConverterTypeMobileNotificationCategory_lower(_ value: MobileNotificationCategory) -> RustBuffer {
     return FfiConverterTypeMobileNotificationCategory.lower(value)
+}
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * Presentation urgency mirrored across the boundary.
+ */
+
+public enum MobileNotificationPriority: Equatable, Hashable {
+
+    case `default`
+    case high
+    case urgent
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension MobileNotificationPriority: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileNotificationPriority: FfiConverterRustBuffer {
+    typealias SwiftType = MobileNotificationPriority
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileNotificationPriority {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+
+        case 1: return .`default`
+
+        case 2: return .high
+
+        case 3: return .urgent
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileNotificationPriority, into buf: inout [UInt8]) {
+        switch value {
+
+
+        case .`default`:
+            writeInt(&buf, Int32(1))
+
+
+        case .high:
+            writeInt(&buf, Int32(2))
+
+
+        case .urgent:
+            writeInt(&buf, Int32(3))
+
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileNotificationPriority_lift(_ buf: RustBuffer) throws -> MobileNotificationPriority {
+    return try FfiConverterTypeMobileNotificationPriority.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileNotificationPriority_lower(_ value: MobileNotificationPriority) -> RustBuffer {
+    return FfiConverterTypeMobileNotificationPriority.lower(value)
 }
 
 

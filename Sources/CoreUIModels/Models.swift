@@ -212,6 +212,12 @@ public struct ScreenModel: Decodable {
     /// start/stop the poll loop based on this flag instead of matching
     /// domain `screen_id`s.
     public let requiresPoll: Bool
+    /// Which native hardware wrapper should host this screen, if any.
+    /// `.none` means render through the standard core screen renderer.
+    /// Core owns the decision; shells stop matching domain `screen_id`s
+    /// to decide between `CoreScreenView` and dedicated exchange wrappers
+    /// (`2026-07-06-mobile-domain-shell-violations` I5/A2).
+    public let nativeWrapperHint: NativeWrapperHint
 
     public init(
         screenId: String,
@@ -223,7 +229,8 @@ public struct ScreenModel: Decodable {
         tokens: DesignTokens = .defaults,
         layout: ScreenLayout = .scroll,
         requiresAnimatedQr: Bool = false,
-        requiresPoll: Bool = false
+        requiresPoll: Bool = false,
+        nativeWrapperHint: NativeWrapperHint = .none
     ) {
         self.screenId = screenId
         self.title = title
@@ -235,11 +242,12 @@ public struct ScreenModel: Decodable {
         self.layout = layout
         self.requiresAnimatedQr = requiresAnimatedQr
         self.requiresPoll = requiresPoll
+        self.nativeWrapperHint = nativeWrapperHint
     }
 
     private enum CodingKeys: String, CodingKey {
         case screenId, title, subtitle, components, actions, progress, tokens, layout
-        case requiresAnimatedQr, requiresPoll
+        case requiresAnimatedQr, requiresPoll, nativeWrapperHint
     }
 
     public init(from decoder: Decoder) throws {
@@ -254,6 +262,7 @@ public struct ScreenModel: Decodable {
         layout = try container.decodeIfPresent(ScreenLayout.self, forKey: .layout) ?? .scroll
         requiresAnimatedQr = try container.decodeIfPresent(Bool.self, forKey: .requiresAnimatedQr) ?? false
         requiresPoll = try container.decodeIfPresent(Bool.self, forKey: .requiresPoll) ?? false
+        nativeWrapperHint = try container.decodeIfPresent(NativeWrapperHint.self, forKey: .nativeWrapperHint) ?? .none
     }
 }
 
@@ -268,6 +277,16 @@ public enum ScreenLayout: String, Decodable {
     case scroll = "Scroll"
     case fixed = "Fixed"
     case pinned = "Pinned"
+}
+
+/// Hint telling the native shell which hardware-wrapper flow hosts this
+/// screen. Replaces frontend-side `screen_id` substring checks
+/// (`2026-07-06-mobile-domain-shell-violations` I5/A2).
+/// Maps to: `vauchi-core::ui::screen::NativeWrapperHint`
+public enum NativeWrapperHint: String, Decodable {
+    case none = "None"
+    case multiStageExchange = "MultiStageExchange"
+    case nfcExchange = "NfcExchange"
 }
 
 /// Step progress indicator.
@@ -1573,6 +1592,14 @@ public enum ActionResult: Decodable {
     case validationError(componentId: String, message: String)
     case complete
     case completeWith(destination: PostOnboardingDestination)
+    /// Onboarding is finished; the engine has already navigated to the
+    /// chosen post-onboarding screen. Frontends should flip their app
+    /// state from "onboarding" to "ready" and render the current screen.
+    /// (`2026-07-06-mobile-domain-shell-violations` I7/A13).
+    case onboardingComplete(destination: PostOnboardingDestination)
+    /// Deprecated: `StartDeviceLink` is now routed to `NavigateTo` or
+    /// `Commands(QrRequestScan)` in core. Kept as `.unknown` for one
+    /// binding cycle of backward compatibility.
     case startDeviceLink
     case openContact(contactId: String)
     case editContact(contactId: String)
@@ -1595,7 +1622,9 @@ public enum ActionResult: Decodable {
         {
             switch stringValue {
             case "Complete": self = .complete
+            // Deprecated: routed to NavigateTo/Commands in core.
             case "StartDeviceLink": self = .startDeviceLink
+            // Deprecated: routed to Commands(QrRequestScan) in core.
             case "RequestCamera": self = .requestCamera
             case "WipeComplete": self = .wipeComplete
             default: self = .unknown
@@ -1616,6 +1645,9 @@ public enum ActionResult: Decodable {
         } else if container.contains(.completeWith) {
             let data = try container.decode(CompleteWithData.self, forKey: .completeWith)
             self = .completeWith(destination: data.destination)
+        } else if container.contains(.onboardingComplete) {
+            let data = try container.decode(OnboardingCompleteData.self, forKey: .onboardingComplete)
+            self = .onboardingComplete(destination: data.destination)
         } else if container.contains(.openContact) {
             let data = try container.decode(OpenContactData.self, forKey: .openContact)
             self = .openContact(contactId: data.contactId)
@@ -1656,6 +1688,7 @@ public enum ActionResult: Decodable {
         case navigateTo = "NavigateTo"
         case validationError = "ValidationError"
         case completeWith = "CompleteWith"
+        case onboardingComplete = "OnboardingComplete"
         case openContact = "OpenContact"
         case editContact = "EditContact"
         case openUrl = "OpenUrl"
@@ -1669,6 +1702,10 @@ public enum ActionResult: Decodable {
     }
 
     private struct CompleteWithData: Decodable {
+        let destination: PostOnboardingDestination
+    }
+
+    private struct OnboardingCompleteData: Decodable {
         let destination: PostOnboardingDestination
     }
 

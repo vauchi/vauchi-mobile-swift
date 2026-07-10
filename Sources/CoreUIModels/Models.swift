@@ -202,6 +202,16 @@ public struct ScreenModel: Decodable {
     /// fixed, non-scrolling layout sized to the viewport. Absent on the
     /// wire when `.scroll` (the default), so this defaults to `.scroll`.
     public let layout: ScreenLayout
+    /// Whether the screen needs an animated-QR frame-cycle timer while
+    /// visible. Core owns the decision; shells start/stop the timer based
+    /// on this flag instead of matching domain `screen_id`s
+    /// (`2026-07-06-mobile-domain-shell-violations` I4).
+    public let requiresAnimatedQr: Bool
+    /// Whether the screen needs a periodic poll tick while visible (e.g.
+    /// the multi-stage exchange engine). Core owns the decision; shells
+    /// start/stop the poll loop based on this flag instead of matching
+    /// domain `screen_id`s.
+    public let requiresPoll: Bool
 
     public init(
         screenId: String,
@@ -211,7 +221,9 @@ public struct ScreenModel: Decodable {
         actions: [ScreenAction],
         progress: Progress? = nil,
         tokens: DesignTokens = .defaults,
-        layout: ScreenLayout = .scroll
+        layout: ScreenLayout = .scroll,
+        requiresAnimatedQr: Bool = false,
+        requiresPoll: Bool = false
     ) {
         self.screenId = screenId
         self.title = title
@@ -221,10 +233,13 @@ public struct ScreenModel: Decodable {
         self.progress = progress
         self.tokens = tokens
         self.layout = layout
+        self.requiresAnimatedQr = requiresAnimatedQr
+        self.requiresPoll = requiresPoll
     }
 
     private enum CodingKeys: String, CodingKey {
         case screenId, title, subtitle, components, actions, progress, tokens, layout
+        case requiresAnimatedQr, requiresPoll
     }
 
     public init(from decoder: Decoder) throws {
@@ -237,6 +252,8 @@ public struct ScreenModel: Decodable {
         progress = try container.decodeIfPresent(Progress.self, forKey: .progress)
         tokens = try container.decodeIfPresent(DesignTokens.self, forKey: .tokens) ?? .defaults
         layout = try container.decodeIfPresent(ScreenLayout.self, forKey: .layout) ?? .scroll
+        requiresAnimatedQr = try container.decodeIfPresent(Bool.self, forKey: .requiresAnimatedQr) ?? false
+        requiresPoll = try container.decodeIfPresent(Bool.self, forKey: .requiresPoll) ?? false
     }
 }
 

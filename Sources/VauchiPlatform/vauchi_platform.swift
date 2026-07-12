@@ -6584,6 +6584,13 @@ public struct MobileTabInfo: Equatable, Hashable {
      * Badge count (e.g. pending contact updates). Zero means no badge.
      */
     public var badgeCount: UInt32
+    /**
+     * Whether this tab is the home / primary tab ("My Card").
+     *
+     * Mirrors `vauchi_app::ui::TabInfo.is_home` so frontends can
+     * identify the home tab without hardcoding a domain screen id.
+     */
+    public var isHome: Bool
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
@@ -6606,12 +6613,19 @@ public struct MobileTabInfo: Equatable, Hashable {
          */icon: String,
         /**
          * Badge count (e.g. pending contact updates). Zero means no badge.
-         */badgeCount: UInt32) {
+         */badgeCount: UInt32,
+        /**
+         * Whether this tab is the home / primary tab ("My Card").
+         *
+         * Mirrors `vauchi_app::ui::TabInfo.is_home` so frontends can
+         * identify the home tab without hardcoding a domain screen id.
+         */isHome: Bool) {
         self.id = id
         self.actionId = actionId
         self.label = label
         self.icon = icon
         self.badgeCount = badgeCount
+        self.isHome = isHome
     }
 
 
@@ -6634,7 +6648,8 @@ public struct FfiConverterTypeMobileTabInfo: FfiConverterRustBuffer {
                 actionId: FfiConverterString.read(from: &buf),
                 label: FfiConverterString.read(from: &buf),
                 icon: FfiConverterString.read(from: &buf),
-                badgeCount: FfiConverterUInt32.read(from: &buf)
+                badgeCount: FfiConverterUInt32.read(from: &buf),
+                isHome: FfiConverterBool.read(from: &buf)
         )
     }
 
@@ -6644,6 +6659,7 @@ public struct FfiConverterTypeMobileTabInfo: FfiConverterRustBuffer {
         FfiConverterString.write(value.label, into: &buf)
         FfiConverterString.write(value.icon, into: &buf)
         FfiConverterUInt32.write(value.badgeCount, into: &buf)
+        FfiConverterBool.write(value.isHome, into: &buf)
     }
 }
 

@@ -360,7 +360,7 @@ public enum Component: Decodable {
     case editableText(EditableTextComponent)
     case banner(BannerComponent)
     case dropdown(DropdownComponent)
-    case avatarPreview(AvatarPreviewComponent)
+    case imageCircle(ImageCircleComponent)
     case slider(SliderComponent)
     case divider
     /// Generic ongoing-status indicator emitted for chrome (sync state,
@@ -439,8 +439,8 @@ public enum Component: Decodable {
             self = try .banner(container.decode(BannerComponent.self, forKey: .banner))
         } else if container.contains(.dropdown) {
             self = try .dropdown(container.decode(DropdownComponent.self, forKey: .dropdown))
-        } else if container.contains(.avatarPreview) {
-            self = try .avatarPreview(container.decode(AvatarPreviewComponent.self, forKey: .avatarPreview))
+        } else if container.contains(.imageCircle) {
+            self = try .imageCircle(container.decode(ImageCircleComponent.self, forKey: .imageCircle))
         } else if container.contains(.slider) {
             self = try .slider(container.decode(SliderComponent.self, forKey: .slider))
         } else if container.contains(.indicator) {
@@ -477,7 +477,7 @@ public enum Component: Decodable {
         case editableText = "EditableText"
         case banner = "Banner"
         case dropdown = "Dropdown"
-        case avatarPreview = "AvatarPreview"
+        case imageCircle = "ImageCircle"
         case slider = "Slider"
         case indicator = "Indicator"
         case sectionedActionList = "SectionedActionList"
@@ -594,14 +594,14 @@ public struct FieldListComponent: Decodable {
     public let id: String
     public let fields: [Field]
     public let visibilityMode: VisibilityMode
-    public let availableGroups: [String]
+    public let availableScopes: [String]
     public var a11y: A11y?
 
-    public init(id: String, fields: [Field], visibilityMode: VisibilityMode, availableGroups: [String], a11y: A11y? = nil) {
+    public init(id: String, fields: [Field], visibilityMode: VisibilityMode, availableScopes: [String], a11y: A11y? = nil) {
         self.id = id
         self.fields = fields
         self.visibilityMode = visibilityMode
-        self.availableGroups = availableGroups
+        self.availableScopes = availableScopes
         self.a11y = a11y
     }
 }
@@ -648,11 +648,11 @@ public struct Field: Decodable, Identifiable {
 }
 
 /// UI-level field visibility state.
-/// Serde outputs: `"Shown"`, `"Hidden"`, or `{"Groups": ["Family", ...]}`
+/// Serde outputs: `"Shown"`, `"Hidden"`, or `{"Scopes": ["Family", ...]}`
 public enum UiFieldVisibility: Decodable {
     case shown
     case hidden
-    case groups([String])
+    case scopes([String])
 
     public init(from decoder: Decoder) throws {
         if let container = try? decoder.singleValueContainer(),
@@ -672,19 +672,19 @@ public enum UiFieldVisibility: Decodable {
             return
         }
 
-        let container = try decoder.container(keyedBy: GroupsKey.self)
-        let groups = try container.decode([String].self, forKey: .groups)
-        self = .groups(groups)
+        let container = try decoder.container(keyedBy: ScopesKey.self)
+        let scopes = try container.decode([String].self, forKey: .scopes)
+        self = .scopes(scopes)
     }
 
-    private enum GroupsKey: String, CodingKey {
-        case groups = "Groups"
+    private enum ScopesKey: String, CodingKey {
+        case scopes = "Scopes"
     }
 }
 
 public struct PreviewComponent: Decodable {
     public let name: String
-    public let avatarData: [UInt8]?
+    public let imageData: [UInt8]?
     public let fields: [Field]
     public let variants: [PreviewVariant]
     public let selectedVariant: String?
@@ -698,7 +698,7 @@ public struct PreviewComponent: Decodable {
 
     public init(
         name: String,
-        avatarData: [UInt8]? = nil,
+        imageData: [UInt8]? = nil,
         fields: [Field],
         variants: [PreviewVariant],
         selectedVariant: String? = nil,
@@ -706,7 +706,7 @@ public struct PreviewComponent: Decodable {
         a11y: A11y? = nil
     ) {
         self.name = name
-        self.avatarData = avatarData
+        self.imageData = imageData
         self.fields = fields
         self.variants = variants
         self.selectedVariant = selectedVariant
@@ -716,16 +716,16 @@ public struct PreviewComponent: Decodable {
 
     private enum CodingKeys: String, CodingKey {
         /// Raw values match property names (camelCase) so the consumer's
-        /// `convertFromSnakeCase` strategy can resolve `avatar_data` → `avatarData`
+        /// `convertFromSnakeCase` strategy can resolve `image_data` → `imageData`
         /// before key lookup. Snake_case raw values would mask convertFromSnakeCase
         /// and break decode (variants fixture lookup miss, observed v0.28.1+ tag).
-        case name, avatarData, fields, variants, selectedVariant, visibleFields, a11y
+        case name, imageData, fields, variants, selectedVariant, visibleFields, a11y
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         name = try container.decode(String.self, forKey: .name)
-        avatarData = try container.decodeIfPresent([UInt8].self, forKey: .avatarData)
+        imageData = try container.decodeIfPresent([UInt8].self, forKey: .imageData)
         fields = try container.decode([Field].self, forKey: .fields)
         variants = try container.decode([PreviewVariant].self, forKey: .variants)
         selectedVariant = try container.decodeIfPresent(String.self, forKey: .selectedVariant)
@@ -815,7 +815,7 @@ public struct ListComponent: Decodable {
     }
 
     /// Keys stay camelCase so `convertFromSnakeCase` can resolve
-    /// `total_count` → `totalCount` before lookup (see the avatar_data
+    /// `total_count` → `totalCount` before lookup (see the image_data
     /// note on PreviewComponent — snake_case raw values silently fail).
     private enum CodingKeys: String, CodingKey {
         case id, items, searchable, totalCount, offset, window
@@ -841,7 +841,7 @@ public struct Item: Decodable, Identifiable {
     public let id: String
     public let name: String
     public let subtitle: String?
-    public let avatarInitials: String
+    public let initials: String
     public let status: String?
     public var actions: [ListItemAction] = []
     public var a11y: A11y?
@@ -850,7 +850,7 @@ public struct Item: Decodable, Identifiable {
         id: String,
         name: String,
         subtitle: String? = nil,
-        avatarInitials: String,
+        initials: String,
         status: String? = nil,
         actions: [ListItemAction] = [],
         a11y: A11y? = nil
@@ -858,19 +858,19 @@ public struct Item: Decodable, Identifiable {
         self.id = id
         self.name = name
         self.subtitle = subtitle
-        self.avatarInitials = avatarInitials
+        self.initials = initials
         self.status = status
         self.actions = actions
         self.a11y = a11y
     }
 
     /// Default Decodable synthesis matches: `coreJSONDecoder` above sets
-    /// `.convertFromSnakeCase`, so wire keys like `avatar_initials` are
-    /// mapped automatically to their camelCase property names here. The
-    /// custom init only exists so `actions` defaults to empty when absent
-    /// from legacy fixtures or older engine versions.
+    /// `.convertFromSnakeCase`, so wire keys map automatically to their
+    /// camelCase property names here. The custom init only exists so
+    /// `actions` defaults to empty when absent from legacy fixtures or
+    /// older engine versions.
     private enum CodingKeys: String, CodingKey {
-        case id, name, subtitle, avatarInitials, status, actions, a11y
+        case id, name, subtitle, initials, status, actions, a11y
     }
 
     public init(from decoder: Decoder) throws {
@@ -878,7 +878,7 @@ public struct Item: Decodable, Identifiable {
         id = try c.decode(String.self, forKey: .id)
         name = try c.decode(String.self, forKey: .name)
         subtitle = try c.decodeIfPresent(String.self, forKey: .subtitle)
-        avatarInitials = try c.decode(String.self, forKey: .avatarInitials)
+        initials = try c.decode(String.self, forKey: .initials)
         status = try c.decodeIfPresent(String.self, forKey: .status)
         actions = (try? c.decode([ListItemAction].self, forKey: .actions)) ?? []
         a11y = try? c.decode(A11y.self, forKey: .a11y)
@@ -1315,15 +1315,19 @@ public struct DropdownOption: Decodable, Identifiable {
     }
 }
 
-// MARK: - AvatarPreview Component
+// MARK: - ImageCircle Component
 
-public struct AvatarPreviewComponent: Decodable {
+public struct ImageCircleComponent: Decodable {
     public let id: String
     public let imageData: [UInt8]?
     public let initials: String
     public let bgColor: [UInt8]?
     public let brightness: Float
     public let editable: Bool
+    /// Action id the frontend forwards on tap when `editable`; core owns
+    /// it (never minted frontend-side). `nil` when not editable
+    /// (`edit_action_id` on core's `Component::ImageCircle`).
+    public let editActionId: String?
     public let a11y: A11y?
 
     public init(
@@ -1333,6 +1337,7 @@ public struct AvatarPreviewComponent: Decodable {
         bgColor: [UInt8]? = nil,
         brightness: Float,
         editable: Bool,
+        editActionId: String? = nil,
         a11y: A11y? = nil
     ) {
         self.id = id
@@ -1341,6 +1346,7 @@ public struct AvatarPreviewComponent: Decodable {
         self.bgColor = bgColor
         self.brightness = brightness
         self.editable = editable
+        self.editActionId = editActionId
         self.a11y = a11y
     }
 }
@@ -1392,7 +1398,7 @@ public enum UserAction: Encodable {
     case itemToggled(componentId: String, itemId: String)
     case actionPressed(actionId: String)
     case fieldVisibilityChanged(fieldId: String, groupId: String?, visible: Bool)
-    case groupViewSelected(groupName: String?)
+    case variantSelected(variantId: String?)
     case searchChanged(componentId: String, query: String)
     case listItemSelected(componentId: String, itemId: String)
     case listItemAction(componentId: String, itemId: String, actionId: String)
@@ -1436,9 +1442,9 @@ public enum UserAction: Encodable {
             try nested.encodeIfPresent(groupId, forKey: .groupId)
             try nested.encode(visible, forKey: .visible)
 
-        case let .groupViewSelected(groupName):
-            var nested = container.nestedContainer(keyedBy: GroupViewSelectedKeys.self, forKey: .groupViewSelected)
-            try nested.encodeIfPresent(groupName, forKey: .groupName)
+        case let .variantSelected(variantId):
+            var nested = container.nestedContainer(keyedBy: VariantSelectedKeys.self, forKey: .variantSelected)
+            try nested.encodeIfPresent(variantId, forKey: .variantId)
 
         case let .searchChanged(componentId, query):
             var nested = container.nestedContainer(keyedBy: SearchChangedKeys.self, forKey: .searchChanged)
@@ -1490,7 +1496,7 @@ public enum UserAction: Encodable {
         case itemToggled = "ItemToggled"
         case actionPressed = "ActionPressed"
         case fieldVisibilityChanged = "FieldVisibilityChanged"
-        case groupViewSelected = "GroupViewSelected"
+        case variantSelected = "VariantSelected"
         case searchChanged = "SearchChanged"
         case listItemSelected = "ListItemSelected"
         case listItemAction = "ListItemAction"
@@ -1535,8 +1541,8 @@ public enum UserAction: Encodable {
         case visible
     }
 
-    private enum GroupViewSelectedKeys: String, CodingKey {
-        case groupName = "group_name"
+    private enum VariantSelectedKeys: String, CodingKey {
+        case variantId = "variant_id"
     }
 
     private enum SearchChangedKeys: String, CodingKey {

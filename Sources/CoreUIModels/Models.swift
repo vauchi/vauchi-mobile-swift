@@ -1073,15 +1073,43 @@ public struct StatusIndicatorComponent: Decodable {
     public let title: String
     public let detail: String?
     public let status: Status
+    /// Core-resolved localized badge label for `status`. Frontends render
+    /// it verbatim; deriving text from the `Status` discriminant is the
+    /// W-class leak this field retires.
+    public let statusLabel: String
     public var a11y: A11y?
 
-    public init(id: String, icon: String? = nil, title: String, detail: String? = nil, status: Status, a11y: A11y? = nil) {
+    public init(
+        id: String,
+        icon: String? = nil,
+        title: String,
+        detail: String? = nil,
+        status: Status,
+        statusLabel: String = "",
+        a11y: A11y? = nil
+    ) {
         self.id = id
         self.icon = icon
         self.title = title
         self.detail = detail
         self.status = status
+        self.statusLabel = statusLabel
         self.a11y = a11y
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, icon, title, detail, status, statusLabel = "status_label", a11y
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        icon = try container.decodeIfPresent(String.self, forKey: .icon)
+        title = try container.decode(String.self, forKey: .title)
+        detail = try container.decodeIfPresent(String.self, forKey: .detail)
+        status = try container.decode(Status.self, forKey: .status)
+        statusLabel = try container.decodeIfPresent(String.self, forKey: .statusLabel) ?? ""
+        a11y = try container.decodeIfPresent(A11y.self, forKey: .a11y)
     }
 }
 

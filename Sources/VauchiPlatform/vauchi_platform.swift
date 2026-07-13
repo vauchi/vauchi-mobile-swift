@@ -709,16 +709,6 @@ public protocol PlatformAppEngineProtocol: AnyObject, Sendable {
     func boot() throws  -> String
 
     /**
-     * Whether a back step exists in core's nav-history stack.
-     *
-     * Frontends drive their back affordance / `BackHandler` from this
-     * instead of inferring "is this a core-driven screen?" from a
-     * frontend-side screen-id map (ADR-043: no constructed nav targets).
-     * Tier-0 of the CoreScreenIdMap rework.
-     */
-    func canGoBack() throws  -> Bool
-
-    /**
      * Returns the current screen as a JSON string.
      *
      * The JSON structure matches `ScreenModel` from vauchi-core.
@@ -1120,22 +1110,6 @@ open func advanceQrFrameJson()throws  -> String?  {
 open func boot()throws  -> String  {
     return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
     uniffi_vauchi_platform_fn_method_platformappengine_boot(
-            self.uniffiCloneHandle(),$0
-    )
-})
-}
-
-    /**
-     * Whether a back step exists in core's nav-history stack.
-     *
-     * Frontends drive their back affordance / `BackHandler` from this
-     * instead of inferring "is this a core-driven screen?" from a
-     * frontend-side screen-id map (ADR-043: no constructed nav targets).
-     * Tier-0 of the CoreScreenIdMap rework.
-     */
-open func canGoBack()throws  -> Bool  {
-    return try  FfiConverterBool.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
-    uniffi_vauchi_platform_fn_method_platformappengine_can_go_back(
             self.uniffiCloneHandle(),$0
     )
 })
@@ -6622,13 +6596,6 @@ public struct MobileTabInfo: Equatable, Hashable {
      * Badge count (e.g. pending contact updates). Zero means no badge.
      */
     public var badgeCount: UInt32
-    /**
-     * Whether this tab is the home / primary tab ("My Card").
-     *
-     * Mirrors `vauchi_app::ui::TabInfo.is_home` so frontends can
-     * identify the home tab without hardcoding a domain screen id.
-     */
-    public var isHome: Bool
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
@@ -6651,19 +6618,12 @@ public struct MobileTabInfo: Equatable, Hashable {
          */icon: String,
         /**
          * Badge count (e.g. pending contact updates). Zero means no badge.
-         */badgeCount: UInt32,
-        /**
-         * Whether this tab is the home / primary tab ("My Card").
-         *
-         * Mirrors `vauchi_app::ui::TabInfo.is_home` so frontends can
-         * identify the home tab without hardcoding a domain screen id.
-         */isHome: Bool) {
+         */badgeCount: UInt32) {
         self.id = id
         self.actionId = actionId
         self.label = label
         self.icon = icon
         self.badgeCount = badgeCount
-        self.isHome = isHome
     }
 
 
@@ -6686,8 +6646,7 @@ public struct FfiConverterTypeMobileTabInfo: FfiConverterRustBuffer {
                 actionId: FfiConverterString.read(from: &buf),
                 label: FfiConverterString.read(from: &buf),
                 icon: FfiConverterString.read(from: &buf),
-                badgeCount: FfiConverterUInt32.read(from: &buf),
-                isHome: FfiConverterBool.read(from: &buf)
+                badgeCount: FfiConverterUInt32.read(from: &buf)
         )
     }
 
@@ -6697,7 +6656,6 @@ public struct FfiConverterTypeMobileTabInfo: FfiConverterRustBuffer {
         FfiConverterString.write(value.label, into: &buf)
         FfiConverterString.write(value.icon, into: &buf)
         FfiConverterUInt32.write(value.badgeCount, into: &buf)
-        FfiConverterBool.write(value.isHome, into: &buf)
     }
 }
 
@@ -15904,9 +15862,6 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vauchi_platform_checksum_method_platformappengine_boot() != 53683) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_vauchi_platform_checksum_method_platformappengine_can_go_back() != 63557) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vauchi_platform_checksum_method_platformappengine_current_screen_json() != 30621) {

@@ -218,6 +218,13 @@ public struct ScreenModel: Decodable {
     /// to decide between `CoreScreenView` and dedicated exchange wrappers
     /// (`2026-07-06-mobile-domain-shell-violations` I5/A2).
     public let nativeWrapperHint: NativeWrapperHint
+    /// Global/top-bar chrome actions offered on this screen (e.g. Back,
+    /// Settings gear). Core owns *what* chrome actions exist; each frontend
+    /// presents them per its form factor (ADR-044 Am2a).
+    public let navActions: [ScreenAction]
+    /// The bottom-nav/sidebar tab that owns this screen, or `nil` for
+    /// transient/pre-auth screens that show no tab chrome.
+    public let navTabId: String?
 
     public init(
         screenId: String,
@@ -230,7 +237,9 @@ public struct ScreenModel: Decodable {
         layout: ScreenLayout = .scroll,
         requiresAnimatedQr: Bool = false,
         requiresPoll: Bool = false,
-        nativeWrapperHint: NativeWrapperHint = .none
+        nativeWrapperHint: NativeWrapperHint = .none,
+        navActions: [ScreenAction] = [],
+        navTabId: String? = nil
     ) {
         self.screenId = screenId
         self.title = title
@@ -243,11 +252,14 @@ public struct ScreenModel: Decodable {
         self.requiresAnimatedQr = requiresAnimatedQr
         self.requiresPoll = requiresPoll
         self.nativeWrapperHint = nativeWrapperHint
+        self.navActions = navActions
+        self.navTabId = navTabId
     }
 
     private enum CodingKeys: String, CodingKey {
         case screenId, title, subtitle, components, actions, progress, tokens, layout
         case requiresAnimatedQr, requiresPoll, nativeWrapperHint
+        case navActions, navTabId
     }
 
     public init(from decoder: Decoder) throws {
@@ -263,6 +275,8 @@ public struct ScreenModel: Decodable {
         requiresAnimatedQr = try container.decodeIfPresent(Bool.self, forKey: .requiresAnimatedQr) ?? false
         requiresPoll = try container.decodeIfPresent(Bool.self, forKey: .requiresPoll) ?? false
         nativeWrapperHint = try container.decodeIfPresent(NativeWrapperHint.self, forKey: .nativeWrapperHint) ?? .none
+        navActions = try container.decodeIfPresent([ScreenAction].self, forKey: .navActions) ?? []
+        navTabId = try container.decodeIfPresent(String.self, forKey: .navTabId)
     }
 }
 
@@ -1417,6 +1431,12 @@ public enum UserAction: Encodable {
     /// routes to the consent gate, device-link join screen, or an alert.
     /// Humble surface: the frontend does not inspect the URI scheme or host.
     case linkOpened(uri: String)
+    /// The OS back gesture (Android system BACK / swipe, iOS edge-swipe, ESC).
+    /// Frontends forward it unconditionally; core decides whether to pop
+    /// (`NavigateTo`) or tell the frontend to perform native back
+    /// (`ActionResult::PerformNativeBack`). Never gate on `can_go_back`
+    /// (ADR-044 Amendment 2a).
+    case navigateBack
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: VariantKey.self)
@@ -1488,6 +1508,9 @@ public enum UserAction: Encodable {
         case let .linkOpened(uri):
             var nested = container.nestedContainer(keyedBy: LinkOpenedKeys.self, forKey: .linkOpened)
             try nested.encode(uri, forKey: .uri)
+
+        case .navigateBack:
+            _ = container.nestedContainer(keyedBy: VariantKey.self, forKey: .navigateBack)
         }
     }
 
@@ -1506,6 +1529,7 @@ public enum UserAction: Encodable {
         case sliderChanged = "SliderChanged"
         case navigateToTab = "NavigateToTab"
         case linkOpened = "LinkOpened"
+        case navigateBack = "NavigateBack"
     }
 
     private enum TextChangedKeys: String, CodingKey {
@@ -1595,6 +1619,11 @@ public enum PostOnboardingDestination: String, Decodable {
 public enum ActionResult: Decodable {
     case updateScreen(ScreenModel)
     case navigateTo(ScreenModel)
+    /// The back gesture reached a back-stopping root: there is no screen to
+    /// pop, so the frontend performs the platform's native back default
+    /// (minimize / suspend / no-op). Core owns the "nothing to pop" decision;
+    /// the frontend owns only the native mechanism (ADR-044 Amendment 2a).
+    case performNativeBack
     case validationError(componentId: String, message: String)
     case complete
     case completeWith(destination: PostOnboardingDestination)
@@ -1634,6 +1663,7 @@ public enum ActionResult: Decodable {
             // Deprecated: routed to Commands(QrRequestScan) in core.
             case "RequestCamera": self = .requestCamera
             case "WipeComplete": self = .wipeComplete
+            case "PerformNativeBack": self = .performNativeBack
             default: self = .unknown
             }
             return
@@ -1693,6 +1723,7 @@ public enum ActionResult: Decodable {
     private enum VariantKey: String, CodingKey {
         case updateScreen = "UpdateScreen"
         case navigateTo = "NavigateTo"
+        case performNativeBack = "PerformNativeBack"
         case validationError = "ValidationError"
         case completeWith = "CompleteWith"
         case onboardingComplete = "OnboardingComplete"
@@ -1807,6 +1838,10 @@ public enum CommandDTO: Decodable {
     /// Exchange-success ceremony (M2 S5). Frontends execute the requested
     /// haptic/sound/animation axis; skipped axes are silently ignored.
     case celebrate(haptic: String, sound: String, animation: String)
+    /// Core-computed wakeup schedule (ADR-044 Am2a Option C). Frontends
+    /// translate these relative seconds into their platform wakeup mechanism
+    /// and call `on_wakeup` when it fires.
+    case scheduleWakeup(earliestSecs: UInt32, deadlineSecs: UInt32, minIntervalSecs: UInt32)
     case unknown
 
     public init(from decoder: Decoder) throws {
@@ -1842,6 +1877,7 @@ public enum CommandDTO: Decodable {
     // into the corresponding `CommandDTO` case. The body grows
     // linearly with new variants by design — splitting it would
     // scatter the table without improving readability.
+    // swiftlint:disable:next cyclomatic_complexity
     private static func decodeKeyed(
         _ container: KeyedDecodingContainer<CommandKey>
     ) throws -> CommandDTO {
@@ -1917,6 +1953,13 @@ public enum CommandDTO: Decodable {
         } else if container.contains(.celebrate) {
             let data = try container.decode(CelebrateData.self, forKey: .celebrate)
             return .celebrate(haptic: data.haptic, sound: data.sound, animation: data.animation)
+        } else if container.contains(.scheduleWakeup) {
+            let data = try container.decode(ScheduleWakeupData.self, forKey: .scheduleWakeup)
+            return .scheduleWakeup(
+                earliestSecs: data.earliestSecs,
+                deadlineSecs: data.deadlineSecs,
+                minIntervalSecs: data.minIntervalSecs
+            )
         } else {
             return .unknown
         }
@@ -1945,6 +1988,7 @@ public enum CommandDTO: Decodable {
         case setOrientationLock = "SetOrientationLock"
         case locationRequest = "LocationRequest"
         case celebrate = "Celebrate"
+        case scheduleWakeup = "ScheduleWakeup"
     }
 
     private struct QrDisplayData: Decodable { let data: String }
@@ -1972,6 +2016,11 @@ public enum CommandDTO: Decodable {
     private struct LocationRequestData: Decodable { let timeoutMs: UInt32 }
     private struct SetOrientationLockData: Decodable { let orientation: OrientationDTO? }
     private struct CelebrateData: Decodable { let haptic: String; let sound: String; let animation: String }
+    private struct ScheduleWakeupData: Decodable {
+        let earliestSecs: UInt32
+        let deadlineSecs: UInt32
+        let minIntervalSecs: UInt32
+    }
 }
 
 /// DTO for orientation lock requests. Mirrors `vauchi-core::Orientation`.

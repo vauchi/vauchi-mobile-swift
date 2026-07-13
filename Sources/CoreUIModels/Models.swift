@@ -1621,6 +1621,7 @@ public enum ActionResult: Decodable {
     case biometricUnlockOutcome(outcome: String)
     case unknown
 
+    // swiftlint:disable:next cyclomatic_complexity
     public init(from decoder: Decoder) throws {
         // Unit variants: "Complete", "StartDeviceLink", etc.
         if let container = try? decoder.singleValueContainer(),

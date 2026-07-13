@@ -835,6 +835,22 @@ public protocol PlatformAppEngineProtocol: AnyObject, Sendable {
     func navigateBackJson() throws  -> String
 
     /**
+     * The shell's platform wakeup fired — a desktop in-process interval, an
+     * iOS `BGAppRefreshTask`, or an Android `WorkManager` task. Runs the same
+     * relay/exchange advance + activity-log poll as `poll_notifications`, then
+     * emits the next `Command::ScheduleWakeup` in the returned envelope so the
+     * shell re-arms. Core owns *when* the heartbeat is due (ADR-044 Am2a
+     * Option C); the shell owns only the native wakeup mechanism.
+     *
+     * Returns a JSON envelope:
+     * `{"notifications": [<MobilePendingNotification>, ...], "commands": [...]}`.
+     * The `commands` array carries the next `ScheduleWakeup` (and any other
+     * commands produced by the tick); the shell schedules it and calls this
+     * method again when it fires.
+     */
+    func onWakeup() throws  -> String
+
+    /**
      * Run one periodic sync tick.
      *
      * Frontends call this from their platform-scheduler handler
@@ -1307,6 +1323,28 @@ open func navItems(layout: MobileTabLayout, locale: MobileLocale)throws  -> [Mob
 open func navigateBackJson()throws  -> String  {
     return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
     uniffi_vauchi_platform_fn_method_platformappengine_navigate_back_json(
+            self.uniffiCloneHandle(),$0
+    )
+})
+}
+
+    /**
+     * The shell's platform wakeup fired — a desktop in-process interval, an
+     * iOS `BGAppRefreshTask`, or an Android `WorkManager` task. Runs the same
+     * relay/exchange advance + activity-log poll as `poll_notifications`, then
+     * emits the next `Command::ScheduleWakeup` in the returned envelope so the
+     * shell re-arms. Core owns *when* the heartbeat is due (ADR-044 Am2a
+     * Option C); the shell owns only the native wakeup mechanism.
+     *
+     * Returns a JSON envelope:
+     * `{"notifications": [<MobilePendingNotification>, ...], "commands": [...]}`.
+     * The `commands` array carries the next `ScheduleWakeup` (and any other
+     * commands produced by the tick); the shell schedules it and calls this
+     * method again when it fires.
+     */
+open func onWakeup()throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_vauchi_platform_fn_method_platformappengine_on_wakeup(
             self.uniffiCloneHandle(),$0
     )
 })
@@ -15902,6 +15940,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vauchi_platform_checksum_method_platformappengine_navigate_back_json() != 22054) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vauchi_platform_checksum_method_platformappengine_on_wakeup() != 21654) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vauchi_platform_checksum_method_platformappengine_periodic_sync_tick() != 42221) {

@@ -530,9 +530,6 @@ public struct TextInputComponent: Decodable {
     public let id: String
     public let label: String
     public let value: String
-    public let editText: String
-    public let saveText: String
-    public let cancelText: String
     public let placeholder: String?
     public let maxLength: Int?
     public let validationError: String?

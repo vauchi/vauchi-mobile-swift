@@ -368,8 +368,6 @@ public enum Component: Decodable {
     case statusIndicator(StatusIndicatorComponent)
     case pinInput(PinInputComponent)
     case qrCode(QrCodeComponent)
-    case confirmationDialog(ConfirmationDialogComponent)
-    case showToast(ShowToastComponent)
     case inlineConfirm(InlineConfirmComponent)
     case editableText(EditableTextComponent)
     case banner(BannerComponent)
@@ -439,12 +437,6 @@ public enum Component: Decodable {
             self = try .pinInput(container.decode(PinInputComponent.self, forKey: .pinInput))
         } else if container.contains(.qrCode) {
             self = try .qrCode(container.decode(QrCodeComponent.self, forKey: .qrCode))
-        } else if container.contains(.confirmationDialog) {
-            self = try .confirmationDialog(
-                container.decode(ConfirmationDialogComponent.self, forKey: .confirmationDialog)
-            )
-        } else if container.contains(.showToast) {
-            self = try .showToast(container.decode(ShowToastComponent.self, forKey: .showToast))
         } else if container.contains(.inlineConfirm) {
             self = try .inlineConfirm(container.decode(InlineConfirmComponent.self, forKey: .inlineConfirm))
         } else if container.contains(.editableText) {
@@ -485,8 +477,6 @@ public enum Component: Decodable {
         case statusIndicator = "StatusIndicator"
         case pinInput = "PinInput"
         case qrCode = "QrCode"
-        case confirmationDialog = "ConfirmationDialog"
-        case showToast = "ShowToast"
         case inlineConfirm = "InlineConfirm"
         case editableText = "EditableText"
         case banner = "Banner"
@@ -540,6 +530,9 @@ public struct TextInputComponent: Decodable {
     public let id: String
     public let label: String
     public let value: String
+    public let editText: String
+    public let saveText: String
+    public let cancelText: String
     public let placeholder: String?
     public let maxLength: Int?
     public let validationError: String?
@@ -606,17 +599,33 @@ public struct ToggleItem: Decodable, Identifiable {
 
 public struct FieldListComponent: Decodable {
     public let id: String
+    public let title: String
     public let fields: [Field]
     public let visibilityMode: VisibilityMode
     public let availableScopes: [String]
     public var a11y: A11y?
 
-    public init(id: String, fields: [Field], visibilityMode: VisibilityMode, availableScopes: [String], a11y: A11y? = nil) {
+    public init(id: String, title: String = "", fields: [Field], visibilityMode: VisibilityMode, availableScopes: [String], a11y: A11y? = nil) {
         self.id = id
+        self.title = title
         self.fields = fields
         self.visibilityMode = visibilityMode
         self.availableScopes = availableScopes
         self.a11y = a11y
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        title = try container.decodeIfPresent(String.self, forKey: .title) ?? ""
+        fields = try container.decode([Field].self, forKey: .fields)
+        visibilityMode = try container.decode(VisibilityMode.self, forKey: .visibilityMode)
+        availableScopes = try container.decode([String].self, forKey: .availableScopes)
+        a11y = try container.decodeIfPresent(A11y.self, forKey: .a11y)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, title, fields, visibilityMode, availableScopes, a11y
     }
 }
 
@@ -1239,40 +1248,6 @@ public enum QrMode: String, Decodable {
     case scan = "Scan"
 }
 
-// MARK: - ConfirmationDialog Component
-
-public struct ConfirmationDialogComponent: Decodable {
-    public let id: String
-    public let title: String
-    public let message: String
-    public let confirmText: String
-    public let destructive: Bool
-
-    public init(id: String, title: String, message: String, confirmText: String, destructive: Bool) {
-        self.id = id
-        self.title = title
-        self.message = message
-        self.confirmText = confirmText
-        self.destructive = destructive
-    }
-}
-
-// MARK: - ShowToast Component
-
-public struct ShowToastComponent: Decodable {
-    public let id: String
-    public let message: String
-    public let undoActionId: String?
-    public let durationMs: UInt32
-
-    public init(id: String, message: String, undoActionId: String? = nil, durationMs: UInt32) {
-        self.id = id
-        self.message = message
-        self.undoActionId = undoActionId
-        self.durationMs = durationMs
-    }
-}
-
 // MARK: - InlineConfirm Component
 
 public struct InlineConfirmComponent: Decodable {
@@ -1280,14 +1255,18 @@ public struct InlineConfirmComponent: Decodable {
     public let warning: String
     public let confirmText: String
     public let cancelText: String
+    public let confirmActionId: String
+    public let cancelActionId: String
     public let destructive: Bool
     public var a11y: A11y?
 
-    public init(id: String, warning: String, confirmText: String, cancelText: String, destructive: Bool, a11y: A11y? = nil) {
+    public init(id: String, warning: String, confirmText: String, cancelText: String, confirmActionId: String, cancelActionId: String, destructive: Bool, a11y: A11y? = nil) {
         self.id = id
         self.warning = warning
         self.confirmText = confirmText
         self.cancelText = cancelText
+        self.confirmActionId = confirmActionId
+        self.cancelActionId = cancelActionId
         self.destructive = destructive
         self.a11y = a11y
     }
@@ -1299,14 +1278,26 @@ public struct EditableTextComponent: Decodable {
     public let id: String
     public let label: String
     public let value: String
+    public let editText: String
+    public let saveText: String
+    public let cancelText: String
+    public let editActionId: String
+    public let saveActionId: String
+    public let cancelActionId: String
     public let editing: Bool
     public let validationError: String?
     public var a11y: A11y?
 
-    public init(id: String, label: String, value: String, editing: Bool, validationError: String? = nil, a11y: A11y? = nil) {
+    public init(id: String, label: String, value: String, editText: String, saveText: String, cancelText: String, editActionId: String, saveActionId: String, cancelActionId: String, editing: Bool, validationError: String? = nil, a11y: A11y? = nil) {
         self.id = id
         self.label = label
         self.value = value
+        self.editText = editText
+        self.saveText = saveText
+        self.cancelText = cancelText
+        self.editActionId = editActionId
+        self.saveActionId = saveActionId
+        self.cancelActionId = cancelActionId
         self.editing = editing
         self.validationError = validationError
         self.a11y = a11y
@@ -1670,7 +1661,7 @@ public enum ActionResult: Decodable {
     case showAlert(title: String, message: String)
     case requestCamera
     case openEntryDetail(fieldId: String)
-    case showToast(message: String, undoActionId: String?)
+    case showToast(message: String, undoActionId: String?, undoLabel: String?)
     case wipeComplete
     case commands(commands: [CommandDTO])
     case showFormDialog(dialogType: String, contextId: String?)
@@ -1730,7 +1721,11 @@ public enum ActionResult: Decodable {
             self = .openEntryDetail(fieldId: data.fieldId)
         } else if container.contains(.showToast) {
             let data = try container.decode(ShowToastData.self, forKey: .showToast)
-            self = .showToast(message: data.message, undoActionId: data.undoActionId)
+            self = .showToast(
+                message: data.message,
+                undoActionId: data.undoActionId,
+                undoLabel: data.undoLabel
+            )
         } else if container.contains(.commands) {
             let data = try container.decode(CommandsData.self, forKey: .commands)
             self = .commands(commands: data.commands)
@@ -1804,6 +1799,7 @@ public enum ActionResult: Decodable {
     private struct ShowToastData: Decodable {
         let message: String
         let undoActionId: String?
+        let undoLabel: String?
     }
 
     private struct CommandsData: Decodable {

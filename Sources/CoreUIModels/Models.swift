@@ -1104,7 +1104,9 @@ public struct StatusIndicatorComponent: Decodable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, icon, title, detail, status, statusLabel = "status_label", a11y
+        /// Keep property-shaped keys: `coreJSONDecoder` converts the wire key
+        /// `status_label` to `statusLabel` before keyed lookup.
+        case id, icon, title, detail, status, statusLabel, a11y
     }
 
     public init(from decoder: Decoder) throws {

@@ -21,7 +21,7 @@ final class StatusIndicatorStatusLabelDecodeTests: XCTestCase {
         }
         """.utf8)
 
-        let indicator = try JSONDecoder().decode(StatusIndicatorComponent.self, from: json)
+        let indicator = try coreJSONDecoder.decode(StatusIndicatorComponent.self, from: json)
         XCTAssertEqual(indicator.statusLabel, "Synchronisiert")
     }
 
@@ -34,7 +34,7 @@ final class StatusIndicatorStatusLabelDecodeTests: XCTestCase {
         }
         """.utf8)
 
-        let indicator = try JSONDecoder().decode(StatusIndicatorComponent.self, from: json)
+        let indicator = try coreJSONDecoder.decode(StatusIndicatorComponent.self, from: json)
         XCTAssertEqual(indicator.statusLabel, "")
     }
 }

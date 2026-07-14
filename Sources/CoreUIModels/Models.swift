@@ -395,7 +395,7 @@ public enum Component: Decodable {
     /// version doesn't know about. See: design-as-code-plan Phase 2b.
     case unknown
 
-    // swiftlint:disable:next cyclomatic_complexity function_body_length
+    // swiftlint:disable:next cyclomatic_complexity
     public init(from decoder: Decoder) throws {
         // Try unit variant first ("Divider" or any unknown string)
         if let container = try? decoder.singleValueContainer(),
@@ -1257,7 +1257,16 @@ public struct InlineConfirmComponent: Decodable {
     public let destructive: Bool
     public var a11y: A11y?
 
-    public init(id: String, warning: String, confirmText: String, cancelText: String, confirmActionId: String, cancelActionId: String, destructive: Bool, a11y: A11y? = nil) {
+    public init(
+        id: String,
+        warning: String,
+        confirmText: String,
+        cancelText: String,
+        confirmActionId: String,
+        cancelActionId: String,
+        destructive: Bool,
+        a11y: A11y? = nil
+    ) {
         self.id = id
         self.warning = warning
         self.confirmText = confirmText
@@ -1285,7 +1294,20 @@ public struct EditableTextComponent: Decodable {
     public let validationError: String?
     public var a11y: A11y?
 
-    public init(id: String, label: String, value: String, editText: String, saveText: String, cancelText: String, editActionId: String, saveActionId: String, cancelActionId: String, editing: Bool, validationError: String? = nil, a11y: A11y? = nil) {
+    public init(
+        id: String,
+        label: String,
+        value: String,
+        editText: String,
+        saveText: String,
+        cancelText: String,
+        editActionId: String,
+        saveActionId: String,
+        cancelActionId: String,
+        editing: Bool,
+        validationError: String? = nil,
+        a11y: A11y? = nil
+    ) {
         self.id = id
         self.label = label
         self.value = value
@@ -1718,11 +1740,7 @@ public enum ActionResult: Decodable {
             self = .openEntryDetail(fieldId: data.fieldId)
         } else if container.contains(.showToast) {
             let data = try container.decode(ShowToastData.self, forKey: .showToast)
-            self = .showToast(
-                message: data.message,
-                undoActionId: data.undoActionId,
-                undoLabel: data.undoLabel
-            )
+            self = .showToast(message: data.message, undoActionId: data.undoActionId, undoLabel: data.undoLabel)
         } else if container.contains(.commands) {
             let data = try container.decode(CommandsData.self, forKey: .commands)
             self = .commands(commands: data.commands)

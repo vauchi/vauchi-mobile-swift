@@ -15578,6 +15578,15 @@ public func exchangeViewState(state: MobileExchangeState) -> MobileExchangeViewS
 })
 }
 /**
+ * Install the platform log backend. Safe to call on every app
+ * launch/Activity recreation — only the first call takes effect.
+ */
+public func initMobileLogging()  {try! rustCall() {
+    uniffi_vauchi_platform_fn_func_init_mobile_logging($0
+    )
+}
+}
+/**
  * Returns the current clipboard retention policy.
  *
  * G5 of the frontend pure-renderer remediation: replaces
@@ -15830,6 +15839,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vauchi_platform_checksum_func_exchange_view_state() != 17890) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vauchi_platform_checksum_func_init_mobile_logging() != 19999) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vauchi_platform_checksum_func_mobile_clipboard_policy() != 27770) {

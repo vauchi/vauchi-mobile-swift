@@ -10765,6 +10765,84 @@ public func FfiConverterTypeMobileBiometricUnlockOutcome_lower(_ value: MobileBi
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
+ * Hardware event reported by the frontend back to core (ADR-031).
+ *
+ * Mobile apps create these after executing a command (e.g., QR scanned,
+ * BLE data received) and feed them back via `apply_hardware_event()`.
+ * Physical GATT link direction reported on [`MobileEvent::BleConnected`].
+ * Mirrors [`vauchi_core::platform::BleLinkDirection`]; the shell reports
+ * `Outbound` when it is the central (it dialed out) and `Inbound` when it is
+ * the peripheral (a peer connected to it). Core derives the handshake role
+ * from this, not from the token tiebreak.
+ */
+
+public enum MobileBleLinkDirection: Equatable, Hashable {
+
+    case outbound
+    case inbound
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension MobileBleLinkDirection: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMobileBleLinkDirection: FfiConverterRustBuffer {
+    typealias SwiftType = MobileBleLinkDirection
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileBleLinkDirection {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+
+        case 1: return .outbound
+
+        case 2: return .inbound
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MobileBleLinkDirection, into buf: inout [UInt8]) {
+        switch value {
+
+
+        case .outbound:
+            writeInt(&buf, Int32(1))
+
+
+        case .inbound:
+            writeInt(&buf, Int32(2))
+
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileBleLinkDirection_lift(_ buf: RustBuffer) throws -> MobileBleLinkDirection {
+    return try FfiConverterTypeMobileBleLinkDirection.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMobileBleLinkDirection_lower(_ value: MobileBleLinkDirection) -> RustBuffer {
+    return FfiConverterTypeMobileBleLinkDirection.lower(value)
+}
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
  * Exchange command sent from core to the frontend (ADR-031).
  *
  * Mobile apps match on these and dispatch to platform-specific APIs
@@ -12036,12 +12114,6 @@ public func FfiConverterTypeMobileError_lower(_ value: MobileError) -> RustBuffe
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/**
- * Hardware event reported by the frontend back to core (ADR-031).
- *
- * Mobile apps create these after executing a command (e.g., QR scanned,
- * BLE data received) and feed them back via `apply_hardware_event()`.
- */
 
 public enum MobileEvent: Equatable, Hashable {
 
@@ -12049,7 +12121,7 @@ public enum MobileEvent: Equatable, Hashable {
     )
     case bleDeviceDiscovered(id: String, rssi: Int16, advData: Data
     )
-    case bleConnected(deviceId: String
+    case bleConnected(deviceId: String, direction: MobileBleLinkDirection
     )
     case bleCharacteristicRead(uuid: String, data: Data
     )
@@ -12127,7 +12199,7 @@ public struct FfiConverterTypeMobileEvent: FfiConverterRustBuffer {
         case 2: return .bleDeviceDiscovered(id: try FfiConverterString.read(from: &buf), rssi: try FfiConverterInt16.read(from: &buf), advData: try FfiConverterData.read(from: &buf)
         )
 
-        case 3: return .bleConnected(deviceId: try FfiConverterString.read(from: &buf)
+        case 3: return .bleConnected(deviceId: try FfiConverterString.read(from: &buf), direction: try FfiConverterTypeMobileBleLinkDirection.read(from: &buf)
         )
 
         case 4: return .bleCharacteristicRead(uuid: try FfiConverterString.read(from: &buf), data: try FfiConverterData.read(from: &buf)
@@ -12215,9 +12287,10 @@ public struct FfiConverterTypeMobileEvent: FfiConverterRustBuffer {
             FfiConverterData.write(advData, into: &buf)
 
 
-        case let .bleConnected(deviceId):
+        case let .bleConnected(deviceId,direction):
             writeInt(&buf, Int32(3))
             FfiConverterString.write(deviceId, into: &buf)
+            FfiConverterTypeMobileBleLinkDirection.write(direction, into: &buf)
 
 
         case let .bleCharacteristicRead(uuid,data):

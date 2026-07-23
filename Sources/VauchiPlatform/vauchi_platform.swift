@@ -10861,11 +10861,18 @@ public enum MobileCommand: Equatable, Hashable {
     case bleStopScanning
     case bleConnect(deviceId: String
     )
-    case bleWriteCharacteristic(uuid: String, data: Data
+    case bleWriteCharacteristic(deviceId: String, uuid: String, data: Data
     )
-    case bleReadCharacteristic(uuid: String
+    case bleReadCharacteristic(deviceId: String, uuid: String
     )
-    case bleDisconnect
+    /**
+     * Disconnect one specific link (`device_id` + `direction` name it), so
+     * glare resolution can drop the losing link while the survivor keeps
+     * carrying the handshake. An empty `device_id` means "the current link"
+     * (pre-connect teardown).
+     */
+    case bleDisconnect(deviceId: String, direction: MobileBleLinkDirection
+    )
     case nfcActivate(payload: Data
     )
     case nfcDeactivate
@@ -10927,13 +10934,14 @@ public struct FfiConverterTypeMobileCommand: FfiConverterRustBuffer {
         case 6: return .bleConnect(deviceId: try FfiConverterString.read(from: &buf)
         )
 
-        case 7: return .bleWriteCharacteristic(uuid: try FfiConverterString.read(from: &buf), data: try FfiConverterData.read(from: &buf)
+        case 7: return .bleWriteCharacteristic(deviceId: try FfiConverterString.read(from: &buf), uuid: try FfiConverterString.read(from: &buf), data: try FfiConverterData.read(from: &buf)
         )
 
-        case 8: return .bleReadCharacteristic(uuid: try FfiConverterString.read(from: &buf)
+        case 8: return .bleReadCharacteristic(deviceId: try FfiConverterString.read(from: &buf), uuid: try FfiConverterString.read(from: &buf)
         )
 
-        case 9: return .bleDisconnect
+        case 9: return .bleDisconnect(deviceId: try FfiConverterString.read(from: &buf), direction: try FfiConverterTypeMobileBleLinkDirection.read(from: &buf)
+        )
 
         case 10: return .nfcActivate(payload: try FfiConverterData.read(from: &buf)
         )
@@ -11010,19 +11018,23 @@ public struct FfiConverterTypeMobileCommand: FfiConverterRustBuffer {
             FfiConverterString.write(deviceId, into: &buf)
 
 
-        case let .bleWriteCharacteristic(uuid,data):
+        case let .bleWriteCharacteristic(deviceId,uuid,data):
             writeInt(&buf, Int32(7))
+            FfiConverterString.write(deviceId, into: &buf)
             FfiConverterString.write(uuid, into: &buf)
             FfiConverterData.write(data, into: &buf)
 
 
-        case let .bleReadCharacteristic(uuid):
+        case let .bleReadCharacteristic(deviceId,uuid):
             writeInt(&buf, Int32(8))
+            FfiConverterString.write(deviceId, into: &buf)
             FfiConverterString.write(uuid, into: &buf)
 
 
-        case .bleDisconnect:
+        case let .bleDisconnect(deviceId,direction):
             writeInt(&buf, Int32(9))
+            FfiConverterString.write(deviceId, into: &buf)
+            FfiConverterTypeMobileBleLinkDirection.write(direction, into: &buf)
 
 
         case let .nfcActivate(payload):
@@ -12123,11 +12135,11 @@ public enum MobileEvent: Equatable, Hashable {
     )
     case bleConnected(deviceId: String, direction: MobileBleLinkDirection
     )
-    case bleCharacteristicRead(uuid: String, data: Data
+    case bleCharacteristicRead(deviceId: String, uuid: String, data: Data
     )
-    case bleCharacteristicNotified(uuid: String, data: Data
+    case bleCharacteristicNotified(deviceId: String, uuid: String, data: Data
     )
-    case bleDisconnected(reason: String
+    case bleDisconnected(deviceId: String, direction: MobileBleLinkDirection, reason: String
     )
     case nfcDataReceived(data: Data
     )
@@ -12202,13 +12214,13 @@ public struct FfiConverterTypeMobileEvent: FfiConverterRustBuffer {
         case 3: return .bleConnected(deviceId: try FfiConverterString.read(from: &buf), direction: try FfiConverterTypeMobileBleLinkDirection.read(from: &buf)
         )
 
-        case 4: return .bleCharacteristicRead(uuid: try FfiConverterString.read(from: &buf), data: try FfiConverterData.read(from: &buf)
+        case 4: return .bleCharacteristicRead(deviceId: try FfiConverterString.read(from: &buf), uuid: try FfiConverterString.read(from: &buf), data: try FfiConverterData.read(from: &buf)
         )
 
-        case 5: return .bleCharacteristicNotified(uuid: try FfiConverterString.read(from: &buf), data: try FfiConverterData.read(from: &buf)
+        case 5: return .bleCharacteristicNotified(deviceId: try FfiConverterString.read(from: &buf), uuid: try FfiConverterString.read(from: &buf), data: try FfiConverterData.read(from: &buf)
         )
 
-        case 6: return .bleDisconnected(reason: try FfiConverterString.read(from: &buf)
+        case 6: return .bleDisconnected(deviceId: try FfiConverterString.read(from: &buf), direction: try FfiConverterTypeMobileBleLinkDirection.read(from: &buf), reason: try FfiConverterString.read(from: &buf)
         )
 
         case 7: return .nfcDataReceived(data: try FfiConverterData.read(from: &buf)
@@ -12293,20 +12305,24 @@ public struct FfiConverterTypeMobileEvent: FfiConverterRustBuffer {
             FfiConverterTypeMobileBleLinkDirection.write(direction, into: &buf)
 
 
-        case let .bleCharacteristicRead(uuid,data):
+        case let .bleCharacteristicRead(deviceId,uuid,data):
             writeInt(&buf, Int32(4))
+            FfiConverterString.write(deviceId, into: &buf)
             FfiConverterString.write(uuid, into: &buf)
             FfiConverterData.write(data, into: &buf)
 
 
-        case let .bleCharacteristicNotified(uuid,data):
+        case let .bleCharacteristicNotified(deviceId,uuid,data):
             writeInt(&buf, Int32(5))
+            FfiConverterString.write(deviceId, into: &buf)
             FfiConverterString.write(uuid, into: &buf)
             FfiConverterData.write(data, into: &buf)
 
 
-        case let .bleDisconnected(reason):
+        case let .bleDisconnected(deviceId,direction,reason):
             writeInt(&buf, Int32(6))
+            FfiConverterString.write(deviceId, into: &buf)
+            FfiConverterTypeMobileBleLinkDirection.write(direction, into: &buf)
             FfiConverterString.write(reason, into: &buf)
 
 

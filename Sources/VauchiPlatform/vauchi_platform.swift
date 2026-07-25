@@ -10861,9 +10861,9 @@ public enum MobileCommand: Equatable, Hashable {
     case bleStopScanning
     case bleConnect(deviceId: String
     )
-    case bleWriteCharacteristic(deviceId: String, uuid: String, data: Data
+    case bleWriteCharacteristic(deviceId: String, direction: MobileBleLinkDirection, uuid: String, data: Data
     )
-    case bleReadCharacteristic(deviceId: String, uuid: String
+    case bleReadCharacteristic(deviceId: String, direction: MobileBleLinkDirection, uuid: String
     )
     /**
      * Disconnect one specific link (`device_id` + `direction` name it), so
@@ -10934,10 +10934,10 @@ public struct FfiConverterTypeMobileCommand: FfiConverterRustBuffer {
         case 6: return .bleConnect(deviceId: try FfiConverterString.read(from: &buf)
         )
 
-        case 7: return .bleWriteCharacteristic(deviceId: try FfiConverterString.read(from: &buf), uuid: try FfiConverterString.read(from: &buf), data: try FfiConverterData.read(from: &buf)
+        case 7: return .bleWriteCharacteristic(deviceId: try FfiConverterString.read(from: &buf), direction: try FfiConverterTypeMobileBleLinkDirection.read(from: &buf), uuid: try FfiConverterString.read(from: &buf), data: try FfiConverterData.read(from: &buf)
         )
 
-        case 8: return .bleReadCharacteristic(deviceId: try FfiConverterString.read(from: &buf), uuid: try FfiConverterString.read(from: &buf)
+        case 8: return .bleReadCharacteristic(deviceId: try FfiConverterString.read(from: &buf), direction: try FfiConverterTypeMobileBleLinkDirection.read(from: &buf), uuid: try FfiConverterString.read(from: &buf)
         )
 
         case 9: return .bleDisconnect(deviceId: try FfiConverterString.read(from: &buf), direction: try FfiConverterTypeMobileBleLinkDirection.read(from: &buf)
@@ -11018,16 +11018,18 @@ public struct FfiConverterTypeMobileCommand: FfiConverterRustBuffer {
             FfiConverterString.write(deviceId, into: &buf)
 
 
-        case let .bleWriteCharacteristic(deviceId,uuid,data):
+        case let .bleWriteCharacteristic(deviceId,direction,uuid,data):
             writeInt(&buf, Int32(7))
             FfiConverterString.write(deviceId, into: &buf)
+            FfiConverterTypeMobileBleLinkDirection.write(direction, into: &buf)
             FfiConverterString.write(uuid, into: &buf)
             FfiConverterData.write(data, into: &buf)
 
 
-        case let .bleReadCharacteristic(deviceId,uuid):
+        case let .bleReadCharacteristic(deviceId,direction,uuid):
             writeInt(&buf, Int32(8))
             FfiConverterString.write(deviceId, into: &buf)
+            FfiConverterTypeMobileBleLinkDirection.write(direction, into: &buf)
             FfiConverterString.write(uuid, into: &buf)
 
 
@@ -12135,9 +12137,9 @@ public enum MobileEvent: Equatable, Hashable {
     )
     case bleConnected(deviceId: String, direction: MobileBleLinkDirection
     )
-    case bleCharacteristicRead(deviceId: String, uuid: String, data: Data
+    case bleCharacteristicRead(deviceId: String, direction: MobileBleLinkDirection, uuid: String, data: Data
     )
-    case bleCharacteristicNotified(deviceId: String, uuid: String, data: Data
+    case bleCharacteristicNotified(deviceId: String, direction: MobileBleLinkDirection, uuid: String, data: Data
     )
     case bleDisconnected(deviceId: String, direction: MobileBleLinkDirection, reason: String
     )
@@ -12214,10 +12216,10 @@ public struct FfiConverterTypeMobileEvent: FfiConverterRustBuffer {
         case 3: return .bleConnected(deviceId: try FfiConverterString.read(from: &buf), direction: try FfiConverterTypeMobileBleLinkDirection.read(from: &buf)
         )
 
-        case 4: return .bleCharacteristicRead(deviceId: try FfiConverterString.read(from: &buf), uuid: try FfiConverterString.read(from: &buf), data: try FfiConverterData.read(from: &buf)
+        case 4: return .bleCharacteristicRead(deviceId: try FfiConverterString.read(from: &buf), direction: try FfiConverterTypeMobileBleLinkDirection.read(from: &buf), uuid: try FfiConverterString.read(from: &buf), data: try FfiConverterData.read(from: &buf)
         )
 
-        case 5: return .bleCharacteristicNotified(deviceId: try FfiConverterString.read(from: &buf), uuid: try FfiConverterString.read(from: &buf), data: try FfiConverterData.read(from: &buf)
+        case 5: return .bleCharacteristicNotified(deviceId: try FfiConverterString.read(from: &buf), direction: try FfiConverterTypeMobileBleLinkDirection.read(from: &buf), uuid: try FfiConverterString.read(from: &buf), data: try FfiConverterData.read(from: &buf)
         )
 
         case 6: return .bleDisconnected(deviceId: try FfiConverterString.read(from: &buf), direction: try FfiConverterTypeMobileBleLinkDirection.read(from: &buf), reason: try FfiConverterString.read(from: &buf)
@@ -12305,16 +12307,18 @@ public struct FfiConverterTypeMobileEvent: FfiConverterRustBuffer {
             FfiConverterTypeMobileBleLinkDirection.write(direction, into: &buf)
 
 
-        case let .bleCharacteristicRead(deviceId,uuid,data):
+        case let .bleCharacteristicRead(deviceId,direction,uuid,data):
             writeInt(&buf, Int32(4))
             FfiConverterString.write(deviceId, into: &buf)
+            FfiConverterTypeMobileBleLinkDirection.write(direction, into: &buf)
             FfiConverterString.write(uuid, into: &buf)
             FfiConverterData.write(data, into: &buf)
 
 
-        case let .bleCharacteristicNotified(deviceId,uuid,data):
+        case let .bleCharacteristicNotified(deviceId,direction,uuid,data):
             writeInt(&buf, Int32(5))
             FfiConverterString.write(deviceId, into: &buf)
+            FfiConverterTypeMobileBleLinkDirection.write(direction, into: &buf)
             FfiConverterString.write(uuid, into: &buf)
             FfiConverterData.write(data, into: &buf)
 
@@ -15669,11 +15673,20 @@ public func exchangeViewState(state: MobileExchangeState) -> MobileExchangeViewS
 /**
  * Install the platform `tracing` subscriber. Safe to call on every app
  * launch/Activity recreation — only the first call takes effect.
+ *
+ * Returns a short, non-PII status string so the shell can log the
+ * outcome via its *own* native logger (Logcat/os_log) — the only way to
+ * observe an install failure, since a failed `try_init` leaves no
+ * subscriber to carry the confirmation event. Values: `installed-*`
+ * (subscriber attached), `already-installed` (idempotent no-op),
+ * `try_init-failed: …` (a global subscriber was already set),
+ * `no-backend` (release/store build, feature off).
  */
-public func initMobileLogging()  {try! rustCall() {
+public func initMobileLogging() -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
     uniffi_vauchi_platform_fn_func_init_mobile_logging($0
     )
-}
+})
 }
 /**
  * Returns the current clipboard retention policy.
@@ -15930,7 +15943,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_vauchi_platform_checksum_func_exchange_view_state() != 17890) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_platform_checksum_func_init_mobile_logging() != 63624) {
+    if (uniffi_vauchi_platform_checksum_func_init_mobile_logging() != 23017) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vauchi_platform_checksum_func_mobile_clipboard_policy() != 27770) {

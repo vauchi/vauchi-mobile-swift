@@ -656,82 +656,19 @@ fileprivate struct FfiConverterData: FfiConverterRustBuffer {
  * storageKeyBytes: keyBytes
  * )
  *
- * // Get current screen
- * let screenJson = try engine.currentScreenJson()
+ * // Render Core's complete initial reducer batch.
+ * let commandsJson = try engine.initialCommandsJson()
  *
- * // Handle user action
- * let resultJson = try engine.handleActionJson(
- * actionJson: "{\"ActionPressed\": {\"action_id\": \"get_started\"}}"
+ * // Reduce a prepared interaction into the next command batch.
+ * let nextCommandsJson = try engine.dispatchJson(
+ * eventJson: "{\"ActionActivated\":{\"surface_id\":\"main\",\"interaction_id\":\"get_started\"}}"
  * )
- *
- * // Navigate to a screen
- * let screenJson = try engine.navigateToJson(screenJson: "\"Exchange\"")
  *
  * // After VauchiPlatform mutations, invalidate
  * try engine.invalidateAll()
  * ```
  */
 public protocol PlatformAppEngineProtocol: AnyObject, Sendable {
-
-    /**
-     * Advance the animated QR to the next frame.
-     *
-     * Returns the updated ScreenModel JSON when the active engine has animated
-     * frames to cycle (currently only `ExchangeEngine` on the ShowQr step), or
-     * `None` otherwise. Frontends call this on a ~100ms timer while displaying
-     * the "Share Your Code" screen to cycle V6-sized QR chunks for reliable
-     * 240p camera decode.
-     *
-     * # Usage from Swift
-     *
-     * ```swift
-     * if let frameJson = try engine.advanceQrFrameJson() {
-     * applyScreen(decode(frameJson))
-     * }
-     * ```
-     */
-    func advanceQrFrameJson() throws  -> String?
-
-    /**
-     * Returns the cold-start `ScreenModel` JSON for whatever the
-     * app's current persistent state is.
-     *
-     * Frontends call this **once** on cold start (after constructing
-     * `PlatformAppEngine`) and render the result. They do **not**
-     * branch on `has_identity` / `is_password_enabled` /
-     * `is_onboarding_complete` themselves — that decision lives
-     * inside core's `AppEngine::new()` boot logic and the
-     * idempotent `self_heal_post_auth` self-heal that follows.
-     *
-     * Equivalent to `current_screen_json()` plus an explicit
-     * contract: the audit
-     * `2026-04-28-app-launch-and-identity-orchestration-in-core`
-     * §2.1 elevates "first read after instance construction" from
-     * "implicit / by convention" to "named API method", so iOS
-     * `AppState` and Android `UiState` shadow enums can be deleted
-     * without ambiguity. Subsequent reads use `current_screen_json`.
-     */
-    func boot() throws  -> String
-
-    /**
-     * Returns the current screen as a JSON string.
-     *
-     * The JSON structure matches `ScreenModel` from vauchi-core.
-     */
-    func currentScreenJson() throws  -> String
-
-    /**
-     * Returns the canonical screen-id of the parent tab the active
-     * screen belongs to under the given layout, or `None` for
-     * transient overlays (Lock, FormDialog).
-     *
-     * `Mobile` matches the 5-tab bottom nav from `tab_info`;
-     * `Desktop` matches the 14-tab sidebar from `sidebar_items`.
-     * Frontends use this to keep tab/sidebar selection in sync with
-     * the active screen without maintaining their own
-     * `screen_id` → `parent_tab` map (§1D pure-renderer remediation).
-     */
-    func currentTabId(layout: MobileTabLayout) throws  -> String?
 
     /**
      * Dispatch a typed domain command. Pattern match on the
@@ -742,44 +679,16 @@ public protocol PlatformAppEngineProtocol: AnyObject, Sendable {
     func dispatchDomainCommand(command: DomainCommand) throws  -> DomainCommandResult
 
     /**
-     * Handles a user action (as JSON) and returns the result as JSON.
-     *
-     * The action JSON must match the `UserAction` enum format.
-     * The result JSON matches the `ActionResult` enum. Note:
-     * `ValidationError` is never returned — validation errors are
-     * resolved into `UpdateScreen` with the error injected into the
-     * matching component's `validation_error` field.
+     * Reduce one canonical event into the next ordered command batch.
      */
-    func handleActionJson(actionJson: String) throws  -> String
+    func dispatchJson(eventJson: String) throws  -> String
 
     /**
-     * Notify core that the app was backgrounded.
+     * Reduce a typed hardware event into the next generic command batch.
      *
-     * If a password is set and the app is not already locked,
-     * returns the lock screen JSON. Otherwise returns null.
-     * Frontends should call on `scenePhase == .background` (iOS)
-     * or `onPause()` (Android).
-     */
-    func handleAppBackgrounded() throws  -> String?
-
-    /**
-     * Handle a hardware event from the frontend during an exchange (ADR-031).
-     *
-     * Frontends call this when hardware reports results (QR scanned, BLE
-     * data received, etc.). Returns the serialized `ActionResult` JSON if
-     * the event produced a result, or `None` if the current screen doesn't
-     * handle hardware events.
-     *
-     * # Usage from Swift
-     *
-     * ```swift
-     * if let resultJson = try engine.handleHardwareEvent(
-     * event: .qrScanned(data: scannedData)
-     * ) {
-     * let result = try decoder.decode(ActionResult.self, from: resultJson.data(using: .utf8)!)
-     * applyResult(result)
-     * }
-     * ```
+     * This is the typed UniFFI companion to [`Self::dispatch_json`]. It keeps
+     * native callers from hand-encoding hardware payloads while preserving the
+     * same Event -> Command protocol used by every presentation interaction.
      */
     func handleHardwareEvent(event: MobileEvent) throws  -> String
 
@@ -791,43 +700,9 @@ public protocol PlatformAppEngineProtocol: AnyObject, Sendable {
     func hasIdentity() throws  -> Bool
 
     /**
-     * Invalidate all cached engines.
-     *
-     * Call this after mutations via `VauchiPlatform` so the next
-     * `current_screen_json()` rebuilds engines with fresh data.
+     * Return Core's complete initial presentation command batch.
      */
-    func invalidateAll() throws
-
-    /**
-     * Invalidate a specific screen's cached engine.
-     *
-     * The screen JSON must match the `AppScreen` enum format.
-     */
-    func invalidateScreenJson(screenJson: String) throws
-
-    /**
-     * Returns the navigation chrome for `layout` — the mobile bottom-tab
-     * bar (`Mobile`) or the desktop sidebar (`Desktop`) — with labels
-     * resolved from `locale`.
-     *
-     * Merges the former `tab_info` / `sidebar_items` wrappers: the
-     * frontend passes its layout (the value it already gives
-     * `current_tab_id`) instead of picking a form-factor-named method,
-     * so the form-factor decision stays in core (ADR-023 Amendment 1).
-     * The engine peers `tab_info()` / `sidebar_items()` remain — cabi
-     * serves the C-ABI desktop frontends through them.
-     */
-    func navItems(layout: MobileTabLayout, locale: MobileLocale) throws  -> [MobileTabInfo]
-
-    /**
-     * Navigate back in the history stack.
-     *
-     * Returns the previous screen model as JSON envelope:
-     * `{"screen": <ScreenModel>, "commands": [<Command>, ...]}`.
-     * `commands` carries any screen-presentation `Command`s emitted by
-     * the lifecycle hooks of the outgoing + incoming engines (Phase 2b).
-     */
-    func navigateBackJson() throws  -> String
+    func initialCommandsJson() throws  -> String
 
     /**
      * The shell's platform wakeup fired — a desktop in-process interval, an
@@ -878,14 +753,14 @@ public protocol PlatformAppEngineProtocol: AnyObject, Sendable {
     /**
      * Register a listener for async state-change notifications.
      *
-     * Core calls `on_screens_invalidated` when background operations
-     * (sync, delivery receipts, device link) change data that affects
-     * rendered screens. Replaces any previously registered listener.
+     * Core calls `on_presentation_invalidated` when background operations
+     * (sync, delivery receipts, device link) change prepared state. Replaces
+     * any previously registered listener.
      *
      * # Threading — IMPORTANT
      *
-     * The callback may fire **on the same thread** that called
-     * `handle_action_json` (synchronous event dispatch). The callback
+     * The callback may fire **on the same thread** that dispatched a
+     * synchronous event. The callback
      * **must not** call back into `PlatformAppEngine` methods directly —
      * doing so would deadlock on the internal Mutex. Always dispatch
      * to a separate queue/thread before touching the engine.
@@ -894,12 +769,9 @@ public protocol PlatformAppEngineProtocol: AnyObject, Sendable {
      *
      * ```swift
      * class MyListener: PlatformEventListener {
-     * func onScreensInvalidated(screenIds: [String]) {
+     * func onPresentationInvalidated() {
      * DispatchQueue.main.async {  // REQUIRED — never call engine synchronously
-     * for id in screenIds {
-     * try? engine.invalidateScreenJson(screenJson: "\"\(id)\"")
-     * }
-     * self.reloadCurrentScreen()
+     * try? engine.dispatchJson(eventJson: "\"PresentationInvalidated\"")
      * }
      * }
      * }
@@ -910,12 +782,9 @@ public protocol PlatformAppEngineProtocol: AnyObject, Sendable {
      *
      * ```kotlin
      * class MyListener : PlatformEventListener {
-     * override fun onScreensInvalidated(screenIds: List<String>) {
+     * override fun onPresentationInvalidated() {
      * viewModelScope.launch {  // REQUIRED — never call engine synchronously
-     * for (id in screenIds) {
-     * engine.invalidateScreenJson("\"$id\"")
-     * }
-     * reloadCurrentScreen()
+     * engine.dispatchJson("\"PresentationInvalidated\"")
      * }
      * }
      * }
@@ -929,11 +798,8 @@ public protocol PlatformAppEngineProtocol: AnyObject, Sendable {
      *
      * Frontends call this from their platform reachability monitor
      * (`NWPathMonitor` on iOS, `ConnectivityManager` on Android)
-     * callback. While `online == false`, every emitted
-     * `ScreenModel` carries a presentational offline `Component::Banner`
-     * that frontends render automatically — no
-     * `MainViewModel.isOnline` mirror flag, no `OfflineBanner()`
-     * switch in the view tree.
+     * callback. Core owns any resulting offline presentation and sync
+     * policy; shells do not mirror the state or select a banner.
      *
      * Audit `2026-04-28-lifecycle-session-residue-umbrella` P2-D.
      */
@@ -956,9 +822,8 @@ public protocol PlatformAppEngineProtocol: AnyObject, Sendable {
      * frontends own the canonical copy in OS-native sandboxed
      * storage (`SharedPreferences`, `UserDefaults`, …) and push
      * the active values to core at app boot + on every Settings
-     * dropdown change. Core uses them to render Settings dropdown
-     * `selected` values (S3 of the implementation plan) and,
-     * later, to resolve locale-keyed strings into ScreenModel.
+     * dropdown change. Core uses them to prepare selected values and
+     * localized presentation commands.
      *
      * JSON shape: `{ "locale": "de", "theme_id": "cyber" }`.
      * Both fields optional — `null` / absent means "frontend has
@@ -983,16 +848,13 @@ public protocol PlatformAppEngineProtocol: AnyObject, Sendable {
  * storageKeyBytes: keyBytes
  * )
  *
- * // Get current screen
- * let screenJson = try engine.currentScreenJson()
+ * // Render Core's complete initial reducer batch.
+ * let commandsJson = try engine.initialCommandsJson()
  *
- * // Handle user action
- * let resultJson = try engine.handleActionJson(
- * actionJson: "{\"ActionPressed\": {\"action_id\": \"get_started\"}}"
+ * // Reduce a prepared interaction into the next command batch.
+ * let nextCommandsJson = try engine.dispatchJson(
+ * eventJson: "{\"ActionActivated\":{\"surface_id\":\"main\",\"interaction_id\":\"get_started\"}}"
  * )
- *
- * // Navigate to a screen
- * let screenJson = try engine.navigateToJson(screenJson: "\"Exchange\"")
  *
  * // After VauchiPlatform mutations, invalidate
  * try engine.invalidateAll()
@@ -1041,8 +903,9 @@ open class PlatformAppEngine: PlatformAppEngineProtocol, @unchecked Sendable {
      * Create a new PlatformAppEngine with platform-provided secure key.
      *
      * This creates its own `Vauchi` instance backed by the same database
-     * as `VauchiPlatform`. After mutations via `VauchiPlatform`, call
-     * `invalidate_all()` to refresh cached engines.
+     * as `VauchiPlatform`. After external mutations, dispatch
+     * [`vauchi_core::Event::PresentationInvalidated`] through
+     * [`Self::dispatch_json`] and apply the returned replacement batch.
      */
 public convenience init(dataDir: String, relayUrl: String, storageKeyBytes: Data)throws  {
     let handle =
@@ -1069,91 +932,6 @@ public convenience init(dataDir: String, relayUrl: String, storageKeyBytes: Data
 
 
     /**
-     * Advance the animated QR to the next frame.
-     *
-     * Returns the updated ScreenModel JSON when the active engine has animated
-     * frames to cycle (currently only `ExchangeEngine` on the ShowQr step), or
-     * `None` otherwise. Frontends call this on a ~100ms timer while displaying
-     * the "Share Your Code" screen to cycle V6-sized QR chunks for reliable
-     * 240p camera decode.
-     *
-     * # Usage from Swift
-     *
-     * ```swift
-     * if let frameJson = try engine.advanceQrFrameJson() {
-     * applyScreen(decode(frameJson))
-     * }
-     * ```
-     */
-open func advanceQrFrameJson()throws  -> String?  {
-    return try  FfiConverterOptionString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
-    uniffi_vauchi_platform_fn_method_platformappengine_advance_qr_frame_json(
-            self.uniffiCloneHandle(),$0
-    )
-})
-}
-
-    /**
-     * Returns the cold-start `ScreenModel` JSON for whatever the
-     * app's current persistent state is.
-     *
-     * Frontends call this **once** on cold start (after constructing
-     * `PlatformAppEngine`) and render the result. They do **not**
-     * branch on `has_identity` / `is_password_enabled` /
-     * `is_onboarding_complete` themselves — that decision lives
-     * inside core's `AppEngine::new()` boot logic and the
-     * idempotent `self_heal_post_auth` self-heal that follows.
-     *
-     * Equivalent to `current_screen_json()` plus an explicit
-     * contract: the audit
-     * `2026-04-28-app-launch-and-identity-orchestration-in-core`
-     * §2.1 elevates "first read after instance construction" from
-     * "implicit / by convention" to "named API method", so iOS
-     * `AppState` and Android `UiState` shadow enums can be deleted
-     * without ambiguity. Subsequent reads use `current_screen_json`.
-     */
-open func boot()throws  -> String  {
-    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
-    uniffi_vauchi_platform_fn_method_platformappengine_boot(
-            self.uniffiCloneHandle(),$0
-    )
-})
-}
-
-    /**
-     * Returns the current screen as a JSON string.
-     *
-     * The JSON structure matches `ScreenModel` from vauchi-core.
-     */
-open func currentScreenJson()throws  -> String  {
-    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
-    uniffi_vauchi_platform_fn_method_platformappengine_current_screen_json(
-            self.uniffiCloneHandle(),$0
-    )
-})
-}
-
-    /**
-     * Returns the canonical screen-id of the parent tab the active
-     * screen belongs to under the given layout, or `None` for
-     * transient overlays (Lock, FormDialog).
-     *
-     * `Mobile` matches the 5-tab bottom nav from `tab_info`;
-     * `Desktop` matches the 14-tab sidebar from `sidebar_items`.
-     * Frontends use this to keep tab/sidebar selection in sync with
-     * the active screen without maintaining their own
-     * `screen_id` → `parent_tab` map (§1D pure-renderer remediation).
-     */
-open func currentTabId(layout: MobileTabLayout)throws  -> String?  {
-    return try  FfiConverterOptionString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
-    uniffi_vauchi_platform_fn_method_platformappengine_current_tab_id(
-            self.uniffiCloneHandle(),
-        FfiConverterTypeMobileTabLayout_lower(layout),$0
-    )
-})
-}
-
-    /**
      * Dispatch a typed domain command. Pattern match on the
      * returned [`DomainCommandResult`] in the calling code; see
      * `core/vauchi-platform/src/domain_command.rs` for the
@@ -1169,57 +947,23 @@ open func dispatchDomainCommand(command: DomainCommand)throws  -> DomainCommandR
 }
 
     /**
-     * Handles a user action (as JSON) and returns the result as JSON.
-     *
-     * The action JSON must match the `UserAction` enum format.
-     * The result JSON matches the `ActionResult` enum. Note:
-     * `ValidationError` is never returned — validation errors are
-     * resolved into `UpdateScreen` with the error injected into the
-     * matching component's `validation_error` field.
+     * Reduce one canonical event into the next ordered command batch.
      */
-open func handleActionJson(actionJson: String)throws  -> String  {
+open func dispatchJson(eventJson: String)throws  -> String  {
     return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
-    uniffi_vauchi_platform_fn_method_platformappengine_handle_action_json(
+    uniffi_vauchi_platform_fn_method_platformappengine_dispatch_json(
             self.uniffiCloneHandle(),
-        FfiConverterString.lower(actionJson),$0
+        FfiConverterString.lower(eventJson),$0
     )
 })
 }
 
     /**
-     * Notify core that the app was backgrounded.
+     * Reduce a typed hardware event into the next generic command batch.
      *
-     * If a password is set and the app is not already locked,
-     * returns the lock screen JSON. Otherwise returns null.
-     * Frontends should call on `scenePhase == .background` (iOS)
-     * or `onPause()` (Android).
-     */
-open func handleAppBackgrounded()throws  -> String?  {
-    return try  FfiConverterOptionString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
-    uniffi_vauchi_platform_fn_method_platformappengine_handle_app_backgrounded(
-            self.uniffiCloneHandle(),$0
-    )
-})
-}
-
-    /**
-     * Handle a hardware event from the frontend during an exchange (ADR-031).
-     *
-     * Frontends call this when hardware reports results (QR scanned, BLE
-     * data received, etc.). Returns the serialized `ActionResult` JSON if
-     * the event produced a result, or `None` if the current screen doesn't
-     * handle hardware events.
-     *
-     * # Usage from Swift
-     *
-     * ```swift
-     * if let resultJson = try engine.handleHardwareEvent(
-     * event: .qrScanned(data: scannedData)
-     * ) {
-     * let result = try decoder.decode(ActionResult.self, from: resultJson.data(using: .utf8)!)
-     * applyResult(result)
-     * }
-     * ```
+     * This is the typed UniFFI companion to [`Self::dispatch_json`]. It keeps
+     * native callers from hand-encoding hardware payloads while preserving the
+     * same Event -> Command protocol used by every presentation interaction.
      */
 open func handleHardwareEvent(event: MobileEvent)throws  -> String  {
     return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
@@ -1244,64 +988,11 @@ open func hasIdentity()throws  -> Bool  {
 }
 
     /**
-     * Invalidate all cached engines.
-     *
-     * Call this after mutations via `VauchiPlatform` so the next
-     * `current_screen_json()` rebuilds engines with fresh data.
+     * Return Core's complete initial presentation command batch.
      */
-open func invalidateAll()throws   {try rustCallWithError(FfiConverterTypeMobileError_lift) {
-    uniffi_vauchi_platform_fn_method_platformappengine_invalidate_all(
-            self.uniffiCloneHandle(),$0
-    )
-}
-}
-
-    /**
-     * Invalidate a specific screen's cached engine.
-     *
-     * The screen JSON must match the `AppScreen` enum format.
-     */
-open func invalidateScreenJson(screenJson: String)throws   {try rustCallWithError(FfiConverterTypeMobileError_lift) {
-    uniffi_vauchi_platform_fn_method_platformappengine_invalidate_screen_json(
-            self.uniffiCloneHandle(),
-        FfiConverterString.lower(screenJson),$0
-    )
-}
-}
-
-    /**
-     * Returns the navigation chrome for `layout` — the mobile bottom-tab
-     * bar (`Mobile`) or the desktop sidebar (`Desktop`) — with labels
-     * resolved from `locale`.
-     *
-     * Merges the former `tab_info` / `sidebar_items` wrappers: the
-     * frontend passes its layout (the value it already gives
-     * `current_tab_id`) instead of picking a form-factor-named method,
-     * so the form-factor decision stays in core (ADR-023 Amendment 1).
-     * The engine peers `tab_info()` / `sidebar_items()` remain — cabi
-     * serves the C-ABI desktop frontends through them.
-     */
-open func navItems(layout: MobileTabLayout, locale: MobileLocale)throws  -> [MobileTabInfo]  {
-    return try  FfiConverterSequenceTypeMobileTabInfo.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
-    uniffi_vauchi_platform_fn_method_platformappengine_nav_items(
-            self.uniffiCloneHandle(),
-        FfiConverterTypeMobileTabLayout_lower(layout),
-        FfiConverterTypeMobileLocale_lower(locale),$0
-    )
-})
-}
-
-    /**
-     * Navigate back in the history stack.
-     *
-     * Returns the previous screen model as JSON envelope:
-     * `{"screen": <ScreenModel>, "commands": [<Command>, ...]}`.
-     * `commands` carries any screen-presentation `Command`s emitted by
-     * the lifecycle hooks of the outgoing + incoming engines (Phase 2b).
-     */
-open func navigateBackJson()throws  -> String  {
+open func initialCommandsJson()throws  -> String  {
     return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
-    uniffi_vauchi_platform_fn_method_platformappengine_navigate_back_json(
+    uniffi_vauchi_platform_fn_method_platformappengine_initial_commands_json(
             self.uniffiCloneHandle(),$0
     )
 })
@@ -1380,14 +1071,14 @@ open func setDeviceCapabilitiesJson(capabilitiesJson: String)throws   {try rustC
     /**
      * Register a listener for async state-change notifications.
      *
-     * Core calls `on_screens_invalidated` when background operations
-     * (sync, delivery receipts, device link) change data that affects
-     * rendered screens. Replaces any previously registered listener.
+     * Core calls `on_presentation_invalidated` when background operations
+     * (sync, delivery receipts, device link) change prepared state. Replaces
+     * any previously registered listener.
      *
      * # Threading — IMPORTANT
      *
-     * The callback may fire **on the same thread** that called
-     * `handle_action_json` (synchronous event dispatch). The callback
+     * The callback may fire **on the same thread** that dispatched a
+     * synchronous event. The callback
      * **must not** call back into `PlatformAppEngine` methods directly —
      * doing so would deadlock on the internal Mutex. Always dispatch
      * to a separate queue/thread before touching the engine.
@@ -1396,12 +1087,9 @@ open func setDeviceCapabilitiesJson(capabilitiesJson: String)throws   {try rustC
      *
      * ```swift
      * class MyListener: PlatformEventListener {
-     * func onScreensInvalidated(screenIds: [String]) {
+     * func onPresentationInvalidated() {
      * DispatchQueue.main.async {  // REQUIRED — never call engine synchronously
-     * for id in screenIds {
-     * try? engine.invalidateScreenJson(screenJson: "\"\(id)\"")
-     * }
-     * self.reloadCurrentScreen()
+     * try? engine.dispatchJson(eventJson: "\"PresentationInvalidated\"")
      * }
      * }
      * }
@@ -1412,12 +1100,9 @@ open func setDeviceCapabilitiesJson(capabilitiesJson: String)throws   {try rustC
      *
      * ```kotlin
      * class MyListener : PlatformEventListener {
-     * override fun onScreensInvalidated(screenIds: List<String>) {
+     * override fun onPresentationInvalidated() {
      * viewModelScope.launch {  // REQUIRED — never call engine synchronously
-     * for (id in screenIds) {
-     * engine.invalidateScreenJson("\"$id\"")
-     * }
-     * reloadCurrentScreen()
+     * engine.dispatchJson("\"PresentationInvalidated\"")
      * }
      * }
      * }
@@ -1437,11 +1122,8 @@ open func setEventListener(listener: PlatformEventListener)throws   {try rustCal
      *
      * Frontends call this from their platform reachability monitor
      * (`NWPathMonitor` on iOS, `ConnectivityManager` on Android)
-     * callback. While `online == false`, every emitted
-     * `ScreenModel` carries a presentational offline `Component::Banner`
-     * that frontends render automatically — no
-     * `MainViewModel.isOnline` mirror flag, no `OfflineBanner()`
-     * switch in the view tree.
+     * callback. Core owns any resulting offline presentation and sync
+     * policy; shells do not mirror the state or select a banner.
      *
      * Audit `2026-04-28-lifecycle-session-residue-umbrella` P2-D.
      */
@@ -1476,9 +1158,8 @@ open func setPlatformKeychain(keychain: MobilePlatformKeychain)  {try! rustCall(
      * frontends own the canonical copy in OS-native sandboxed
      * storage (`SharedPreferences`, `UserDefaults`, …) and push
      * the active values to core at app boot + on every Settings
-     * dropdown change. Core uses them to render Settings dropdown
-     * `selected` values (S3 of the implementation plan) and,
-     * later, to resolve locale-keyed strings into ScreenModel.
+     * dropdown change. Core uses them to prepare selected values and
+     * localized presentation commands.
      *
      * JSON shape: `{ "locale": "de", "theme_id": "cyber" }`.
      * Both fields optional — `null` / absent means "frontend has
@@ -6570,117 +6251,6 @@ public func FfiConverterTypeMobileSyncStatusView_lower(_ value: MobileSyncStatus
 
 
 /**
- * Tab metadata for top-level navigation.
- *
- * Mirrors `vauchi_app::ui::TabInfo` for UniFFI consumers so frontends
- * can render tabs without hardcoding labels or icons (G1 of the
- * pure-renderer remediation; ADR-021 / ADR-038).
- */
-public struct MobileTabInfo: Equatable, Hashable {
-    /**
-     * Stable identifier matching the screen's `screen_id()`. For selection
-     * equality only — never used to construct a navigation target.
-     */
-    public var id: String
-    /**
-     * Opaque navigation token. Forward verbatim via
-     * `UserAction::NavigateToTab { action_id }` on tap; core resolves it to
-     * `NavigateTo`. Never parsed or branched on by the frontend.
-     */
-    public var actionId: String
-    /**
-     * Localized display label resolved by core.
-     */
-    public var label: String
-    /**
-     * Icon name in SF Symbol format. Frontends map to platform equivalents
-     * (Material Icons on Android, Win UI icons on Windows, etc.).
-     */
-    public var icon: String
-    /**
-     * Badge count (e.g. pending contact updates). Zero means no badge.
-     */
-    public var badgeCount: UInt32
-
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
-    public init(
-        /**
-         * Stable identifier matching the screen's `screen_id()`. For selection
-         * equality only — never used to construct a navigation target.
-         */id: String,
-        /**
-         * Opaque navigation token. Forward verbatim via
-         * `UserAction::NavigateToTab { action_id }` on tap; core resolves it to
-         * `NavigateTo`. Never parsed or branched on by the frontend.
-         */actionId: String,
-        /**
-         * Localized display label resolved by core.
-         */label: String,
-        /**
-         * Icon name in SF Symbol format. Frontends map to platform equivalents
-         * (Material Icons on Android, Win UI icons on Windows, etc.).
-         */icon: String,
-        /**
-         * Badge count (e.g. pending contact updates). Zero means no badge.
-         */badgeCount: UInt32) {
-        self.id = id
-        self.actionId = actionId
-        self.label = label
-        self.icon = icon
-        self.badgeCount = badgeCount
-    }
-
-
-
-
-}
-
-#if compiler(>=6)
-extension MobileTabInfo: Sendable {}
-#endif
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-public struct FfiConverterTypeMobileTabInfo: FfiConverterRustBuffer {
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileTabInfo {
-        return
-            try MobileTabInfo(
-                id: FfiConverterString.read(from: &buf),
-                actionId: FfiConverterString.read(from: &buf),
-                label: FfiConverterString.read(from: &buf),
-                icon: FfiConverterString.read(from: &buf),
-                badgeCount: FfiConverterUInt32.read(from: &buf)
-        )
-    }
-
-    public static func write(_ value: MobileTabInfo, into buf: inout [UInt8]) {
-        FfiConverterString.write(value.id, into: &buf)
-        FfiConverterString.write(value.actionId, into: &buf)
-        FfiConverterString.write(value.label, into: &buf)
-        FfiConverterString.write(value.icon, into: &buf)
-        FfiConverterUInt32.write(value.badgeCount, into: &buf)
-    }
-}
-
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMobileTabInfo_lift(_ buf: RustBuffer) throws -> MobileTabInfo {
-    return try FfiConverterTypeMobileTabInfo.lift(buf)
-}
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMobileTabInfo_lower(_ value: MobileTabInfo) -> RustBuffer {
-    return FfiConverterTypeMobileTabInfo.lower(value)
-}
-
-
-/**
  * A complete theme definition.
  */
 public struct MobileTheme: Equatable, Hashable {
@@ -8092,8 +7662,8 @@ public enum DomainCommand: Equatable, Hashable {
      */
     case getPendingDeviceDeliveries
     /**
-     * Programmatically create an identity bypassing the onboarding
-     * `UserAction` flow. Errors when an identity already exists.
+     * Programmatically create an identity outside the presentation reducer.
+     * Errors when an identity already exists.
      */
     case createIdentity(displayName: String
     )
@@ -13784,79 +13354,6 @@ public func FfiConverterTypeMobileSyncStatusKind_lower(_ value: MobileSyncStatus
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
- * Form-factor lens for tab-resolution queries (§1D pure-renderer
- * remediation). Mobile collapses Settings/Recovery/Help/etc under
- * `More`; Desktop has them as first-class sidebar items. Frontends
- * pass the layout matching their nav surface.
- */
-
-public enum MobileTabLayout: Equatable, Hashable {
-
-    case mobile
-    case desktop
-
-
-
-
-
-}
-
-#if compiler(>=6)
-extension MobileTabLayout: Sendable {}
-#endif
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-public struct FfiConverterTypeMobileTabLayout: FfiConverterRustBuffer {
-    typealias SwiftType = MobileTabLayout
-
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileTabLayout {
-        let variant: Int32 = try readInt(&buf)
-        switch variant {
-
-        case 1: return .mobile
-
-        case 2: return .desktop
-
-        default: throw UniffiInternalError.unexpectedEnumCase
-        }
-    }
-
-    public static func write(_ value: MobileTabLayout, into buf: inout [UInt8]) {
-        switch value {
-
-
-        case .mobile:
-            writeInt(&buf, Int32(1))
-
-
-        case .desktop:
-            writeInt(&buf, Int32(2))
-
-        }
-    }
-}
-
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMobileTabLayout_lift(_ buf: RustBuffer) throws -> MobileTabLayout {
-    return try FfiConverterTypeMobileTabLayout.lift(buf)
-}
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMobileTabLayout_lower(_ value: MobileTabLayout) -> RustBuffer {
-    return FfiConverterTypeMobileTabLayout.lower(value)
-}
-
-
-// Note that we don't yet support `indirect` for enums.
-// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/**
  * Theme mode (light or dark)
  */
 
@@ -14229,20 +13726,19 @@ public func FfiConverterCallbackInterfaceMobilePlatformKeychain_lower(_ v: Mobil
  *
  * Frontends implement this trait (in Swift/Kotlin via UniFFI) and register
  * it with [`PlatformAppEngine::set_event_listener`]. Core calls
- * `on_screens_invalidated` when background operations (sync, delivery,
- * device link) change data that affects rendered screens.
+ * `on_presentation_invalidated` when background operations (sync, delivery,
+ * device link) change data that affects the prepared presentation.
  *
- * On receiving the callback, frontends should call `invalidate_screen_json`
- * or `invalidate_all` and re-render the affected screens.
+ * On receiving the callback, frontends return
+ * [`vauchi_core::Event::PresentationInvalidated`] through `dispatch_json`.
+ * Core invalidates its caches and returns a complete replacement batch.
  */
 public protocol PlatformEventListener: AnyObject, Sendable {
 
     /**
-     * Called when one or more screens have stale data due to a background
-     * operation. `screen_ids` contains the `screen_id` values of affected
-     * screens (e.g., `["contacts", "delivery_status"]`).
+     * Called when background state has made the prepared presentation stale.
      */
-    func onScreensInvalidated(screenIds: [String])
+    func onPresentationInvalidated()
 
 }
 
@@ -14269,9 +13765,8 @@ fileprivate struct UniffiCallbackInterfacePlatformEventListener {
                 fatalError("Uniffi callback interface PlatformEventListener: handle missing in uniffiClone")
             }
         },
-        onScreensInvalidated: { (
+        onPresentationInvalidated: { (
             uniffiHandle: UInt64,
-            screenIds: RustBuffer,
             uniffiOutReturn: UnsafeMutableRawPointer,
             uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
         ) in
@@ -14280,8 +13775,7 @@ fileprivate struct UniffiCallbackInterfacePlatformEventListener {
                 guard let uniffiObj = try? FfiConverterCallbackInterfacePlatformEventListener.handleMap.get(handle: uniffiHandle) else {
                     throw UniffiInternalError.unexpectedStaleHandle
                 }
-                return uniffiObj.onScreensInvalidated(
-                     screenIds: try FfiConverterSequenceString.lift(screenIds)
+                return uniffiObj.onPresentationInvalidated(
                 )
             }
 
@@ -15162,31 +14656,6 @@ fileprivate struct FfiConverterSequenceTypeMobileSocialNetwork: FfiConverterRust
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterSequenceTypeMobileTabInfo: FfiConverterRustBuffer {
-    typealias SwiftType = [MobileTabInfo]
-
-    public static func write(_ value: [MobileTabInfo], into buf: inout [UInt8]) {
-        let len = Int32(value.count)
-        writeInt(&buf, len)
-        for item in value {
-            FfiConverterTypeMobileTabInfo.write(item, into: &buf)
-        }
-    }
-
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [MobileTabInfo] {
-        let len: Int32 = try readInt(&buf)
-        var seq = [MobileTabInfo]()
-        seq.reserveCapacity(Int(len))
-        for _ in 0 ..< len {
-            seq.append(try FfiConverterTypeMobileTabInfo.read(from: &buf))
-        }
-        return seq
-    }
-}
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
 fileprivate struct FfiConverterSequenceTypeMobileTheme: FfiConverterRustBuffer {
     typealias SwiftType = [MobileTheme]
 
@@ -15985,43 +15454,19 @@ private let initializationResult: InitializationResult = {
     if (uniffi_vauchi_platform_checksum_func_recovery_public_key_hex_length() != 49099) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_platform_checksum_method_platformappengine_advance_qr_frame_json() != 62331) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_vauchi_platform_checksum_method_platformappengine_boot() != 53683) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_vauchi_platform_checksum_method_platformappengine_current_screen_json() != 30621) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_vauchi_platform_checksum_method_platformappengine_current_tab_id() != 63725) {
-        return InitializationResult.apiChecksumMismatch
-    }
     if (uniffi_vauchi_platform_checksum_method_platformappengine_dispatch_domain_command() != 4176) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_platform_checksum_method_platformappengine_handle_action_json() != 12636) {
+    if (uniffi_vauchi_platform_checksum_method_platformappengine_dispatch_json() != 41044) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_platform_checksum_method_platformappengine_handle_app_backgrounded() != 20358) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_vauchi_platform_checksum_method_platformappengine_handle_hardware_event() != 5571) {
+    if (uniffi_vauchi_platform_checksum_method_platformappengine_handle_hardware_event() != 1905) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vauchi_platform_checksum_method_platformappengine_has_identity() != 4716) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_platform_checksum_method_platformappengine_invalidate_all() != 53639) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_vauchi_platform_checksum_method_platformappengine_invalidate_screen_json() != 16129) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_vauchi_platform_checksum_method_platformappengine_nav_items() != 1588) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_vauchi_platform_checksum_method_platformappengine_navigate_back_json() != 22054) {
+    if (uniffi_vauchi_platform_checksum_method_platformappengine_initial_commands_json() != 53334) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vauchi_platform_checksum_method_platformappengine_on_wakeup() != 21654) {
@@ -16036,19 +15481,19 @@ private let initializationResult: InitializationResult = {
     if (uniffi_vauchi_platform_checksum_method_platformappengine_set_device_capabilities_json() != 35039) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_platform_checksum_method_platformappengine_set_event_listener() != 49635) {
+    if (uniffi_vauchi_platform_checksum_method_platformappengine_set_event_listener() != 48303) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_platform_checksum_method_platformappengine_set_network_online() != 43406) {
+    if (uniffi_vauchi_platform_checksum_method_platformappengine_set_network_online() != 36870) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vauchi_platform_checksum_method_platformappengine_set_platform_keychain() != 47096) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_platform_checksum_method_platformappengine_set_render_context_json() != 49549) {
+    if (uniffi_vauchi_platform_checksum_method_platformappengine_set_render_context_json() != 27460) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_platform_checksum_constructor_platformappengine_new() != 41033) {
+    if (uniffi_vauchi_platform_checksum_constructor_platformappengine_new() != 28594) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vauchi_platform_checksum_method_mobileplatformkeychain_save_key() != 55213) {
@@ -16060,7 +15505,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_vauchi_platform_checksum_method_mobileplatformkeychain_delete_key() != 40216) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_platform_checksum_method_platformeventlistener_on_screens_invalidated() != 17394) {
+    if (uniffi_vauchi_platform_checksum_method_platformeventlistener_on_presentation_invalidated() != 34394) {
         return InitializationResult.apiChecksumMismatch
     }
 

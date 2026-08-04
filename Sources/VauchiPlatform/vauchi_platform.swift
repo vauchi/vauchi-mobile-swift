@@ -15063,6 +15063,19 @@ public func parseLocaleCode(code: String) -> MobileLocale?  {
 })
 }
 /**
+ * Return the versioned Core presentation contract corpus as canonical JSON.
+ *
+ * Shell contract tests consume these bytes through the same generated
+ * binding as production presentation traffic, so no repository carries a
+ * stale fixture copy.
+ */
+public func presentationContractFixtureJson() -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_vauchi_platform_fn_func_presentation_contract_fixture_json($0
+    )
+})
+}
+/**
  * Panic shred callable from a widget without full app initialization.
  *
  * This is the key API for iOS/Android home screen widgets that need to
@@ -15398,6 +15411,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vauchi_platform_checksum_func_parse_locale_code() != 52237) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vauchi_platform_checksum_func_presentation_contract_fixture_json() != 29575) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vauchi_platform_checksum_func_widget_panic_shred() != 32179) {

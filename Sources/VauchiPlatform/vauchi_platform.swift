@@ -14985,6 +14985,22 @@ public func getTheme(themeId: String) -> MobileTheme?  {
 })
 }
 /**
+ * Serialize a typed hardware event into the canonical Event JSON envelope.
+ *
+ * ADR-066 admits one public dispatch path (`dispatch_json`); this codec is
+ * the language-native wrapper the approved solution provides so native
+ * callers never hand-define Core's serde tags in Swift or Kotlin. Feed the
+ * result to `PlatformAppEngine::dispatch_json` — it is not a submission
+ * API of its own.
+ */
+public func hardwareEventJson(event: MobileEvent) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_vauchi_platform_fn_func_hardware_event_json(
+        FfiConverterTypeMobileEvent_lower(event),$0
+    )
+})
+}
+/**
  * Initialize the i18n system by loading locale files from a directory.
  *
  * Must be called once at app startup before any i18n functions.
@@ -15393,6 +15409,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vauchi_platform_checksum_func_get_theme() != 56397) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vauchi_platform_checksum_func_hardware_event_json() != 63176) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vauchi_platform_checksum_func_init_locales() != 50857) {

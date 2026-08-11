@@ -8,5 +8,7 @@
 # Build outputs
 .build/
 
-# Local xcframework builds (produced by prepare-device-test)
-VauchiPlatformFFI.xcframework/
+# Local xcframework builds (produced by prepare-device-test), which
+# prepare-device-test symlinks rather than copies — a trailing slash
+# here would only match a real directory and miss the symlink.
+VauchiPlatformFFI.xcframework

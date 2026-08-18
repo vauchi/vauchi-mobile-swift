@@ -3,7 +3,7 @@
 
 > **Mirror:** This repo is a read-only mirror of [gitlab.com/vauchi/vauchi-platform-swift](https://gitlab.com/vauchi/vauchi-platform-swift). Please open issues and merge requests there.
 
-[![Pipeline](https://vauchi.gitlab.io/vauchi-platform-swift/badges/pipeline.svg)](https://gitlab.com/vauchi/vauchi-platform-swift/-/pipelines)
+[![Pipeline](https://vauchi.gitlab.io/vauchi-platform-swift/badges/pipeline.svg)](https://gitlab.com/vauchi/vauchi-platform-swift)
 [![REUSE](https://api.reuse.software/badge/gitlab.com/vauchi/vauchi-platform-swift)](https://api.reuse.software/info/gitlab.com/vauchi/vauchi-platform-swift)
 
 # VauchiPlatform Swift Package

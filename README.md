@@ -57,6 +57,7 @@ let publicId = try vauchi.getPublicId()
 ## Architecture Support
 
 The XCFramework includes:
+
 - `ios-arm64` - iOS devices
 - `ios-arm64_x86_64-simulator` - iOS Simulator (Apple Silicon + Intel)
 

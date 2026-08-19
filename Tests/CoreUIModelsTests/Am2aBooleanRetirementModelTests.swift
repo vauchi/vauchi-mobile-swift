@@ -43,13 +43,33 @@ final class Am2aBooleanRetirementModelTests: XCTestCase {
         }
         """.data(using: .utf8)!
         let command = try coreJSONDecoder.decode(CommandDTO.self, from: json)
-        guard case let .scheduleWakeup(earliestSecs, deadlineSecs, minIntervalSecs) = command else {
+        guard case let .scheduleWakeup(earliestSecs, deadlineSecs, minIntervalSecs, earliestMillis) = command else {
             XCTFail("Expected .scheduleWakeup, got \(command)")
             return
         }
         XCTAssertEqual(earliestSecs, 10)
         XCTAssertEqual(deadlineSecs, 60)
         XCTAssertEqual(minIntervalSecs, 30)
+        XCTAssertNil(earliestMillis)
+    }
+
+    func testScheduleWakeupDecodesSubSecondOverride() throws {
+        let json = """
+        {
+            "ScheduleWakeup": {
+                "earliest_secs": 0,
+                "deadline_secs": 60,
+                "min_interval_secs": 30,
+                "earliest_millis": 300
+            }
+        }
+        """.data(using: .utf8)!
+        let command = try coreJSONDecoder.decode(CommandDTO.self, from: json)
+        guard case let .scheduleWakeup(_, _, _, earliestMillis) = command else {
+            XCTFail("Expected .scheduleWakeup, got \(command)")
+            return
+        }
+        XCTAssertEqual(earliestMillis, 300)
     }
 
     // MARK: - ScreenModel chrome

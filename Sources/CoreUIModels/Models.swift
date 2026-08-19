@@ -1882,7 +1882,12 @@ public enum CommandDTO: Decodable {
     /// Core-computed wakeup schedule (ADR-044 Am2a Option C). Frontends
     /// translate these relative seconds into their platform wakeup mechanism
     /// and call `on_wakeup` when it fires.
-    case scheduleWakeup(earliestSecs: UInt32, deadlineSecs: UInt32, minIntervalSecs: UInt32)
+    case scheduleWakeup(
+        earliestSecs: UInt32,
+        deadlineSecs: UInt32,
+        minIntervalSecs: UInt32,
+        earliestMillis: UInt32?
+    )
     case unknown
 
     public init(from decoder: Decoder) throws {
@@ -1999,7 +2004,8 @@ public enum CommandDTO: Decodable {
             return .scheduleWakeup(
                 earliestSecs: data.earliestSecs,
                 deadlineSecs: data.deadlineSecs,
-                minIntervalSecs: data.minIntervalSecs
+                minIntervalSecs: data.minIntervalSecs,
+                earliestMillis: data.earliestMillis
             )
         } else {
             return .unknown
@@ -2061,6 +2067,10 @@ public enum CommandDTO: Decodable {
         let earliestSecs: UInt32
         let deadlineSecs: UInt32
         let minIntervalSecs: UInt32
+        /// Sub-second override for `earliestSecs`. Absent for the idle
+        /// heartbeat; present while core drives work finer than a second,
+        /// such as a live QR exchange whose frame shows for ~300 ms.
+        let earliestMillis: UInt32?
     }
 }
 

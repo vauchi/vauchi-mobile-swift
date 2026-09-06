@@ -11703,6 +11703,8 @@ public enum MobileEvent: Equatable, Hashable {
 
     case qrScanned(data: String
     )
+    case localNetworkAddressChanged(address: String?
+    )
     case bleDeviceDiscovered(id: String, rssi: Int16, advData: Data
     )
     case bleConnected(deviceId: String, direction: MobileBleLinkDirection
@@ -11780,75 +11782,78 @@ public struct FfiConverterTypeMobileEvent: FfiConverterRustBuffer {
         case 1: return .qrScanned(data: try FfiConverterString.read(from: &buf)
         )
 
-        case 2: return .bleDeviceDiscovered(id: try FfiConverterString.read(from: &buf), rssi: try FfiConverterInt16.read(from: &buf), advData: try FfiConverterData.read(from: &buf)
+        case 2: return .localNetworkAddressChanged(address: try FfiConverterOptionString.read(from: &buf)
         )
 
-        case 3: return .bleConnected(deviceId: try FfiConverterString.read(from: &buf), direction: try FfiConverterTypeMobileBleLinkDirection.read(from: &buf)
+        case 3: return .bleDeviceDiscovered(id: try FfiConverterString.read(from: &buf), rssi: try FfiConverterInt16.read(from: &buf), advData: try FfiConverterData.read(from: &buf)
         )
 
-        case 4: return .bleCharacteristicRead(deviceId: try FfiConverterString.read(from: &buf), direction: try FfiConverterTypeMobileBleLinkDirection.read(from: &buf), uuid: try FfiConverterString.read(from: &buf), data: try FfiConverterData.read(from: &buf)
+        case 4: return .bleConnected(deviceId: try FfiConverterString.read(from: &buf), direction: try FfiConverterTypeMobileBleLinkDirection.read(from: &buf)
         )
 
-        case 5: return .bleCharacteristicNotified(deviceId: try FfiConverterString.read(from: &buf), direction: try FfiConverterTypeMobileBleLinkDirection.read(from: &buf), uuid: try FfiConverterString.read(from: &buf), data: try FfiConverterData.read(from: &buf)
+        case 5: return .bleCharacteristicRead(deviceId: try FfiConverterString.read(from: &buf), direction: try FfiConverterTypeMobileBleLinkDirection.read(from: &buf), uuid: try FfiConverterString.read(from: &buf), data: try FfiConverterData.read(from: &buf)
         )
 
-        case 6: return .bleDisconnected(deviceId: try FfiConverterString.read(from: &buf), direction: try FfiConverterTypeMobileBleLinkDirection.read(from: &buf), reason: try FfiConverterString.read(from: &buf)
+        case 6: return .bleCharacteristicNotified(deviceId: try FfiConverterString.read(from: &buf), direction: try FfiConverterTypeMobileBleLinkDirection.read(from: &buf), uuid: try FfiConverterString.read(from: &buf), data: try FfiConverterData.read(from: &buf)
         )
 
-        case 7: return .nfcDataReceived(data: try FfiConverterData.read(from: &buf)
+        case 7: return .bleDisconnected(deviceId: try FfiConverterString.read(from: &buf), direction: try FfiConverterTypeMobileBleLinkDirection.read(from: &buf), reason: try FfiConverterString.read(from: &buf)
         )
 
-        case 8: return .audioSamplesRecorded(samples: try FfiConverterSequenceFloat.read(from: &buf), sampleRate: try FfiConverterUInt32.read(from: &buf)
+        case 8: return .nfcDataReceived(data: try FfiConverterData.read(from: &buf)
         )
 
-        case 9: return .accelerometerData(timestampMs: try FfiConverterUInt64.read(from: &buf), xMilliG: try FfiConverterInt32.read(from: &buf), yMilliG: try FfiConverterInt32.read(from: &buf), zMilliG: try FfiConverterInt32.read(from: &buf)
+        case 9: return .audioSamplesRecorded(samples: try FfiConverterSequenceFloat.read(from: &buf), sampleRate: try FfiConverterUInt32.read(from: &buf)
         )
 
-        case 10: return .impactDetected(timestampMs: try FfiConverterUInt64.read(from: &buf), magnitudeMilliG: try FfiConverterInt32.read(from: &buf)
+        case 10: return .accelerometerData(timestampMs: try FfiConverterUInt64.read(from: &buf), xMilliG: try FfiConverterInt32.read(from: &buf), yMilliG: try FfiConverterInt32.read(from: &buf), zMilliG: try FfiConverterInt32.read(from: &buf)
         )
 
-        case 11: return .relayEscrowReady(gateHash: try FfiConverterData.read(from: &buf)
+        case 11: return .impactDetected(timestampMs: try FfiConverterUInt64.read(from: &buf), magnitudeMilliG: try FfiConverterInt32.read(from: &buf)
         )
 
-        case 12: return .relayEscrowBlobReceived(gateHash: try FfiConverterData.read(from: &buf), blob: try FfiConverterData.read(from: &buf)
+        case 12: return .relayEscrowReady(gateHash: try FfiConverterData.read(from: &buf)
         )
 
-        case 13: return .relayEscrowFailed(gateHash: try FfiConverterData.read(from: &buf), reason: try FfiConverterString.read(from: &buf)
+        case 13: return .relayEscrowBlobReceived(gateHash: try FfiConverterData.read(from: &buf), blob: try FfiConverterData.read(from: &buf)
         )
 
-        case 14: return .linkShared
-
-        case 15: return .linkOpened(peerPublicKey: try FfiConverterData.read(from: &buf)
+        case 14: return .relayEscrowFailed(gateHash: try FfiConverterData.read(from: &buf), reason: try FfiConverterString.read(from: &buf)
         )
 
-        case 16: return .directPayloadReceived(data: try FfiConverterData.read(from: &buf)
+        case 15: return .linkShared
+
+        case 16: return .linkOpened(peerPublicKey: try FfiConverterData.read(from: &buf)
         )
 
-        case 17: return .directCardReceived(ciphertext: try FfiConverterData.read(from: &buf)
+        case 17: return .directPayloadReceived(data: try FfiConverterData.read(from: &buf)
         )
 
-        case 18: return .imageReceived(data: try FfiConverterData.read(from: &buf)
+        case 18: return .directCardReceived(ciphertext: try FfiConverterData.read(from: &buf)
         )
 
-        case 19: return .imagePickCancelled
-
-        case 20: return .filePickedFromUser(bytes: try FfiConverterData.read(from: &buf), filename: try FfiConverterString.read(from: &buf)
+        case 19: return .imageReceived(data: try FfiConverterData.read(from: &buf)
         )
 
-        case 21: return .filePickCancelledByUser
+        case 20: return .imagePickCancelled
 
-        case 22: return .biometricUnlockSucceeded
-
-        case 23: return .hardwareError(transport: try FfiConverterString.read(from: &buf), error: try FfiConverterString.read(from: &buf)
+        case 21: return .filePickedFromUser(bytes: try FfiConverterData.read(from: &buf), filename: try FfiConverterString.read(from: &buf)
         )
 
-        case 24: return .hardwareUnavailable(transport: try FfiConverterString.read(from: &buf)
+        case 22: return .filePickCancelledByUser
+
+        case 23: return .biometricUnlockSucceeded
+
+        case 24: return .hardwareError(transport: try FfiConverterString.read(from: &buf), error: try FfiConverterString.read(from: &buf)
         )
 
-        case 25: return .permissionDenied(transport: try FfiConverterString.read(from: &buf)
+        case 25: return .hardwareUnavailable(transport: try FfiConverterString.read(from: &buf)
         )
 
-        case 26: return .locationResult(latitude: try FfiConverterDouble.read(from: &buf), longitude: try FfiConverterDouble.read(from: &buf), accuracyMeters: try FfiConverterOptionFloat.read(from: &buf)
+        case 26: return .permissionDenied(transport: try FfiConverterString.read(from: &buf)
+        )
+
+        case 27: return .locationResult(latitude: try FfiConverterDouble.read(from: &buf), longitude: try FfiConverterDouble.read(from: &buf), accuracyMeters: try FfiConverterOptionFloat.read(from: &buf)
         )
 
         default: throw UniffiInternalError.unexpectedEnumCase
@@ -11864,28 +11869,25 @@ public struct FfiConverterTypeMobileEvent: FfiConverterRustBuffer {
             FfiConverterString.write(data, into: &buf)
 
 
-        case let .bleDeviceDiscovered(id,rssi,advData):
+        case let .localNetworkAddressChanged(address):
             writeInt(&buf, Int32(2))
+            FfiConverterOptionString.write(address, into: &buf)
+
+
+        case let .bleDeviceDiscovered(id,rssi,advData):
+            writeInt(&buf, Int32(3))
             FfiConverterString.write(id, into: &buf)
             FfiConverterInt16.write(rssi, into: &buf)
             FfiConverterData.write(advData, into: &buf)
 
 
         case let .bleConnected(deviceId,direction):
-            writeInt(&buf, Int32(3))
+            writeInt(&buf, Int32(4))
             FfiConverterString.write(deviceId, into: &buf)
             FfiConverterTypeMobileBleLinkDirection.write(direction, into: &buf)
 
 
         case let .bleCharacteristicRead(deviceId,direction,uuid,data):
-            writeInt(&buf, Int32(4))
-            FfiConverterString.write(deviceId, into: &buf)
-            FfiConverterTypeMobileBleLinkDirection.write(direction, into: &buf)
-            FfiConverterString.write(uuid, into: &buf)
-            FfiConverterData.write(data, into: &buf)
-
-
-        case let .bleCharacteristicNotified(deviceId,direction,uuid,data):
             writeInt(&buf, Int32(5))
             FfiConverterString.write(deviceId, into: &buf)
             FfiConverterTypeMobileBleLinkDirection.write(direction, into: &buf)
@@ -11893,26 +11895,34 @@ public struct FfiConverterTypeMobileEvent: FfiConverterRustBuffer {
             FfiConverterData.write(data, into: &buf)
 
 
-        case let .bleDisconnected(deviceId,direction,reason):
+        case let .bleCharacteristicNotified(deviceId,direction,uuid,data):
             writeInt(&buf, Int32(6))
+            FfiConverterString.write(deviceId, into: &buf)
+            FfiConverterTypeMobileBleLinkDirection.write(direction, into: &buf)
+            FfiConverterString.write(uuid, into: &buf)
+            FfiConverterData.write(data, into: &buf)
+
+
+        case let .bleDisconnected(deviceId,direction,reason):
+            writeInt(&buf, Int32(7))
             FfiConverterString.write(deviceId, into: &buf)
             FfiConverterTypeMobileBleLinkDirection.write(direction, into: &buf)
             FfiConverterString.write(reason, into: &buf)
 
 
         case let .nfcDataReceived(data):
-            writeInt(&buf, Int32(7))
+            writeInt(&buf, Int32(8))
             FfiConverterData.write(data, into: &buf)
 
 
         case let .audioSamplesRecorded(samples,sampleRate):
-            writeInt(&buf, Int32(8))
+            writeInt(&buf, Int32(9))
             FfiConverterSequenceFloat.write(samples, into: &buf)
             FfiConverterUInt32.write(sampleRate, into: &buf)
 
 
         case let .accelerometerData(timestampMs,xMilliG,yMilliG,zMilliG):
-            writeInt(&buf, Int32(9))
+            writeInt(&buf, Int32(10))
             FfiConverterUInt64.write(timestampMs, into: &buf)
             FfiConverterInt32.write(xMilliG, into: &buf)
             FfiConverterInt32.write(yMilliG, into: &buf)
@@ -11920,88 +11930,88 @@ public struct FfiConverterTypeMobileEvent: FfiConverterRustBuffer {
 
 
         case let .impactDetected(timestampMs,magnitudeMilliG):
-            writeInt(&buf, Int32(10))
+            writeInt(&buf, Int32(11))
             FfiConverterUInt64.write(timestampMs, into: &buf)
             FfiConverterInt32.write(magnitudeMilliG, into: &buf)
 
 
         case let .relayEscrowReady(gateHash):
-            writeInt(&buf, Int32(11))
+            writeInt(&buf, Int32(12))
             FfiConverterData.write(gateHash, into: &buf)
 
 
         case let .relayEscrowBlobReceived(gateHash,blob):
-            writeInt(&buf, Int32(12))
+            writeInt(&buf, Int32(13))
             FfiConverterData.write(gateHash, into: &buf)
             FfiConverterData.write(blob, into: &buf)
 
 
         case let .relayEscrowFailed(gateHash,reason):
-            writeInt(&buf, Int32(13))
+            writeInt(&buf, Int32(14))
             FfiConverterData.write(gateHash, into: &buf)
             FfiConverterString.write(reason, into: &buf)
 
 
         case .linkShared:
-            writeInt(&buf, Int32(14))
+            writeInt(&buf, Int32(15))
 
 
         case let .linkOpened(peerPublicKey):
-            writeInt(&buf, Int32(15))
+            writeInt(&buf, Int32(16))
             FfiConverterData.write(peerPublicKey, into: &buf)
 
 
         case let .directPayloadReceived(data):
-            writeInt(&buf, Int32(16))
+            writeInt(&buf, Int32(17))
             FfiConverterData.write(data, into: &buf)
 
 
         case let .directCardReceived(ciphertext):
-            writeInt(&buf, Int32(17))
+            writeInt(&buf, Int32(18))
             FfiConverterData.write(ciphertext, into: &buf)
 
 
         case let .imageReceived(data):
-            writeInt(&buf, Int32(18))
+            writeInt(&buf, Int32(19))
             FfiConverterData.write(data, into: &buf)
 
 
         case .imagePickCancelled:
-            writeInt(&buf, Int32(19))
+            writeInt(&buf, Int32(20))
 
 
         case let .filePickedFromUser(bytes,filename):
-            writeInt(&buf, Int32(20))
+            writeInt(&buf, Int32(21))
             FfiConverterData.write(bytes, into: &buf)
             FfiConverterString.write(filename, into: &buf)
 
 
         case .filePickCancelledByUser:
-            writeInt(&buf, Int32(21))
-
-
-        case .biometricUnlockSucceeded:
             writeInt(&buf, Int32(22))
 
 
-        case let .hardwareError(transport,error):
+        case .biometricUnlockSucceeded:
             writeInt(&buf, Int32(23))
+
+
+        case let .hardwareError(transport,error):
+            writeInt(&buf, Int32(24))
             FfiConverterString.write(transport, into: &buf)
             FfiConverterString.write(error, into: &buf)
 
 
         case let .hardwareUnavailable(transport):
-            writeInt(&buf, Int32(24))
-            FfiConverterString.write(transport, into: &buf)
-
-
-        case let .permissionDenied(transport):
             writeInt(&buf, Int32(25))
             FfiConverterString.write(transport, into: &buf)
 
 
-        case let .locationResult(latitude,longitude,accuracyMeters):
+        case let .permissionDenied(transport):
             writeInt(&buf, Int32(26))
+            FfiConverterString.write(transport, into: &buf)
+
+
+        case let .locationResult(latitude,longitude,accuracyMeters):
+            writeInt(&buf, Int32(27))
             FfiConverterDouble.write(latitude, into: &buf)
             FfiConverterDouble.write(longitude, into: &buf)
             FfiConverterOptionFloat.write(accuracyMeters, into: &buf)

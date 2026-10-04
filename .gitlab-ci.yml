@@ -37,6 +37,9 @@ workflow:
 # package resolution (so no SPM mirror race; no resource_group needed).
 # --scratch-path/--cache-path keep all SPM state project-local on the shared
 # runner. Apple consumers never set the var, so they resolve the full package.
+# No parity check against Core's Component enum: Component is Core-internal
+# since ADR-066 and neither shell decodes it; the iOS and macOS repos check
+# their presentation parsers instead (check:parser-parity, #493).
 test:coreuimodels:
   stage: validate
   tags:
@@ -44,54 +47,10 @@ test:coreuimodels:
     - self-hosted
   variables:
     VAUCHI_COREUIMODELS_TEST_ONLY: "1"
-    FRONTEND_NAME: "swift"
-    PARSER_FILE: "Sources/CoreUIModels/Models.swift"
-    CORE_REF: "main"
   before_script:
     - swift --version | head -1
   script:
     - swift package dump-package
-    - |
-      set -euo pipefail
-
-      if [ -z "$FRONTEND_NAME" ] || [ -z "$PARSER_FILE" ]; then
-        echo "ERROR: FRONTEND_NAME and PARSER_FILE must be set"
-        exit 2
-      fi
-
-      if [ ! -f "$PARSER_FILE" ]; then
-        echo "ERROR: PARSER_FILE not found: $PARSER_FILE"
-        exit 2
-      fi
-
-      mkdir -p .core-parity
-      git -C .core-parity init -q
-      git -C .core-parity remote add origin https://gitlab.com/vauchi/core.git
-      git -C .core-parity sparse-checkout init --no-cone
-      git -C .core-parity sparse-checkout set \
-        vauchi-app/src/ui/component.rs \
-        vauchi-app/src/ui/component
-      git -C .core-parity fetch -q --depth 1 origin "$CORE_REF"
-      git -C .core-parity checkout -q FETCH_HEAD
-
-      if [ -f .core-parity/vauchi-app/src/ui/component/mod.rs ]; then
-        ENUM_FILE=".core-parity/vauchi-app/src/ui/component/mod.rs"
-      elif [ -f .core-parity/vauchi-app/src/ui/component.rs ]; then
-        ENUM_FILE=".core-parity/vauchi-app/src/ui/component.rs"
-      else
-        echo "ERROR: failed to fetch core's Component enum at ref $CORE_REF"
-        echo "       (looked for component/mod.rs and component.rs under vauchi-app/src/ui/)"
-        exit 2
-      fi
-
-      SCRIPT_URL="https://gitlab.com/vauchi/scripts/-/raw/main/scripts/check-component-parser-parity.py"
-      curl --fail --silent --show-error --location \
-        --output check-parser-parity.py "$SCRIPT_URL"
-
-      python3 check-parser-parity.py \
-        --enum-file "$ENUM_FILE" \
-        --frontend "$FRONTEND_NAME" \
-        --parser-file "$PARSER_FILE"
     - swift test --scratch-path "$CI_PROJECT_DIR/.build" --cache-path "$CI_PROJECT_DIR/.spm-cache"
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"

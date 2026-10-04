@@ -27,6 +27,12 @@ workflow:
   auto_cancel:
     on_new_commit: interruptible
 
+# Main and tag pipelines here run as this project's access-token bot (core's
+# release pushes with CI_PUSH_TOKEN_SWIFT). A project bot is not a member of
+# the vauchi group, and the group dependency proxy answers non-members with
+# 404, so the alpine jobs below (validate:tag-version-invariant, pages,
+# github-mirror) pull from Docker Hub directly (#493).
+
 # Unit-test the CoreUIModels decode surface (the hand-written CommandDTO /
 # ActionResult / Component JSON mirrors). Runs on a macOS runner because
 # CoreUIModels imports SwiftUI (the DesignTokens `EnvironmentValues`
@@ -70,7 +76,7 @@ test:coreuimodels:
 # follow-up — re-tagging via the proper pipeline — is unmistakable.
 validate:tag-version-invariant:
   stage: validate
-  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/alpine:3.21
+  image: docker.io/library/alpine:3.21
   tags: [docker]
   script:
     - |
@@ -100,8 +106,10 @@ validate:tag-version-invariant:
 
 pages:
   extends: .badges-pages
+  image: docker.io/library/alpine:3.21
 
 github-mirror:
   extends: .github-mirror
+  image: docker.io/library/alpine:3.21
   variables:
     GITHUB_MIRROR_REPO: "vauchi-mobile-swift"

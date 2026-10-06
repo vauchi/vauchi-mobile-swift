@@ -5629,7 +5629,16 @@ public func FfiConverterTypeMobileRetryEntry_lower(_ value: MobileRetryEntry) ->
 
 
 public struct MobileScanResult: Equatable, Hashable {
+    /**
+     * The first code decoded; `decoded_all` holds every code in the frame.
+     */
     public var decoded: String?
+    /**
+     * Every distinct code in the frame, in the order found. A camera
+     * facing the other phone can see its code and this phone's own
+     * reflection at once (vauchi/private#450).
+     */
+    public var decodedAll: [String]
     public var totalUs: UInt64
     public var preprocessingUs: UInt64
     public var decodeUs: UInt64
@@ -5638,8 +5647,17 @@ public struct MobileScanResult: Equatable, Hashable {
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(decoded: String?, totalUs: UInt64, preprocessingUs: UInt64, decodeUs: UInt64, frameSkipped: Bool, laplacianVariance: Float) {
+    public init(
+        /**
+         * The first code decoded; `decoded_all` holds every code in the frame.
+         */decoded: String?,
+        /**
+         * Every distinct code in the frame, in the order found. A camera
+         * facing the other phone can see its code and this phone's own
+         * reflection at once (vauchi/private#450).
+         */decodedAll: [String], totalUs: UInt64, preprocessingUs: UInt64, decodeUs: UInt64, frameSkipped: Bool, laplacianVariance: Float) {
         self.decoded = decoded
+        self.decodedAll = decodedAll
         self.totalUs = totalUs
         self.preprocessingUs = preprocessingUs
         self.decodeUs = decodeUs
@@ -5664,6 +5682,7 @@ public struct FfiConverterTypeMobileScanResult: FfiConverterRustBuffer {
         return
             try MobileScanResult(
                 decoded: FfiConverterOptionString.read(from: &buf),
+                decodedAll: FfiConverterSequenceString.read(from: &buf),
                 totalUs: FfiConverterUInt64.read(from: &buf),
                 preprocessingUs: FfiConverterUInt64.read(from: &buf),
                 decodeUs: FfiConverterUInt64.read(from: &buf),
@@ -5674,6 +5693,7 @@ public struct FfiConverterTypeMobileScanResult: FfiConverterRustBuffer {
 
     public static func write(_ value: MobileScanResult, into buf: inout [UInt8]) {
         FfiConverterOptionString.write(value.decoded, into: &buf)
+        FfiConverterSequenceString.write(value.decodedAll, into: &buf)
         FfiConverterUInt64.write(value.totalUs, into: &buf)
         FfiConverterUInt64.write(value.preprocessingUs, into: &buf)
         FfiConverterUInt64.write(value.decodeUs, into: &buf)

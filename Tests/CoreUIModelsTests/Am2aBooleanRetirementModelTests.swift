@@ -38,12 +38,13 @@ final class Am2aBooleanRetirementModelTests: XCTestCase {
             "ScheduleWakeup": {
                 "earliest_secs": 10,
                 "deadline_secs": 60,
-                "min_interval_secs": 30
+                "min_interval_secs": 30,
+                "delay_millis": 10000
             }
         }
         """.data(using: .utf8)!
         let command = try coreJSONDecoder.decode(CommandDTO.self, from: json)
-        guard case let .scheduleWakeup(earliestSecs, deadlineSecs, minIntervalSecs, earliestMillis) = command else {
+        guard case let .scheduleWakeup(earliestSecs, deadlineSecs, minIntervalSecs, earliestMillis, _) = command else {
             XCTFail("Expected .scheduleWakeup, got \(command)")
             return
         }
@@ -60,16 +61,40 @@ final class Am2aBooleanRetirementModelTests: XCTestCase {
                 "earliest_secs": 0,
                 "deadline_secs": 60,
                 "min_interval_secs": 30,
-                "earliest_millis": 300
+                "earliest_millis": 300,
+                "delay_millis": 300
             }
         }
         """.data(using: .utf8)!
         let command = try coreJSONDecoder.decode(CommandDTO.self, from: json)
-        guard case let .scheduleWakeup(_, _, _, earliestMillis) = command else {
+        guard case let .scheduleWakeup(_, _, _, earliestMillis, _) = command else {
             XCTFail("Expected .scheduleWakeup, got \(command)")
             return
         }
         XCTAssertEqual(earliestMillis, 300)
+    }
+
+    /// Core 0.76.0 computes the wait itself (earliest, never past the
+    /// deadline); shells use it instead of deriving their own
+    /// (vauchi/private#548).
+    func testScheduleWakeupCarriesCoresDelay() throws {
+        let json = """
+        {
+            "ScheduleWakeup": {
+                "earliest_secs": 5,
+                "deadline_secs": 2,
+                "min_interval_secs": 1,
+                "earliest_millis": null,
+                "delay_millis": 2000
+            }
+        }
+        """.data(using: .utf8)!
+        let command = try coreJSONDecoder.decode(CommandDTO.self, from: json)
+        guard case let .scheduleWakeup(_, _, _, _, delayMillis) = command else {
+            XCTFail("Expected .scheduleWakeup, got \(command)")
+            return
+        }
+        XCTAssertEqual(delayMillis, 2000)
     }
 
     // MARK: - ScreenModel chrome

@@ -1886,7 +1886,10 @@ public enum CommandDTO: Decodable {
         earliestSecs: UInt32,
         deadlineSecs: UInt32,
         minIntervalSecs: UInt32,
-        earliestMillis: UInt32?
+        earliestMillis: UInt32?,
+        // Core's wait before the next `on_wakeup`, never past the deadline
+        // (vauchi/private#548). Shells use this instead of deriving it.
+        delayMillis: UInt32
     )
     case unknown
 
@@ -2005,7 +2008,8 @@ public enum CommandDTO: Decodable {
                 earliestSecs: data.earliestSecs,
                 deadlineSecs: data.deadlineSecs,
                 minIntervalSecs: data.minIntervalSecs,
-                earliestMillis: data.earliestMillis
+                earliestMillis: data.earliestMillis,
+                delayMillis: data.delayMillis
             )
         } else {
             return .unknown
@@ -2071,6 +2075,7 @@ public enum CommandDTO: Decodable {
         /// heartbeat; present while core drives work finer than a second,
         /// such as a live QR exchange whose frame shows for ~300 ms.
         let earliestMillis: UInt32?
+        let delayMillis: UInt32
     }
 }
 

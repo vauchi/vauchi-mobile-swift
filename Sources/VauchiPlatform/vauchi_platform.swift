@@ -928,6 +928,28 @@ public convenience init(dataDir: String, relayUrl: String, storageKeyBytes: Data
     }
 
 
+    /**
+     * Opens the engine with the platform keychain from the first call, so
+     * every key that opens the database lives in the keychain and a shred
+     * deletes them all (ADR-033, vauchi/private#580).
+     *
+     * `shell_storage_key` is the storage key a shell kept before keys
+     * moved to the keychain, with the shell's name for it. Core adopts it
+     * and emits `ForgetStoredSecret { handle }` in the first batch after
+     * storage opened; the shell deletes its copy then, never earlier — a
+     * locked start has not stored the key yet.
+     */
+public static func openWithKeychain(dataDir: String, relayUrl: String, shellStorageKey: HandedOverSecret?, keychain: MobilePlatformKeychain)throws  -> PlatformAppEngine  {
+    return try  FfiConverterTypePlatformAppEngine_lift(try rustCallWithError(FfiConverterTypeMobileError_lift) {
+    uniffi_vauchi_platform_fn_constructor_platformappengine_open_with_keychain(
+        FfiConverterString.lower(dataDir),
+        FfiConverterString.lower(relayUrl),
+        FfiConverterOptionTypeHandedOverSecret.lower(shellStorageKey),
+        FfiConverterCallbackInterfaceMobilePlatformKeychain_lower(keychain),$0
+    )
+})
+}
+
 
 
     /**
@@ -1211,6 +1233,65 @@ public func FfiConverterTypePlatformAppEngine_lower(_ value: PlatformAppEngine) 
 }
 
 
+
+
+/**
+ * A secret the shell kept itself, handed over to Core with the shell's own
+ * opaque name for it. Core answers `ForgetStoredSecret { handle }` once it
+ * holds what the secret protected (vauchi/private#580).
+ */
+public struct HandedOverSecret: Equatable, Hashable {
+    public var handle: String
+    public var secret: Data
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(handle: String, secret: Data) {
+        self.handle = handle
+        self.secret = secret
+    }
+
+
+
+
+}
+
+#if compiler(>=6)
+extension HandedOverSecret: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeHandedOverSecret: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> HandedOverSecret {
+        return
+            try HandedOverSecret(
+                handle: FfiConverterString.read(from: &buf),
+                secret: FfiConverterData.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: HandedOverSecret, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.handle, into: &buf)
+        FfiConverterData.write(value.secret, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeHandedOverSecret_lift(_ buf: RustBuffer) throws -> HandedOverSecret {
+    return try FfiConverterTypeHandedOverSecret.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeHandedOverSecret_lower(_ value: HandedOverSecret) -> RustBuffer {
+    return FfiConverterTypeHandedOverSecret.lower(value)
+}
 
 
 /**
@@ -10164,6 +10245,16 @@ public enum KeychainError: Swift.Error, Equatable, Hashable, Foundation.Localize
 
     case OperationFailed(msg: String
     )
+    /**
+     * The keychain is readable only after the person authenticates or the
+     * device unlocks; the keys are intact.
+     */
+    case AuthenticationRequired
+    /**
+     * The platform permanently invalidated the key protecting the keychain
+     * (for example after the screen lock was removed).
+     */
+    case KeyInvalidated
 
 
 
@@ -10196,6 +10287,8 @@ public struct FfiConverterTypeKeychainError: FfiConverterRustBuffer {
         case 1: return .OperationFailed(
             msg: try FfiConverterString.read(from: &buf)
             )
+        case 2: return .AuthenticationRequired
+        case 3: return .KeyInvalidated
 
          default: throw UniffiInternalError.unexpectedEnumCase
         }
@@ -10211,6 +10304,14 @@ public struct FfiConverterTypeKeychainError: FfiConverterRustBuffer {
         case let .OperationFailed(msg):
             writeInt(&buf, Int32(1))
             FfiConverterString.write(msg, into: &buf)
+
+
+        case .AuthenticationRequired:
+            writeInt(&buf, Int32(2))
+
+
+        case .KeyInvalidated:
+            writeInt(&buf, Int32(3))
 
         }
     }
@@ -13999,7 +14100,10 @@ public protocol MobilePlatformKeychain: AnyObject, Sendable {
     func loadKey(name: String) throws  -> Data?
 
     /**
-     * Deletes a key from the platform keychain.
+     * Deletes a key from the platform keychain. Deleting a key that does
+     * not exist succeeds: shred deletes every storage key whether or not a
+     * boot already removed it, and reports a failed delete as a key that
+     * survived.
      */
     func deleteKey(name: String) throws
 
@@ -14423,6 +14527,30 @@ fileprivate struct FfiConverterOptionData: FfiConverterRustBuffer {
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterData.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionTypeHandedOverSecret: FfiConverterRustBuffer {
+    typealias SwiftType = HandedOverSecret?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeHandedOverSecret.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeHandedOverSecret.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
     }
@@ -16043,13 +16171,16 @@ private let initializationResult: InitializationResult = {
     if (uniffi_vauchi_platform_checksum_constructor_platformappengine_new() != 28594) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_vauchi_platform_checksum_constructor_platformappengine_open_with_keychain() != 33430) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_vauchi_platform_checksum_method_mobileplatformkeychain_save_key() != 55213) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vauchi_platform_checksum_method_mobileplatformkeychain_load_key() != 12299) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_platform_checksum_method_mobileplatformkeychain_delete_key() != 40216) {
+    if (uniffi_vauchi_platform_checksum_method_mobileplatformkeychain_delete_key() != 58249) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vauchi_platform_checksum_method_platformeventlistener_on_presentation_invalidated() != 34394) {

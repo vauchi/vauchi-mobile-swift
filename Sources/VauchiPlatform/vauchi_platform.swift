@@ -756,20 +756,19 @@ public protocol PlatformAppEngineProtocol: AnyObject, Sendable {
      * (sync, delivery receipts, device link) change prepared state. Replaces
      * any previously registered listener.
      *
-     * # Threading — IMPORTANT
+     * # Threading
      *
-     * The callback may fire **on the same thread** that dispatched a
-     * synchronous event. The callback
-     * **must not** call back into `PlatformAppEngine` methods directly —
-     * doing so would deadlock on the internal Mutex. Always dispatch
-     * to a separate queue/thread before touching the engine.
+     * The callback runs on a dedicated core thread, never under the engine
+     * lock, so it may call back into `PlatformAppEngine` (vauchi/private#677).
+     * Events that arrive before it runs are merged into one call. UI work
+     * still belongs on the shell's own UI thread.
      *
      * # Usage from Swift
      *
      * ```swift
      * class MyListener: PlatformEventListener {
      * func onPresentationInvalidated() {
-     * DispatchQueue.main.async {  // REQUIRED — never call engine synchronously
+     * DispatchQueue.main.async {  // UI work belongs on the main thread
      * try? engine.dispatchJson(eventJson: "\"PresentationInvalidated\"")
      * }
      * }
@@ -782,7 +781,7 @@ public protocol PlatformAppEngineProtocol: AnyObject, Sendable {
      * ```kotlin
      * class MyListener : PlatformEventListener {
      * override fun onPresentationInvalidated() {
-     * viewModelScope.launch {  // REQUIRED — never call engine synchronously
+     * viewModelScope.launch {  // UI work belongs on the main dispatcher
      * engine.dispatchJson("\"PresentationInvalidated\"")
      * }
      * }
@@ -1088,20 +1087,19 @@ open func setDeviceCapabilitiesJson(capabilitiesJson: String)throws   {try rustC
      * (sync, delivery receipts, device link) change prepared state. Replaces
      * any previously registered listener.
      *
-     * # Threading — IMPORTANT
+     * # Threading
      *
-     * The callback may fire **on the same thread** that dispatched a
-     * synchronous event. The callback
-     * **must not** call back into `PlatformAppEngine` methods directly —
-     * doing so would deadlock on the internal Mutex. Always dispatch
-     * to a separate queue/thread before touching the engine.
+     * The callback runs on a dedicated core thread, never under the engine
+     * lock, so it may call back into `PlatformAppEngine` (vauchi/private#677).
+     * Events that arrive before it runs are merged into one call. UI work
+     * still belongs on the shell's own UI thread.
      *
      * # Usage from Swift
      *
      * ```swift
      * class MyListener: PlatformEventListener {
      * func onPresentationInvalidated() {
-     * DispatchQueue.main.async {  // REQUIRED — never call engine synchronously
+     * DispatchQueue.main.async {  // UI work belongs on the main thread
      * try? engine.dispatchJson(eventJson: "\"PresentationInvalidated\"")
      * }
      * }
@@ -1114,7 +1112,7 @@ open func setDeviceCapabilitiesJson(capabilitiesJson: String)throws   {try rustC
      * ```kotlin
      * class MyListener : PlatformEventListener {
      * override fun onPresentationInvalidated() {
-     * viewModelScope.launch {  // REQUIRED — never call engine synchronously
+     * viewModelScope.launch {  // UI work belongs on the main dispatcher
      * engine.dispatchJson("\"PresentationInvalidated\"")
      * }
      * }
@@ -16004,7 +16002,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_vauchi_platform_checksum_method_platformappengine_set_device_capabilities_json() != 35039) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_platform_checksum_method_platformappengine_set_event_listener() != 48303) {
+    if (uniffi_vauchi_platform_checksum_method_platformappengine_set_event_listener() != 26888) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vauchi_platform_checksum_method_platformappengine_set_network_online() != 36870) {

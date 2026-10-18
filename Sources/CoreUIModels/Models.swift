@@ -1939,6 +1939,10 @@ public enum CommandDTO: Decodable {
         } else if container.contains(.bleConnect) {
             let data = try container.decode(BleConnectData.self, forKey: .bleConnect)
             return .bleConnect(deviceId: data.deviceId)
+        } else if container.contains(.bleDisconnect) {
+            // Core addresses the dropped link; the shell drops the one
+            // peripheral it holds, so the address is not kept (#673).
+            return .bleDisconnect
         } else if container.contains(.bleStartAdvertising) {
             let data = try container.decode(BleAdvertisingData.self, forKey: .bleStartAdvertising)
             return .bleStartAdvertising(serviceUuid: data.serviceUuid, payload: data.payload)
@@ -2023,6 +2027,7 @@ public enum CommandDTO: Decodable {
         case bleStartAdvertising = "BleStartAdvertising"
         case bleStartScanning = "BleStartScanning"
         case bleConnect = "BleConnect"
+        case bleDisconnect = "BleDisconnect"
         case bleWriteCharacteristic = "BleWriteCharacteristic"
         case bleReadCharacteristic = "BleReadCharacteristic"
         case nfcActivate = "NfcActivate"

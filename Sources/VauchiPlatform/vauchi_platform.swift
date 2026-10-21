@@ -728,9 +728,9 @@ public protocol PlatformAppEngineProtocol: AnyObject, Sendable {
      * honour the throttle window, delegate to `Vauchi::sync()`.
      * Frontends do not duplicate the "sync if due" logic.
      *
-     * Returns the [`vauchi_core::VauchiSyncOutcome`] serialised as
-     * JSON so the platform shell can log/observe without binding
-     * the full sync types over UniFFI.
+     * Returns the `on_wakeup` envelope holding the `ScheduleWakeup` for the
+     * scheduler's next run, drawn from the background schedule (#603); a
+     * scheduler re-arms from it, never from the heartbeat's.
      *
      * Audit `2026-04-28-lifecycle-session-residue-umbrella` P2-C.
      */
@@ -823,10 +823,13 @@ public protocol PlatformAppEngineProtocol: AnyObject, Sendable {
      * dropdown change. Core uses them to prepare selected values and
      * localized presentation commands.
      *
-     * JSON shape: `{ "locale": "de", "theme_id": "cyber" }`.
-     * Both fields optional — `null` / absent means "frontend has
-     * no value yet". Field names are UI-shaped to preserve the
-     * humble-allowlist invariant (no domain words).
+     * JSON shape: `{ "locale": "de", "system_locale": "fr-CH",
+     * "theme_id": "cyber" }`. All fields optional. A missing `locale`
+     * or `theme_id` is "Follow system"; `system_locale` is the OS
+     * language tag, sent on every push, which Core renders when no
+     * language was picked (vauchi/private#721). Field names are
+     * UI-shaped to preserve the humble-allowlist invariant (no domain
+     * words).
      */
     func setRenderContextJson(json: String) throws
 
@@ -1041,9 +1044,9 @@ open func onWakeup()throws  -> String  {
      * honour the throttle window, delegate to `Vauchi::sync()`.
      * Frontends do not duplicate the "sync if due" logic.
      *
-     * Returns the [`vauchi_core::VauchiSyncOutcome`] serialised as
-     * JSON so the platform shell can log/observe without binding
-     * the full sync types over UniFFI.
+     * Returns the `on_wakeup` envelope holding the `ScheduleWakeup` for the
+     * scheduler's next run, drawn from the background schedule (#603); a
+     * scheduler re-arms from it, never from the heartbeat's.
      *
      * Audit `2026-04-28-lifecycle-session-residue-umbrella` P2-C.
      */
@@ -1172,10 +1175,13 @@ open func setPlatformKeychain(keychain: MobilePlatformKeychain)  {try! rustCall(
      * dropdown change. Core uses them to prepare selected values and
      * localized presentation commands.
      *
-     * JSON shape: `{ "locale": "de", "theme_id": "cyber" }`.
-     * Both fields optional — `null` / absent means "frontend has
-     * no value yet". Field names are UI-shaped to preserve the
-     * humble-allowlist invariant (no domain words).
+     * JSON shape: `{ "locale": "de", "system_locale": "fr-CH",
+     * "theme_id": "cyber" }`. All fields optional. A missing `locale`
+     * or `theme_id` is "Follow system"; `system_locale` is the OS
+     * language tag, sent on every push, which Core renders when no
+     * language was picked (vauchi/private#721). Field names are
+     * UI-shaped to preserve the humble-allowlist invariant (no domain
+     * words).
      */
 open func setRenderContextJson(json: String)throws   {try rustCallWithError(FfiConverterTypeMobileError_lift) {
     uniffi_vauchi_platform_fn_method_platformappengine_set_render_context_json(
@@ -15993,7 +15999,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_vauchi_platform_checksum_method_platformappengine_on_wakeup() != 21654) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_platform_checksum_method_platformappengine_periodic_sync_tick() != 42221) {
+    if (uniffi_vauchi_platform_checksum_method_platformappengine_periodic_sync_tick() != 26729) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vauchi_platform_checksum_method_platformappengine_poll_notifications() != 15005) {
@@ -16011,7 +16017,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_vauchi_platform_checksum_method_platformappengine_set_platform_keychain() != 47096) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_platform_checksum_method_platformappengine_set_render_context_json() != 27460) {
+    if (uniffi_vauchi_platform_checksum_method_platformappengine_set_render_context_json() != 63342) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vauchi_platform_checksum_constructor_platformappengine_new() != 28594) {

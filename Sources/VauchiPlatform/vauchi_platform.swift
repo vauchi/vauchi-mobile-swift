@@ -804,14 +804,6 @@ public protocol PlatformAppEngineProtocol: AnyObject, Sendable {
     func setNetworkOnline(online: Bool) throws
 
     /**
-     * Set the platform keychain for crypto-shred `DomainCommand`s (B7).
-     * Mirrors `VauchiPlatform::set_platform_keychain`; frontends call it
-     * post-construction like the other PAE setters. Used only by the
-     * shred dispatch arms.
-     */
-    func setPlatformKeychain(keychain: MobilePlatformKeychain)
-
-    /**
      * Push render-context preferences (locale + theme_id) from
      * frontend OS-native storage to core.
      *
@@ -900,25 +892,7 @@ open class PlatformAppEngine: PlatformAppEngineProtocol, @unchecked Sendable {
     public func uniffiCloneHandle() -> UInt64 {
         return try! rustCall { uniffi_vauchi_platform_fn_clone_platformappengine(self.handle, $0) }
     }
-    /**
-     * Create a new PlatformAppEngine with platform-provided secure key.
-     *
-     * This creates its own `Vauchi` instance backed by the same database
-     * as `VauchiPlatform`. After external mutations, dispatch
-     * [`vauchi_core::Event::PresentationInvalidated`] through
-     * [`Self::dispatch_json`] and apply the returned replacement batch.
-     */
-public convenience init(dataDir: String, relayUrl: String, storageKeyBytes: Data)throws  {
-    let handle =
-        try rustCallWithError(FfiConverterTypeMobileError_lift) {
-    uniffi_vauchi_platform_fn_constructor_platformappengine_new(
-        FfiConverterString.lower(dataDir),
-        FfiConverterString.lower(relayUrl),
-        FfiConverterData.lower(storageKeyBytes),$0
-    )
-}
-    self.init(unsafeFromHandle: handle)
-}
+    // No primary constructor declared for this class.
 
     deinit {
         if handle == 0 {
@@ -1145,20 +1119,6 @@ open func setNetworkOnline(online: Bool)throws   {try rustCallWithError(FfiConve
     uniffi_vauchi_platform_fn_method_platformappengine_set_network_online(
             self.uniffiCloneHandle(),
         FfiConverterBool.lower(online),$0
-    )
-}
-}
-
-    /**
-     * Set the platform keychain for crypto-shred `DomainCommand`s (B7).
-     * Mirrors `VauchiPlatform::set_platform_keychain`; frontends call it
-     * post-construction like the other PAE setters. Used only by the
-     * shred dispatch arms.
-     */
-open func setPlatformKeychain(keychain: MobilePlatformKeychain)  {try! rustCall() {
-    uniffi_vauchi_platform_fn_method_platformappengine_set_platform_keychain(
-            self.uniffiCloneHandle(),
-        FfiConverterCallbackInterfaceMobilePlatformKeychain_lower(keychain),$0
     )
 }
 }
@@ -7406,7 +7366,7 @@ public enum DomainCommand: Equatable, Hashable {
     case shredStatus
     /**
      * Schedule crypto-shredding with a grace period (Soft Shred).
-     * Requires a platform keychain set via `set_platform_keychain`.
+     * Requires the platform keychain the engine was opened with.
      * Returns the `MobileShredToken` authorising a later `HardShred`.
      */
     case softShred
@@ -10594,17 +10554,6 @@ public func FfiConverterTypeMobileBiometricUnlockOutcome_lower(_ value: MobileBi
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-/**
- * Hardware event reported by the frontend back to core (ADR-031).
- *
- * Mobile apps create these after executing a command (e.g., QR scanned,
- * BLE data received) and feed them back via `apply_hardware_event()`.
- * Physical GATT link direction reported on [`MobileEvent::BleConnected`].
- * Mirrors [`vauchi_core::platform::BleLinkDirection`]; the shell reports
- * `Outbound` when it is the central (it dialed out) and `Inbound` when it is
- * the peripheral (a peer connected to it). Core derives the handshake role
- * from this, not from the token tiebreak.
- */
 
 public enum MobileBleLinkDirection: Equatable, Hashable {
 
@@ -11967,6 +11916,11 @@ public enum MobileEvent: Equatable, Hashable {
     )
     case localNetworkAddressChanged(address: String?
     )
+    /**
+     * What the current network costs (vauchi/private#733 D6).
+     */
+    case networkCostChanged(cost: MobileNetworkCost
+    )
     case bleDeviceDiscovered(id: String, rssi: Int16, advData: Data
     )
     case bleConnected(deviceId: String, direction: MobileBleLinkDirection
@@ -12009,6 +11963,11 @@ public enum MobileEvent: Equatable, Hashable {
     )
     case filePickCancelledByUser
     case biometricUnlockSucceeded
+    case userPresenceSecretCreated(secret: Data
+    )
+    case userPresenceSecretRevealed(secret: Data
+    )
+    case userPresenceCheckCancelled
     case hardwareError(transport: String, error: String
     )
     case hardwareUnavailable(transport: String
@@ -12051,81 +12010,92 @@ public struct FfiConverterTypeMobileEvent: FfiConverterRustBuffer {
         case 2: return .localNetworkAddressChanged(address: try FfiConverterOptionString.read(from: &buf)
         )
 
-        case 3: return .bleDeviceDiscovered(id: try FfiConverterString.read(from: &buf), rssi: try FfiConverterInt16.read(from: &buf), advData: try FfiConverterData.read(from: &buf)
+        case 3: return .networkCostChanged(cost: try FfiConverterTypeMobileNetworkCost.read(from: &buf)
         )
 
-        case 4: return .bleConnected(deviceId: try FfiConverterString.read(from: &buf), direction: try FfiConverterTypeMobileBleLinkDirection.read(from: &buf)
+        case 4: return .bleDeviceDiscovered(id: try FfiConverterString.read(from: &buf), rssi: try FfiConverterInt16.read(from: &buf), advData: try FfiConverterData.read(from: &buf)
         )
 
-        case 5: return .bleCharacteristicRead(deviceId: try FfiConverterString.read(from: &buf), direction: try FfiConverterTypeMobileBleLinkDirection.read(from: &buf), uuid: try FfiConverterString.read(from: &buf), data: try FfiConverterData.read(from: &buf)
+        case 5: return .bleConnected(deviceId: try FfiConverterString.read(from: &buf), direction: try FfiConverterTypeMobileBleLinkDirection.read(from: &buf)
         )
 
-        case 6: return .bleCharacteristicNotified(deviceId: try FfiConverterString.read(from: &buf), direction: try FfiConverterTypeMobileBleLinkDirection.read(from: &buf), uuid: try FfiConverterString.read(from: &buf), data: try FfiConverterData.read(from: &buf)
+        case 6: return .bleCharacteristicRead(deviceId: try FfiConverterString.read(from: &buf), direction: try FfiConverterTypeMobileBleLinkDirection.read(from: &buf), uuid: try FfiConverterString.read(from: &buf), data: try FfiConverterData.read(from: &buf)
         )
 
-        case 7: return .bleDisconnected(deviceId: try FfiConverterString.read(from: &buf), direction: try FfiConverterTypeMobileBleLinkDirection.read(from: &buf), reason: try FfiConverterString.read(from: &buf)
+        case 7: return .bleCharacteristicNotified(deviceId: try FfiConverterString.read(from: &buf), direction: try FfiConverterTypeMobileBleLinkDirection.read(from: &buf), uuid: try FfiConverterString.read(from: &buf), data: try FfiConverterData.read(from: &buf)
         )
 
-        case 8: return .nfcDataReceived(data: try FfiConverterData.read(from: &buf)
+        case 8: return .bleDisconnected(deviceId: try FfiConverterString.read(from: &buf), direction: try FfiConverterTypeMobileBleLinkDirection.read(from: &buf), reason: try FfiConverterString.read(from: &buf)
         )
 
-        case 9: return .nfcApduReceived(bytes: try FfiConverterData.read(from: &buf)
+        case 9: return .nfcDataReceived(data: try FfiConverterData.read(from: &buf)
         )
 
-        case 10: return .nfcFailed(reason: try FfiConverterString.read(from: &buf)
+        case 10: return .nfcApduReceived(bytes: try FfiConverterData.read(from: &buf)
         )
 
-        case 11: return .audioSamplesRecorded(samples: try FfiConverterSequenceFloat.read(from: &buf), sampleRate: try FfiConverterUInt32.read(from: &buf)
+        case 11: return .nfcFailed(reason: try FfiConverterString.read(from: &buf)
         )
 
-        case 12: return .accelerometerData(timestampMs: try FfiConverterUInt64.read(from: &buf), xMilliG: try FfiConverterInt32.read(from: &buf), yMilliG: try FfiConverterInt32.read(from: &buf), zMilliG: try FfiConverterInt32.read(from: &buf)
+        case 12: return .audioSamplesRecorded(samples: try FfiConverterSequenceFloat.read(from: &buf), sampleRate: try FfiConverterUInt32.read(from: &buf)
         )
 
-        case 13: return .impactDetected(timestampMs: try FfiConverterUInt64.read(from: &buf), magnitudeMilliG: try FfiConverterInt32.read(from: &buf)
+        case 13: return .accelerometerData(timestampMs: try FfiConverterUInt64.read(from: &buf), xMilliG: try FfiConverterInt32.read(from: &buf), yMilliG: try FfiConverterInt32.read(from: &buf), zMilliG: try FfiConverterInt32.read(from: &buf)
         )
 
-        case 14: return .relayEscrowReady(gateHash: try FfiConverterData.read(from: &buf)
+        case 14: return .impactDetected(timestampMs: try FfiConverterUInt64.read(from: &buf), magnitudeMilliG: try FfiConverterInt32.read(from: &buf)
         )
 
-        case 15: return .relayEscrowBlobReceived(gateHash: try FfiConverterData.read(from: &buf), blob: try FfiConverterData.read(from: &buf)
+        case 15: return .relayEscrowReady(gateHash: try FfiConverterData.read(from: &buf)
         )
 
-        case 16: return .relayEscrowFailed(gateHash: try FfiConverterData.read(from: &buf), reason: try FfiConverterString.read(from: &buf)
+        case 16: return .relayEscrowBlobReceived(gateHash: try FfiConverterData.read(from: &buf), blob: try FfiConverterData.read(from: &buf)
         )
 
-        case 17: return .linkShared
-
-        case 18: return .linkOpened(peerPublicKey: try FfiConverterData.read(from: &buf)
+        case 17: return .relayEscrowFailed(gateHash: try FfiConverterData.read(from: &buf), reason: try FfiConverterString.read(from: &buf)
         )
 
-        case 19: return .directPayloadReceived(data: try FfiConverterData.read(from: &buf)
+        case 18: return .linkShared
+
+        case 19: return .linkOpened(peerPublicKey: try FfiConverterData.read(from: &buf)
         )
 
-        case 20: return .directCardReceived(ciphertext: try FfiConverterData.read(from: &buf)
+        case 20: return .directPayloadReceived(data: try FfiConverterData.read(from: &buf)
         )
 
-        case 21: return .imageReceived(data: try FfiConverterData.read(from: &buf)
+        case 21: return .directCardReceived(ciphertext: try FfiConverterData.read(from: &buf)
         )
 
-        case 22: return .imagePickCancelled
-
-        case 23: return .filePickedFromUser(bytes: try FfiConverterData.read(from: &buf), filename: try FfiConverterString.read(from: &buf)
+        case 22: return .imageReceived(data: try FfiConverterData.read(from: &buf)
         )
 
-        case 24: return .filePickCancelledByUser
+        case 23: return .imagePickCancelled
 
-        case 25: return .biometricUnlockSucceeded
-
-        case 26: return .hardwareError(transport: try FfiConverterString.read(from: &buf), error: try FfiConverterString.read(from: &buf)
+        case 24: return .filePickedFromUser(bytes: try FfiConverterData.read(from: &buf), filename: try FfiConverterString.read(from: &buf)
         )
 
-        case 27: return .hardwareUnavailable(transport: try FfiConverterString.read(from: &buf)
+        case 25: return .filePickCancelledByUser
+
+        case 26: return .biometricUnlockSucceeded
+
+        case 27: return .userPresenceSecretCreated(secret: try FfiConverterData.read(from: &buf)
         )
 
-        case 28: return .permissionDenied(transport: try FfiConverterString.read(from: &buf)
+        case 28: return .userPresenceSecretRevealed(secret: try FfiConverterData.read(from: &buf)
         )
 
-        case 29: return .locationResult(latitude: try FfiConverterDouble.read(from: &buf), longitude: try FfiConverterDouble.read(from: &buf), accuracyMeters: try FfiConverterOptionFloat.read(from: &buf)
+        case 29: return .userPresenceCheckCancelled
+
+        case 30: return .hardwareError(transport: try FfiConverterString.read(from: &buf), error: try FfiConverterString.read(from: &buf)
+        )
+
+        case 31: return .hardwareUnavailable(transport: try FfiConverterString.read(from: &buf)
+        )
+
+        case 32: return .permissionDenied(transport: try FfiConverterString.read(from: &buf)
+        )
+
+        case 33: return .locationResult(latitude: try FfiConverterDouble.read(from: &buf), longitude: try FfiConverterDouble.read(from: &buf), accuracyMeters: try FfiConverterOptionFloat.read(from: &buf)
         )
 
         default: throw UniffiInternalError.unexpectedEnumCase
@@ -12146,28 +12116,25 @@ public struct FfiConverterTypeMobileEvent: FfiConverterRustBuffer {
             FfiConverterOptionString.write(address, into: &buf)
 
 
-        case let .bleDeviceDiscovered(id,rssi,advData):
+        case let .networkCostChanged(cost):
             writeInt(&buf, Int32(3))
+            FfiConverterTypeMobileNetworkCost.write(cost, into: &buf)
+
+
+        case let .bleDeviceDiscovered(id,rssi,advData):
+            writeInt(&buf, Int32(4))
             FfiConverterString.write(id, into: &buf)
             FfiConverterInt16.write(rssi, into: &buf)
             FfiConverterData.write(advData, into: &buf)
 
 
         case let .bleConnected(deviceId,direction):
-            writeInt(&buf, Int32(4))
+            writeInt(&buf, Int32(5))
             FfiConverterString.write(deviceId, into: &buf)
             FfiConverterTypeMobileBleLinkDirection.write(direction, into: &buf)
 
 
         case let .bleCharacteristicRead(deviceId,direction,uuid,data):
-            writeInt(&buf, Int32(5))
-            FfiConverterString.write(deviceId, into: &buf)
-            FfiConverterTypeMobileBleLinkDirection.write(direction, into: &buf)
-            FfiConverterString.write(uuid, into: &buf)
-            FfiConverterData.write(data, into: &buf)
-
-
-        case let .bleCharacteristicNotified(deviceId,direction,uuid,data):
             writeInt(&buf, Int32(6))
             FfiConverterString.write(deviceId, into: &buf)
             FfiConverterTypeMobileBleLinkDirection.write(direction, into: &buf)
@@ -12175,36 +12142,44 @@ public struct FfiConverterTypeMobileEvent: FfiConverterRustBuffer {
             FfiConverterData.write(data, into: &buf)
 
 
-        case let .bleDisconnected(deviceId,direction,reason):
+        case let .bleCharacteristicNotified(deviceId,direction,uuid,data):
             writeInt(&buf, Int32(7))
+            FfiConverterString.write(deviceId, into: &buf)
+            FfiConverterTypeMobileBleLinkDirection.write(direction, into: &buf)
+            FfiConverterString.write(uuid, into: &buf)
+            FfiConverterData.write(data, into: &buf)
+
+
+        case let .bleDisconnected(deviceId,direction,reason):
+            writeInt(&buf, Int32(8))
             FfiConverterString.write(deviceId, into: &buf)
             FfiConverterTypeMobileBleLinkDirection.write(direction, into: &buf)
             FfiConverterString.write(reason, into: &buf)
 
 
         case let .nfcDataReceived(data):
-            writeInt(&buf, Int32(8))
+            writeInt(&buf, Int32(9))
             FfiConverterData.write(data, into: &buf)
 
 
         case let .nfcApduReceived(bytes):
-            writeInt(&buf, Int32(9))
+            writeInt(&buf, Int32(10))
             FfiConverterData.write(bytes, into: &buf)
 
 
         case let .nfcFailed(reason):
-            writeInt(&buf, Int32(10))
+            writeInt(&buf, Int32(11))
             FfiConverterString.write(reason, into: &buf)
 
 
         case let .audioSamplesRecorded(samples,sampleRate):
-            writeInt(&buf, Int32(11))
+            writeInt(&buf, Int32(12))
             FfiConverterSequenceFloat.write(samples, into: &buf)
             FfiConverterUInt32.write(sampleRate, into: &buf)
 
 
         case let .accelerometerData(timestampMs,xMilliG,yMilliG,zMilliG):
-            writeInt(&buf, Int32(12))
+            writeInt(&buf, Int32(13))
             FfiConverterUInt64.write(timestampMs, into: &buf)
             FfiConverterInt32.write(xMilliG, into: &buf)
             FfiConverterInt32.write(yMilliG, into: &buf)
@@ -12212,88 +12187,102 @@ public struct FfiConverterTypeMobileEvent: FfiConverterRustBuffer {
 
 
         case let .impactDetected(timestampMs,magnitudeMilliG):
-            writeInt(&buf, Int32(13))
+            writeInt(&buf, Int32(14))
             FfiConverterUInt64.write(timestampMs, into: &buf)
             FfiConverterInt32.write(magnitudeMilliG, into: &buf)
 
 
         case let .relayEscrowReady(gateHash):
-            writeInt(&buf, Int32(14))
+            writeInt(&buf, Int32(15))
             FfiConverterData.write(gateHash, into: &buf)
 
 
         case let .relayEscrowBlobReceived(gateHash,blob):
-            writeInt(&buf, Int32(15))
+            writeInt(&buf, Int32(16))
             FfiConverterData.write(gateHash, into: &buf)
             FfiConverterData.write(blob, into: &buf)
 
 
         case let .relayEscrowFailed(gateHash,reason):
-            writeInt(&buf, Int32(16))
+            writeInt(&buf, Int32(17))
             FfiConverterData.write(gateHash, into: &buf)
             FfiConverterString.write(reason, into: &buf)
 
 
         case .linkShared:
-            writeInt(&buf, Int32(17))
+            writeInt(&buf, Int32(18))
 
 
         case let .linkOpened(peerPublicKey):
-            writeInt(&buf, Int32(18))
+            writeInt(&buf, Int32(19))
             FfiConverterData.write(peerPublicKey, into: &buf)
 
 
         case let .directPayloadReceived(data):
-            writeInt(&buf, Int32(19))
+            writeInt(&buf, Int32(20))
             FfiConverterData.write(data, into: &buf)
 
 
         case let .directCardReceived(ciphertext):
-            writeInt(&buf, Int32(20))
+            writeInt(&buf, Int32(21))
             FfiConverterData.write(ciphertext, into: &buf)
 
 
         case let .imageReceived(data):
-            writeInt(&buf, Int32(21))
+            writeInt(&buf, Int32(22))
             FfiConverterData.write(data, into: &buf)
 
 
         case .imagePickCancelled:
-            writeInt(&buf, Int32(22))
+            writeInt(&buf, Int32(23))
 
 
         case let .filePickedFromUser(bytes,filename):
-            writeInt(&buf, Int32(23))
+            writeInt(&buf, Int32(24))
             FfiConverterData.write(bytes, into: &buf)
             FfiConverterString.write(filename, into: &buf)
 
 
         case .filePickCancelledByUser:
-            writeInt(&buf, Int32(24))
-
-
-        case .biometricUnlockSucceeded:
             writeInt(&buf, Int32(25))
 
 
-        case let .hardwareError(transport,error):
+        case .biometricUnlockSucceeded:
             writeInt(&buf, Int32(26))
+
+
+        case let .userPresenceSecretCreated(secret):
+            writeInt(&buf, Int32(27))
+            FfiConverterData.write(secret, into: &buf)
+
+
+        case let .userPresenceSecretRevealed(secret):
+            writeInt(&buf, Int32(28))
+            FfiConverterData.write(secret, into: &buf)
+
+
+        case .userPresenceCheckCancelled:
+            writeInt(&buf, Int32(29))
+
+
+        case let .hardwareError(transport,error):
+            writeInt(&buf, Int32(30))
             FfiConverterString.write(transport, into: &buf)
             FfiConverterString.write(error, into: &buf)
 
 
         case let .hardwareUnavailable(transport):
-            writeInt(&buf, Int32(27))
+            writeInt(&buf, Int32(31))
             FfiConverterString.write(transport, into: &buf)
 
 
         case let .permissionDenied(transport):
-            writeInt(&buf, Int32(28))
+            writeInt(&buf, Int32(32))
             FfiConverterString.write(transport, into: &buf)
 
 
         case let .locationResult(latitude,longitude,accuracyMeters):
-            writeInt(&buf, Int32(29))
+            writeInt(&buf, Int32(33))
             FfiConverterDouble.write(latitude, into: &buf)
             FfiConverterDouble.write(longitude, into: &buf)
             FfiConverterOptionFloat.write(accuracyMeters, into: &buf)
@@ -12772,16 +12761,25 @@ public func FfiConverterTypeMobileLabelContactStatus_lower(_ value: MobileLabelC
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
- * Supported locales for the app.
+ * Hardware event reported by the frontend back to core (ADR-031).
+ *
+ * Mobile apps create these after executing a command (e.g., QR scanned,
+ * BLE data received) and feed them back via `apply_hardware_event()`.
+ * Physical GATT link direction reported on [`MobileEvent::BleConnected`].
+ * Mirrors [`vauchi_core::platform::BleLinkDirection`]; the shell reports
+ * `Outbound` when it is the central (it dialed out) and `Inbound` when it is
+ * the peripheral (a peer connected to it). Core derives the handshake role
+ * from this, not from the token tiebreak.
+ * What the current network costs: Wi-Fi or Ethernet is `Unmetered`, a
+ * cellular or hotspot connection `Metered`; `Unknown` when the OS does
+ * not say.
  */
 
-public enum MobileLocale: Equatable, Hashable {
+public enum MobileNetworkCost: Equatable, Hashable {
 
-    case english
-    case german
-    case french
-    case spanish
-    case italian
+    case unmetered
+    case metered
+    case unknown
 
 
 
@@ -12790,55 +12788,43 @@ public enum MobileLocale: Equatable, Hashable {
 }
 
 #if compiler(>=6)
-extension MobileLocale: Sendable {}
+extension MobileNetworkCost: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeMobileLocale: FfiConverterRustBuffer {
-    typealias SwiftType = MobileLocale
+public struct FfiConverterTypeMobileNetworkCost: FfiConverterRustBuffer {
+    typealias SwiftType = MobileNetworkCost
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileLocale {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MobileNetworkCost {
         let variant: Int32 = try readInt(&buf)
         switch variant {
 
-        case 1: return .english
+        case 1: return .unmetered
 
-        case 2: return .german
+        case 2: return .metered
 
-        case 3: return .french
-
-        case 4: return .spanish
-
-        case 5: return .italian
+        case 3: return .unknown
 
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
 
-    public static func write(_ value: MobileLocale, into buf: inout [UInt8]) {
+    public static func write(_ value: MobileNetworkCost, into buf: inout [UInt8]) {
         switch value {
 
 
-        case .english:
+        case .unmetered:
             writeInt(&buf, Int32(1))
 
 
-        case .german:
+        case .metered:
             writeInt(&buf, Int32(2))
 
 
-        case .french:
+        case .unknown:
             writeInt(&buf, Int32(3))
-
-
-        case .spanish:
-            writeInt(&buf, Int32(4))
-
-
-        case .italian:
-            writeInt(&buf, Int32(5))
 
         }
     }
@@ -12848,15 +12834,15 @@ public struct FfiConverterTypeMobileLocale: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public func FfiConverterTypeMobileLocale_lift(_ buf: RustBuffer) throws -> MobileLocale {
-    return try FfiConverterTypeMobileLocale.lift(buf)
+public func FfiConverterTypeMobileNetworkCost_lift(_ buf: RustBuffer) throws -> MobileNetworkCost {
+    return try FfiConverterTypeMobileNetworkCost.lift(buf)
 }
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public func FfiConverterTypeMobileLocale_lower(_ value: MobileLocale) -> RustBuffer {
-    return FfiConverterTypeMobileLocale.lower(value)
+public func FfiConverterTypeMobileNetworkCost_lower(_ value: MobileNetworkCost) -> RustBuffer {
+    return FfiConverterTypeMobileNetworkCost.lower(value)
 }
 
 
@@ -14627,30 +14613,6 @@ fileprivate struct FfiConverterOptionTypeMobileTheme: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterOptionTypeMobileLocale: FfiConverterRustBuffer {
-    typealias SwiftType = MobileLocale?
-
-    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
-        guard let value = value else {
-            writeInt(&buf, Int8(0))
-            return
-        }
-        writeInt(&buf, Int8(1))
-        FfiConverterTypeMobileLocale.write(value, into: &buf)
-    }
-
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
-        switch try readInt(&buf) as Int8 {
-        case 0: return nil
-        case 1: return try FfiConverterTypeMobileLocale.read(from: &buf)
-        default: throw UniffiInternalError.unexpectedOptionalTag
-        }
-    }
-}
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
 fileprivate struct FfiConverterSequenceFloat: FfiConverterRustBuffer {
     typealias SwiftType = [Float]
 
@@ -15391,11 +15353,11 @@ public func generateStorageKey() -> Data  {
  * has been seen. Use `try_trigger_aha_moment` on VauchiPlatform for
  * state-tracked triggering.
  */
-public func getAhaMomentLocalized(momentType: MobileAhaMomentType, locale: MobileLocale) -> MobileAhaMoment  {
+public func getAhaMomentLocalized(momentType: MobileAhaMomentType, locale: String) -> MobileAhaMoment  {
     return try!  FfiConverterTypeMobileAhaMoment_lift(try! rustCall() {
     uniffi_vauchi_platform_fn_func_get_aha_moment_localized(
         FfiConverterTypeMobileAhaMomentType_lower(momentType),
-        FfiConverterTypeMobileLocale_lower(locale),$0
+        FfiConverterString.lower(locale),$0
     )
 })
 }
@@ -15432,10 +15394,10 @@ public func getDefaultThemeId(preferDark: Bool) -> String  {
 /**
  * Get information about a specific locale.
  */
-public func getLocaleInfo(locale: MobileLocale) -> MobileLocaleInfo  {
+public func getLocaleInfo(locale: String) -> MobileLocaleInfo  {
     return try!  FfiConverterTypeMobileLocaleInfo_lift(try! rustCall() {
     uniffi_vauchi_platform_fn_func_get_locale_info(
-        FfiConverterTypeMobileLocale_lower(locale),$0
+        FfiConverterString.lower(locale),$0
     )
 })
 }
@@ -15444,10 +15406,10 @@ public func getLocaleInfo(locale: MobileLocale) -> MobileLocaleInfo  {
  *
  * Falls back to English if the key is not found in the requested locale.
  */
-public func getString(locale: MobileLocale, key: String) -> String  {
+public func getString(locale: String, key: String) -> String  {
     return try!  FfiConverterString.lift(try! rustCall() {
     uniffi_vauchi_platform_fn_func_get_string(
-        FfiConverterTypeMobileLocale_lower(locale),
+        FfiConverterString.lower(locale),
         FfiConverterString.lower(key),$0
     )
 })
@@ -15458,10 +15420,10 @@ public func getString(locale: MobileLocale, key: String) -> String  {
  * Arguments are replaced in the string using {placeholder} syntax.
  * Falls back to English if the key is not found in the requested locale.
  */
-public func getStringWithArgs(locale: MobileLocale, key: String, args: [String: String]) -> String  {
+public func getStringWithArgs(locale: String, key: String, args: [String: String]) -> String  {
     return try!  FfiConverterString.lift(try! rustCall() {
     uniffi_vauchi_platform_fn_func_get_string_with_args(
-        FfiConverterTypeMobileLocale_lower(locale),
+        FfiConverterString.lower(locale),
         FfiConverterString.lower(key),
         FfiConverterDictionaryStringString.lower(args),$0
     )
@@ -15561,13 +15523,11 @@ public func isValidRelayUrl(url: String) -> Bool  {
 })
 }
 /**
- * Parse a locale code to MobileLocale.
- *
- * Supports codes like "en", "en-US", "de-DE", etc.
- * Returns None if the code is not recognized.
+ * The language code of a tag such as "en-US" or "de_DE.UTF-8", or None
+ * when the tag has no 2-3 letter language subtag.
  */
-public func parseLocaleCode(code: String) -> MobileLocale?  {
-    return try!  FfiConverterOptionTypeMobileLocale.lift(try! rustCall() {
+public func parseLocaleCode(code: String) -> String?  {
+    return try!  FfiConverterOptionString.lift(try! rustCall() {
     uniffi_vauchi_platform_fn_func_parse_locale_code(
         FfiConverterString.lower(code),$0
     )
@@ -15714,7 +15674,7 @@ public func mobileGenerateStorageKey() -> Data  {
  *
  * Used by frontends that cache the key in their platform keychain (iOS
  * Keychain, Android Keystore) so they can validate length before handing
- * the bytes to `PlatformAppEngine::new`. Replaces the
+ * the bytes to `PlatformAppEngine::open_with_keychain`. Replaces the
  * `private static let storageKeyLength = 32` literal in
  * `ios/Vauchi/Services/VauchiRepository.swift:456` (ADR-033 constant
  * that was being duplicated on every frontend).
@@ -15882,7 +15842,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_vauchi_platform_checksum_func_generate_storage_key() != 5370) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_platform_checksum_func_get_aha_moment_localized() != 23079) {
+    if (uniffi_vauchi_platform_checksum_func_get_aha_moment_localized() != 20173) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vauchi_platform_checksum_func_get_available_locales() != 26012) {
@@ -15894,13 +15854,13 @@ private let initializationResult: InitializationResult = {
     if (uniffi_vauchi_platform_checksum_func_get_default_theme_id() != 54865) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_platform_checksum_func_get_locale_info() != 50185) {
+    if (uniffi_vauchi_platform_checksum_func_get_locale_info() != 48295) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_platform_checksum_func_get_string() != 27975) {
+    if (uniffi_vauchi_platform_checksum_func_get_string() != 7953) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_platform_checksum_func_get_string_with_args() != 49020) {
+    if (uniffi_vauchi_platform_checksum_func_get_string_with_args() != 12804) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vauchi_platform_checksum_func_get_theme() != 56397) {
@@ -15924,7 +15884,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_vauchi_platform_checksum_func_is_valid_relay_url() != 29387) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_platform_checksum_func_parse_locale_code() != 52237) {
+    if (uniffi_vauchi_platform_checksum_func_parse_locale_code() != 27036) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vauchi_platform_checksum_func_presentation_contract_fixture_json() != 29575) {
@@ -15951,7 +15911,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_vauchi_platform_checksum_func_mobile_generate_storage_key() != 44616) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_platform_checksum_func_mobile_storage_key_byte_length() != 58102) {
+    if (uniffi_vauchi_platform_checksum_func_mobile_storage_key_byte_length() != 44085) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vauchi_platform_checksum_func_sync_status_view() != 17168) {
@@ -16014,13 +15974,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_vauchi_platform_checksum_method_platformappengine_set_network_online() != 36870) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_platform_checksum_method_platformappengine_set_platform_keychain() != 47096) {
-        return InitializationResult.apiChecksumMismatch
-    }
     if (uniffi_vauchi_platform_checksum_method_platformappengine_set_render_context_json() != 63342) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_vauchi_platform_checksum_constructor_platformappengine_new() != 28594) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vauchi_platform_checksum_constructor_platformappengine_open_with_keychain() != 33430) {

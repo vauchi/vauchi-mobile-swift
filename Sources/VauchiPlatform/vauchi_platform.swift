@@ -15371,7 +15371,8 @@ public func getAvailableLocales() -> [MobileLocaleInfo]  {
 })
 }
 /**
- * Get all available themes from themes.json.
+ * The themes in effect: the CDN catalog once one loads, else the bundled
+ * one — the same list Settings offers.
  */
 public func getAvailableThemes() -> [MobileTheme]  {
     return try!  FfiConverterSequenceTypeMobileTheme.lift(try! rustCall() {
@@ -15848,7 +15849,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_vauchi_platform_checksum_func_get_available_locales() != 26012) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_vauchi_platform_checksum_func_get_available_themes() != 579) {
+    if (uniffi_vauchi_platform_checksum_func_get_available_themes() != 3447) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vauchi_platform_checksum_func_get_default_theme_id() != 54865) {

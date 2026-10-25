@@ -11968,6 +11968,11 @@ public enum MobileEvent: Equatable, Hashable {
     case userPresenceSecretRevealed(secret: Data
     )
     case userPresenceCheckCancelled
+    /**
+     * The sealed secret is gone: the enrolment changed or the keystore
+     * lost the item (#778).
+     */
+    case userPresenceSecretMissing
     case hardwareError(transport: String, error: String
     )
     case hardwareUnavailable(transport: String
@@ -12086,16 +12091,18 @@ public struct FfiConverterTypeMobileEvent: FfiConverterRustBuffer {
 
         case 29: return .userPresenceCheckCancelled
 
-        case 30: return .hardwareError(transport: try FfiConverterString.read(from: &buf), error: try FfiConverterString.read(from: &buf)
+        case 30: return .userPresenceSecretMissing
+
+        case 31: return .hardwareError(transport: try FfiConverterString.read(from: &buf), error: try FfiConverterString.read(from: &buf)
         )
 
-        case 31: return .hardwareUnavailable(transport: try FfiConverterString.read(from: &buf)
+        case 32: return .hardwareUnavailable(transport: try FfiConverterString.read(from: &buf)
         )
 
-        case 32: return .permissionDenied(transport: try FfiConverterString.read(from: &buf)
+        case 33: return .permissionDenied(transport: try FfiConverterString.read(from: &buf)
         )
 
-        case 33: return .locationResult(latitude: try FfiConverterDouble.read(from: &buf), longitude: try FfiConverterDouble.read(from: &buf), accuracyMeters: try FfiConverterOptionFloat.read(from: &buf)
+        case 34: return .locationResult(latitude: try FfiConverterDouble.read(from: &buf), longitude: try FfiConverterDouble.read(from: &buf), accuracyMeters: try FfiConverterOptionFloat.read(from: &buf)
         )
 
         default: throw UniffiInternalError.unexpectedEnumCase
@@ -12265,24 +12272,28 @@ public struct FfiConverterTypeMobileEvent: FfiConverterRustBuffer {
             writeInt(&buf, Int32(29))
 
 
-        case let .hardwareError(transport,error):
+        case .userPresenceSecretMissing:
             writeInt(&buf, Int32(30))
+
+
+        case let .hardwareError(transport,error):
+            writeInt(&buf, Int32(31))
             FfiConverterString.write(transport, into: &buf)
             FfiConverterString.write(error, into: &buf)
 
 
         case let .hardwareUnavailable(transport):
-            writeInt(&buf, Int32(31))
-            FfiConverterString.write(transport, into: &buf)
-
-
-        case let .permissionDenied(transport):
             writeInt(&buf, Int32(32))
             FfiConverterString.write(transport, into: &buf)
 
 
-        case let .locationResult(latitude,longitude,accuracyMeters):
+        case let .permissionDenied(transport):
             writeInt(&buf, Int32(33))
+            FfiConverterString.write(transport, into: &buf)
+
+
+        case let .locationResult(latitude,longitude,accuracyMeters):
+            writeInt(&buf, Int32(34))
             FfiConverterDouble.write(latitude, into: &buf)
             FfiConverterDouble.write(longitude, into: &buf)
             FfiConverterOptionFloat.write(accuracyMeters, into: &buf)

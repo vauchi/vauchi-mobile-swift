@@ -53,12 +53,16 @@ workflow:
 # No parity check against Core's Component enum: Component is Core-internal
 # since ADR-066 and neither shell decodes it; the iOS and macOS repos check
 # their presentation parsers instead (check:parser-parity, #493).
+# In a Tart guest on nell (vauchi/private#309): nell's shell runner keeps
+# only the jobs that must drive the host.
 test:coreuimodels:
   stage: validate
   tags:
-    - macos
+    - macos-tart
     - self-hosted
+  image: vauchi-macos-ci-tools
   variables:
+    TART_EXECUTOR_ALWAYS_PULL: "false"
     VAUCHI_COREUIMODELS_TEST_ONLY: "1"
   before_script:
     - swift --version | head -1

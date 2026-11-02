@@ -10676,6 +10676,7 @@ public enum MobileCommand: Equatable, Hashable {
     )
     case directSendCard(ciphertext: Data, isInitiator: Bool
     )
+    case bleStopAdvertising
 
 
 
@@ -10759,6 +10760,8 @@ public struct FfiConverterTypeMobileCommand: FfiConverterRustBuffer {
 
         case 23: return .directSendCard(ciphertext: try FfiConverterData.read(from: &buf), isInitiator: try FfiConverterBool.read(from: &buf)
         )
+
+        case 24: return .bleStopAdvertising
 
         default: throw UniffiInternalError.unexpectedEnumCase
         }
@@ -10893,6 +10896,10 @@ public struct FfiConverterTypeMobileCommand: FfiConverterRustBuffer {
             writeInt(&buf, Int32(23))
             FfiConverterData.write(ciphertext, into: &buf)
             FfiConverterBool.write(isInitiator, into: &buf)
+
+
+        case .bleStopAdvertising:
+            writeInt(&buf, Int32(24))
 
         }
     }

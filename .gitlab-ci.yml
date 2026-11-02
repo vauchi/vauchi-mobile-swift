@@ -26,6 +26,13 @@ stages:
 workflow:
   auto_cancel:
     on_new_commit: interruptible
+  # A push to main must not cancel main's running pipeline (VCI05); the
+  # closing rule keeps every pipeline this file created without rules.
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      auto_cancel:
+        on_new_commit: none
+    - when: always
 
 # Main and tag pipelines here run as this project's access-token bot (core's
 # release pushes with CI_PUSH_TOKEN_SWIFT). A project bot is not a member of

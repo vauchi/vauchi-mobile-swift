@@ -1845,6 +1845,7 @@ public enum CommandDTO: Decodable {
     case bleStartAdvertising(serviceUuid: String, payload: [UInt8])
     case bleStartScanning(serviceUuid: String)
     case bleStopScanning
+    case bleStopAdvertising
     case bleConnect(deviceId: String)
     case bleWriteCharacteristic(uuid: String, data: [UInt8])
     case bleReadCharacteristic(uuid: String)
@@ -1908,6 +1909,7 @@ public enum CommandDTO: Decodable {
         switch stringValue {
         case "QrRequestScan": return .qrRequestScan
         case "BleStopScanning": return .bleStopScanning
+        case "BleStopAdvertising": return .bleStopAdvertising
         case "BleDisconnect": return .bleDisconnect
         case "NfcDeactivate": return .nfcDeactivate
         case "AudioStop": return .audioStop
